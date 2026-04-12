@@ -65,11 +65,15 @@ export const getMyGroups = async (userId) => {
       members: { where: { userId }, select: { role: true } },
     },
   })
-  // Aplatir : exposer role + inviteCode directement pour le frontend
-  return groups.map(({ members, ...g }) => ({
-    ...g,
-    role: members[0]?.role ?? 'MEMBER',
-  }))
+  // Aplatir : role pour le front ; inviteCode uniquement pour OWNER (pas pour MEMBER)
+  return groups.map(({ members, inviteCode, ...rest }) => {
+    const role = members[0]?.role ?? 'MEMBER'
+    return {
+      ...rest,
+      role,
+      ...(role === 'OWNER' ? { inviteCode } : {}),
+    }
+  })
 }
 
 // Éducateur (OWNER) crée un profil membre pending dans son groupe
