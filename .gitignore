@@ -1,0 +1,6 @@
+.env
+node_modules/
+dist/
+*.pyc
+.DS_Store
+fait-Ou-aFaire.md

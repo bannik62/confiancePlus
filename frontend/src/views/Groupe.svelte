@@ -1,0 +1,334 @@
+<script>
+  import { onMount } from 'svelte'
+  import { authStore } from '../stores/auth.js'
+  import {
+    groups, activeGroup, groupLeaderboard, globalLeaderboard,
+    myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard,
+  } from '../stores/group.js'
+  import { groupApi } from '../api/group.js'
+  import Tag  from '../components/ui/Tag.svelte'
+  import Card from '../components/ui/Card.svelte'
+
+  // ── Onglet actif ─────────────────────────────────────────────────────────
+  let tab = 'global'  // 'groupe' | 'global'
+
+  // ── États UI ──────────────────────────────────────────────────────────────
+  let loading      = true
+  let error        = ''
+  let inviteCode   = ''
+  let newMember    = { username: '', avatar: '🐺' }
+  let newCode      = null   // code généré après createMember, affiché une seule fois
+  let showJoinForm = false
+
+  onMount(async () => {
+    await loadGroupData()
+    // Si l'user est dans un groupe → onglet groupe par défaut
+    if ($hasGroup) tab = 'groupe'
+    loading = false
+  })
+
+  // ── Médale ────────────────────────────────────────────────────────────────
+  const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
+
+  // ── Surligner l'user courant dans le classement ───────────────────────────
+  const isMe = (id) => id === $authStore.user?.id
+
+  // ── Rejoindre un groupe ───────────────────────────────────────────────────
+  const joinGroup = async () => {
+    error = ''
+    try {
+      await groupApi.join(inviteCode)
+      inviteCode = ''
+      showJoinForm = false
+      await loadGroupData()
+      tab = 'groupe'
+    } catch (e) { error = e.message }
+  }
+
+  // ── Créer un membre (éducateur) ───────────────────────────────────────────
+  const createMember = async () => {
+    error   = ''
+    newCode = null
+    try {
+      const res = await groupApi.createMember($activeGroup.id, newMember)
+      newCode = res.activationCode
+      newMember = { username: '', avatar: '🐺' }
+      await loadGroupLeaderboard($activeGroup.id)
+    } catch (e) { error = e.message }
+  }
+
+  const switchGroup = async (g) => {
+    activeGroup.set(g)
+    await loadGroupLeaderboard(g.id)
+  }
+</script>
+
+{#if loading}
+  <div class="loading">Chargement…</div>
+{:else}
+
+<!-- ── Onglets ─────────────────────────────────────────────────────────── -->
+<div class="tabs">
+  <button class:active={tab === 'groupe'} on:click={() => tab = 'groupe'}>
+    👥 Mon groupe
+  </button>
+  <button class:active={tab === 'global'} on:click={() => { tab = 'global'; loadGlobalLeaderboard() }}>
+    🌍 Classement global
+  </button>
+</div>
+
+{#if error}<p class="error">{error}</p>{/if}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ONGLET MON GROUPE -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+{#if tab === 'groupe'}
+
+  {#if !$hasGroup}
+    <!-- ── Pas de groupe ───────────────────────────────────────────────── -->
+    <Card>
+      <p class="hint">Tu n'es encore dans aucun groupe.</p>
+      {#if !showJoinForm}
+        <button class="btn-outline" on:click={() => showJoinForm = true}>
+          Rejoindre avec un code d'invitation
+        </button>
+      {:else}
+        <div class="form-row">
+          <input bind:value={inviteCode} placeholder="Code d'invitation" />
+          <button class="btn-primary sm" on:click={joinGroup}>Rejoindre</button>
+        </div>
+      {/if}
+    </Card>
+
+  {:else}
+    <!-- ── Sélecteur si plusieurs groupes ─────────────────────────────── -->
+    {#if $groups.length > 1}
+      <div class="group-selector">
+        {#each $groups as g}
+          <button
+            class="group-pill"
+            class:active={$activeGroup?.id === g.id}
+            on:click={() => switchGroup(g)}
+          >{g.name}</button>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- ── Header groupe ──────────────────────────────────────────────── -->
+    <div class="group-header">
+      <div>
+        <div class="group-name">{$activeGroup?.name}</div>
+        <div class="group-meta">
+          <Tag color={$activeGroup?.type === 'ASSOCIATION' ? 'var(--accent)' : 'var(--cyan)'}>
+            {$activeGroup?.type === 'ASSOCIATION' ? 'Association' : 'Amis'}
+          </Tag>
+          <span class="muted">{$activeGroup?._count?.members} membres</span>
+          {#if $myRole === 'OWNER'}
+            <Tag color="var(--gold)">Éducateur</Tag>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Code invitation pour OWNER FRIENDS -->
+      {#if $myRole === 'OWNER' && $activeGroup?.type === 'FRIENDS'}
+        <div class="invite-box">
+          <div class="micro muted">CODE D'INVITATION</div>
+          <div class="invite-code">{$activeGroup?.inviteCode}</div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- ── Leaderboard groupe ─────────────────────────────────────────── -->
+    <div class="board">
+      {#each $groupLeaderboard as m, i}
+        <div class="row-member" class:top={i===0} class:me={isMe(m.id)}>
+          <span class="medal">{medal(i)}</span>
+          <span class="ava">{m.avatar}</span>
+          <div class="info">
+            <div class="uname">
+              {m.username}
+              {#if isMe(m.id)}<span class="you-badge">toi</span>{/if}
+            </div>
+            <div class="tags-row">
+              <Tag color="var(--gold)">LVL {m.level}</Tag>
+              {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
+            </div>
+          </div>
+          <div class="xp-col">
+            <div class="xp-val">{m.totalXP.toLocaleString()}</div>
+            <div class="micro muted">XP</div>
+          </div>
+        </div>
+      {/each}
+    </div>
+
+    <!-- ── Panel éducateur (OWNER ASSOCIATION) ───────────────────────── -->
+    {#if $myRole === 'OWNER' && $activeGroup?.type === 'ASSOCIATION'}
+      <div class="educator-panel">
+        <div class="panel-title micro">AJOUTER UN MEMBRE</div>
+        <div class="form-row">
+          <input bind:value={newMember.username} placeholder="Pseudo du membre" />
+          <input bind:value={newMember.avatar}   placeholder="🐺" maxlength="2" class="avatar-input" />
+          <button class="btn-primary sm" on:click={createMember}>Créer</button>
+        </div>
+
+        {#if newCode}
+          <div class="code-result">
+            <span class="micro muted">CODE À TRANSMETTRE — valable une seule fois</span>
+            <div class="generated-code">{newCode}</div>
+            <span class="micro muted">Le membre l'utilisera dans l'onglet "Code asso"</span>
+          </div>
+        {/if}
+      </div>
+    {/if}
+  {/if}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ONGLET CLASSEMENT GLOBAL -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+{:else if tab === 'global'}
+
+  <div class="micro muted section-label">CLASSEMENT GLOBAL — {$globalLeaderboard.length} joueurs</div>
+
+  <div class="board">
+    {#each $globalLeaderboard as m, i}
+      <div class="row-member" class:top={i===0} class:me={isMe(m.id)}>
+        <span class="medal">{medal(i)}</span>
+        <span class="ava">{m.avatar}</span>
+        <div class="info">
+          <div class="uname">
+            {m.username}
+            {#if isMe(m.id)}<span class="you-badge">toi</span>{/if}
+          </div>
+          <div class="tags-row">
+            <Tag color="var(--gold)">LVL {m.level}</Tag>
+            {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
+            {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
+          </div>
+        </div>
+        <div class="xp-col">
+          <div class="xp-val">{m.totalXP.toLocaleString()}</div>
+          <div class="micro muted">XP</div>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+
+{/if}
+
+<style>
+  /* ── Onglets ── */
+  .tabs {
+    display: flex; gap: 4px;
+    background: var(--bg); border-radius: 12px; padding: 4px;
+    margin-bottom: 14px;
+  }
+  .tabs button {
+    flex: 1; padding: 9px 8px; border: none; border-radius: 9px;
+    background: transparent; color: var(--muted);
+    font-size: .85rem; cursor: pointer; transition: all .2s;
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 1px;
+  }
+  .tabs button.active { background: var(--accent); color: #fff; }
+
+  /* ── Rows ── */
+  .board { display: flex; flex-direction: column; gap: 8px; }
+
+  .row-member {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+    transition: all 0.15s;
+  }
+  .row-member.top { border-color: var(--gold)66; box-shadow: 0 0 14px var(--gold)44; }
+  .row-member.me  { border-color: var(--accent)99; box-shadow: 0 0 10px var(--accent)44; }
+
+  .medal { font-size: 14px; color: var(--muted); font-weight: 900; width: 24px; text-align: center; }
+  .top .medal { color: var(--gold); }
+
+  .ava {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--accent)22; border: 2px solid var(--accent)44;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .info { flex: 1; }
+  .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+  .tags-row { display: flex; gap: 5px; margin-top: 4px; }
+
+  .you-badge {
+    font-size: 10px; background: var(--accent); color: #fff;
+    border-radius: 6px; padding: 1px 6px;
+    font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
+  }
+
+  .xp-col { text-align: right; }
+  .xp-val { font-weight: 900; font-size: 16px; color: var(--gold); }
+
+  /* ── Header groupe ── */
+  .group-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .group-name { font-size: 1.2rem; font-weight: 900; font-family: 'Rajdhani', sans-serif; }
+  .group-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+
+  .invite-box { text-align: right; }
+  .invite-code {
+    font-family: 'Rajdhani', sans-serif; font-size: 1.1rem;
+    color: var(--cyan); letter-spacing: 3px; font-weight: 700;
+    background: var(--cyan)22; border: 1px solid var(--cyan)44;
+    border-radius: 8px; padding: 4px 10px; margin-top: 4px;
+  }
+
+  /* ── Panel éducateur ── */
+  .educator-panel {
+    margin-top: 16px; background: var(--surface);
+    border: 1px solid var(--accent)44; border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .panel-title { color: var(--accent); margin-bottom: 4px; }
+
+  .code-result {
+    background: var(--bg); border: 1px solid var(--gold)44;
+    border-radius: 10px; padding: 12px;
+    display: flex; flex-direction: column; gap: 4px; align-items: center;
+  }
+  .generated-code {
+    font-family: 'Rajdhani', sans-serif; font-size: 2rem;
+    font-weight: 900; color: var(--gold); letter-spacing: 6px;
+  }
+
+  /* ── Sélecteur groupes ── */
+  .group-selector { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .group-pill {
+    padding: 5px 12px; border-radius: 20px; font-size: .82rem;
+    border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .group-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Formulaires ── */
+  .form-row { display: flex; gap: 8px; }
+  input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: .9rem; padding: 9px 12px;
+  }
+  .avatar-input { flex: 0 0 52px; text-align: center; font-size: 1.2rem; }
+
+  .btn-primary {
+    background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-weight: 700; padding: 9px 16px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-outline {
+    width: 100%; background: transparent; border: 1px solid var(--accent)66;
+    border-radius: 8px; color: var(--accent); padding: 10px; cursor: pointer; margin-top: 8px;
+  }
+  .sm { padding: 9px 14px; font-size: .85rem; }
+
+  /* ── Misc ── */
+  .micro   { font-size: 10px; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
+  .muted   { color: var(--muted); }
+  .hint    { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+  .error   { color: var(--red); font-size: .85rem; margin-bottom: 8px; }
+  .loading { color: var(--muted); text-align: center; padding: 40px 0; }
+  .section-label { margin-bottom: 12px; }
+</style>

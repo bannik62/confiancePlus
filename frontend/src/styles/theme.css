@@ -1,0 +1,57 @@
+/* ═══════════════════════════════════════════════════════════════
+   CONFIANCE+ — Thème global
+   Toutes les couleurs passent par ici.
+   Usage dans un composant Svelte : var(--bg), var(--accent) etc.
+═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Fonds ─────────────────────────────────────────────────── */
+  --bg:           #07071a;   /* fond principal app */
+  --surface:      #0e0e2a;   /* card / surface */
+  --surface-modal:#0f0f2a;   /* fond modal */
+  --input-bg:     #07071a;   /* input (= bg) */
+  --overlay:      #000000cc; /* overlay modal */
+
+  /* ── Bordures ──────────────────────────────────────────────── */
+  --border:       #1e1b4b;   /* bordure card */
+  --border-btn:   #2d2b5e;   /* bordure inactive boutons */
+
+  /* ── Textes ────────────────────────────────────────────────── */
+  --text:         #e2e8f0;   /* texte principal */
+  --muted:        #64748b;   /* texte secondaire / labels */
+
+  /* ── Couleurs d'accentuation ───────────────────────────────── */
+  --accent:       #7c3aed;   /* violet — accent principal */
+  --gold:         #f59e0b;   /* or — XP / niveau */
+  --cyan:         #06b6d4;   /* cyan — sommeil / message du jour */
+  --green:        #10b981;   /* vert — succès / bon sommeil */
+  --red:          #ef4444;   /* rouge — échec / mauvais sommeil */
+  --red-dark:     #dc2626;   /* rouge foncé — suppression */
+
+  /* ── Topbar ────────────────────────────────────────────────── */
+  --topbar-left:  #0d0030;
+  --topbar-right: #001835;
+
+  /* ── Divers ────────────────────────────────────────────────── */
+  --checkin-radial: #1a0a3e; /* fond radial check-in */
+  --xpbar-inner:    #1e1b4b; /* fond barre XP */
+
+  /* ── Variantes ─────────────────────────────────────────────── */
+  --accent-hover: #6d28d9;   /* violet foncé — hover bouton */
+  --accent-light: #ddd4ff;   /* violet clair — texte habitude cochée */
+  --accent-dark:  #3730a3;   /* indigo foncé — bordure check inactif */
+  --accent-mid:   #4f46e5;   /* indigo moyen — barre stats intermédiaire */
+  --text-dim:     #374151;   /* gris foncé — XP inactif */
+  --text-label:   #94a3b8;   /* gris label — formulaires */
+  --red-light:    #f87171;   /* rouge clair — messages d'erreur */
+  --navy-deep:    #00152e;   /* marine profond — habit cochée fond */
+  --stats-empty:  #1e2a3a;   /* fond barre stats vide */
+
+  /* ── Dégradés ──────────────────────────────────────────────── */
+  --grad-xp:      linear-gradient(90deg,  #7c3aed, #f59e0b);
+  --grad-cta:     linear-gradient(135deg, #7c3aed, #f59e0b);
+  --grad-player:  linear-gradient(90deg,  #f59e0b, #ef4444);
+  --grad-avatar:  linear-gradient(135deg, #7c3aed, #06b6d4);
+  --grad-delete:  linear-gradient(135deg, #ef4444, #dc2626);
+  --grad-topbar:  linear-gradient(90deg,  #0d0030, #001835);
+}

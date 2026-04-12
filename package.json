@@ -1,0 +1,22 @@
+{
+  "name": "habit-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev":          "docker compose up",
+    "dev:backend":  "docker compose up backend db",
+    "dev:front":    "npm run dev --prefix frontend",
+    "build:front":  "npm run build --prefix frontend",
+    "install:all":  "npm install --prefix frontend && npm install --prefix backend",
+
+    "db:migrate":   "docker compose exec backend npx prisma migrate dev --name init",
+    "db:push":      "docker compose exec backend npx prisma db push",
+    "db:seed":      "docker compose exec backend npx prisma db seed",
+    "db:studio":    "docker compose exec backend npx prisma studio",
+    "db:reset":     "docker compose exec backend npx prisma migrate reset --force",
+
+    "logs":         "docker compose logs -f backend",
+    "stop":         "docker compose down",
+    "clean":        "docker compose down -v"
+  }
+}

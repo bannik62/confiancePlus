@@ -1,0 +1,109 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── USERS ──────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String?  @unique   // optionnel pour les comptes créés par un éducateur
+  username       String   @unique
+  passwordHash   String?            // null tant que le compte n'est pas activé
+  avatar         String   @default("🦊")
+  isPending      Boolean  @default(false)  // true = créé par éducateur, pas encore activé
+  activationCode String?  @unique          // code 6 chars, null après activation
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  habits      Habit[]
+  habitLogs   HabitLog[]
+  dailyLogs   DailyLog[]
+  memberships GroupMember[]
+}
+
+// ── GROUPS ─────────────────────────────────────────────────────────────────────
+
+enum GroupType {
+  FRIENDS     // groupe libre entre pairs
+  ASSOCIATION // géré par un éducateur
+}
+
+enum GroupRole {
+  OWNER  // créateur / éducateur
+  MEMBER // participant
+}
+
+model Group {
+  id         String    @id @default(cuid())
+  name       String
+  type       GroupType @default(FRIENDS)
+  inviteCode String    @unique @default(cuid())
+  createdAt  DateTime  @default(now())
+
+  members GroupMember[]
+}
+
+model GroupMember {
+  userId   String
+  groupId  String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([userId, groupId])
+}
+
+// ── HABITS ─────────────────────────────────────────────────────────────────────
+
+model Habit {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  icon      String
+  xp        Int      @default(20)
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+}
+
+model HabitLog {
+  id       String   @id @default(cuid())
+  habitId  String
+  userId   String
+  date     DateTime @db.Date
+  proofUrl String?
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+// ── DAILY LOG ──────────────────────────────────────────────────────────────────
+// Check-in + sommeil + journal regroupés — 1 entrée par user par jour
+
+model DailyLog {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime @db.Date
+  mood         Int?
+  moodReason   String?
+  sleepQuality Int?
+  journal      String?
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
