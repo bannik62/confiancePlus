@@ -1,25 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
+import { DEFAULT_HABITS } from '../src/core/defaultHabitsData.js'
 
 const db   = new PrismaClient()
 const SALT = 12
 
 const hash = (p) => bcrypt.hash(p, SALT)
 
-const DEFAULT_HABITS = [
-  { name: '10 000 pas',    icon: '👟', xp: 20, order: 0 },
-  { name: 'Pas de sucre',  icon: '🚫', xp: 25, order: 1 },
-  { name: 'Dormir tôt',    icon: '🌙', xp: 20, order: 2 },
-  { name: 'Méditation',    icon: '🧘', xp: 15, order: 3 },
-  { name: 'Lecture 20min', icon: '📖', xp: 15, order: 4 },
-]
-
 const seedHabits = (userId, prefix) =>
   Promise.all(DEFAULT_HABITS.map((h) =>
     db.habit.upsert({
       where:  { id: `${prefix}-habit-${h.order}` },
       update: {},
-      create: { id: `${prefix}-habit-${h.order}`, userId, ...h },
+      create: { id: `${prefix}-habit-${h.order}`, userId, ...h, origin: 'DEFAULT' },
     })
   ))
 
@@ -55,8 +48,8 @@ async function main() {
       isPending:    false,
     },
   })
-  await seedHabits(educator.id, 'edu')
-  console.log('  ✅ Éducateur       → educateur@demo.dev / demo1234  (OWNER)')
+  // Pas d’habitudes pour l’éducateur asso — compte dédié admin / suivi groupe uniquement
+  console.log('  ✅ Éducateur       → educateur@demo.dev / demo1234  (OWNER, sans habitudes)')
 
   // ── 3. Membre de l'asso (compte déjà activé pour la démo) ─────────────────
   const member = await db.user.upsert({

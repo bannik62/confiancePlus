@@ -41,3 +41,18 @@ export const loadGroupData = async () => {
     loadGlobalLeaderboard(),
   ])
 }
+
+/** Vide les stores groupe (déconnexion / autre utilisateur) */
+export const resetGroupState = () => {
+  groups.set([])
+  activeGroup.set(null)
+  groupLeaderboard.set([])
+  globalLeaderboard.set([])
+}
+
+/** true si l’utilisateur est OWNER d’au moins un groupe ASSOCIATION (parcours éducateur) */
+export const isAssociationOwner = (grps) =>
+  Array.isArray(grps) && grps.some((g) => g.type === 'ASSOCIATION' && g.role === 'OWNER')
+
+/** Store réactif — même critère que le skip check-in / garde-fous API */
+export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner($g))

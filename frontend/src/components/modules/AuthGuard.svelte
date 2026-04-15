@@ -1,5 +1,7 @@
 <script>
   import { onMount }      from 'svelte'
+  import { get }          from 'svelte/store'
+  import { authStore }    from '../../stores/auth.js'
   import { authApi }      from '../../api/auth.js'
   import SessionExpired   from './SessionExpired.svelte'
 
@@ -7,6 +9,11 @@
   let state = 'checking'
 
   onMount(async () => {
+    // checkSession() dans App a déjà validé le cookie — évite un 2e GET /auth/me inutile
+    if (get(authStore).user) {
+      state = 'valid'
+      return
+    }
     try {
       await authApi.me()
       state = 'valid'

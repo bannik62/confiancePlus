@@ -8,6 +8,15 @@
   import { dayMessageFor, resetDayMessageCache } from '../lib/dayMessage.js'
   import Card from '../components/ui/Card.svelte'
   import Tag  from '../components/ui/Tag.svelte'
+  import AddHabitModal from '../components/habits/AddHabitModal.svelte'
+  import EditHabitModal from '../components/habits/EditHabitModal.svelte'
+  import {
+    isEducatorAssociation,
+    loadGroupData,
+    groupLeaderboard,
+    hasGroup,
+  } from '../stores/group.js'
+  import { tab } from '../stores/tab.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -26,6 +35,9 @@
   let saving = false
   /** Détecte le passage minuit (jour civil local) pour rafraîchir coches + daily log. */
   let habitCalendarAnchor = ''
+  let showAddHabitModal = false
+  /** Habitude perso en cours d’édition (origin USER) */
+  let editHabit = null
 
   const pullDraftFromServer = () => {
     const log = get(dailyLog)
@@ -35,6 +47,10 @@
   }
 
   onMount(async () => {
+    if (get(isEducatorAssociation)) {
+      await loadGroupData()
+      return
+    }
     await loadHabits()
     dayBundleLocked = sessionStorage.getItem(dayLockStorageKey()) === '1'
     await tick()
@@ -67,6 +83,16 @@
   }
 
   async function reloadHomeForNewCalendarDay() {
+    if (get(isEducatorAssociation)) {
+      resetDayMessageCache()
+      try {
+        await loadToday()
+      } catch {
+        /* idem bootstrap */
+      }
+      await loadGroupData()
+      return
+    }
     resetDayMessageCache()
     dayBundleLocked = sessionStorage.getItem(dayLockStorageKey()) === '1'
     try {
@@ -137,15 +163,71 @@
     }
   }
 
-  $: done       = $habits.filter((h) => habitChecked(h)).length
+  const handleHabitCreated = async () => {
+    showAddHabitModal = false
+    await loadHabits()
+    await tick()
+    await tick()
+    seedHabitDraft()
+  }
+
+  const handleHabitEditSaved = async () => {
+    editHabit = null
+    await loadHabits()
+    await tick()
+    seedHabitDraft()
+  }
+
+  const deleteUserHabit = async (h) => {
+    if (h.origin !== 'USER') return
+    if (!confirm(`Retirer « ${h.name} » de ta liste ?`)) return
+    try {
+      await habitsApi.delete(h.id)
+      await loadHabits()
+      await tick()
+      seedHabitDraft()
+    } catch (e) {
+      alert(e.message || 'Impossible de supprimer')
+    }
+  }
+
+  $: done       = $habits.filter((h) => !!h.logs?.length).length
   $: total      = $habits.length
   $: allDone    = done === total && total > 0
-  $: earnedXP   = $habits.filter((h) => habitChecked(h)).reduce((s, h) => s + h.xp, 0) * (allDone ? 1.5 : 1)
+  $: earnedXP   = $habits.filter((h) => !!h.logs?.length).reduce((s, h) => s + h.xp, 0) * (allDone ? 1.5 : 1)
   /** Humeur du check-in : 1–3 encouragement, 4–7 maintien, 8–10 félicitation (JSON) */
   $: mood       = $dailyLog?.mood ?? 5
   $: encourage  = dayMessageFor(mood, localDateString())
 </script>
 
+{#if $isEducatorAssociation}
+<div class="view educator-home">
+  <Card style="margin-bottom:14px; border-left:3px solid var(--gold)">
+    <div class="sup" style="color:var(--gold)">COMPTE ÉDUCATEUR</div>
+    <p class="msg">Ce profil sert à <strong>encadrer</strong> ton groupe association : pas d’habitudes ni de check-in / journal personnel ici — c’est refusé côté serveur. Pour un suivi perso, utilise un <strong>autre compte</strong> avec une <strong>autre adresse e-mail</strong>.</p>
+  </Card>
+  <button type="button" class="cta-groupe" on:click={() => tab.set('groupe')}>
+    Voir le groupe — classement et invitations
+  </button>
+  {#if $hasGroup && $groupLeaderboard.length > 0}
+    <p class="micro muted edu-section-label">Aperçu du classement</p>
+    <div class="edu-board">
+      {#each $groupLeaderboard.slice(0, 10) as m, i}
+        <div class="edu-row">
+          <span class="edu-rank">#{i + 1}</span>
+          <span class="edu-ava">{m.avatar}</span>
+          <span class="edu-name">{m.username}</span>
+          <span class="edu-xp">{m.totalXP.toLocaleString()} XP</span>
+        </div>
+      {/each}
+    </div>
+  {:else if !$hasGroup}
+    <p class="hint-edu">Tu n’es dans aucun groupe. Crée une association à l’inscription ou rejoins un groupe avec un code d’invitation.</p>
+  {:else}
+    <p class="hint-edu muted">Ouvre l’onglet Groupe pour charger le classement.</p>
+  {/if}
+</div>
+{:else}
 <div class="view">
   <!-- Message du jour -->
   <Card style="margin-bottom:13px; border-left: 3px solid var(--cyan)">
@@ -189,35 +271,61 @@
   </div>
 
   <!-- Habitudes -->
-  <div class="micro muted" style="margin-bottom:8px">HABITUDES DU JOUR</div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+    <div class="micro muted">HABITUDES DU JOUR</div>
+    <button 
+      type="button" 
+      class="add-habit-btn"
+      on:click={() => showAddHabitModal = true}
+    >+ Ajouter</button>
+  </div>
   <div class="habit-list">
     {#each $habits as h (h.id)}
-      <!-- Pas de {@const checked} : il ne se met pas à jour quand seul habitDraft change. -->
-      <button
-        type="button"
-        class="habit"
-        class:checked={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
-        disabled={dayBundleLocked}
-        on:click={() => toggleHabitDraft(h.id)}
-      >
-        <div class="habit-left">
-          <span class="ico">{h.icon}</span>
-          <div>
-            <div
-              class="habit-name"
-              class:done={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
-            >{h.name}</div>
-            <div
-              class="habit-xp"
-              class:done={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
-            >+{h.xp} XP</div>
-          </div>
-        </div>
-        <div
-          class="check"
+      <div class="habit-row">
+        <button
+          type="button"
+          class="habit"
           class:checked={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
-        >{(dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]) ? '✓' : ''}</div>
-      </button>
+          disabled={dayBundleLocked}
+          on:click={() => toggleHabitDraft(h.id)}
+        >
+          <div class="habit-left">
+            <span class="ico">{h.icon}</span>
+            <div>
+              <div
+                class="habit-name"
+                class:done={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
+              >{h.name}</div>
+              <div
+                class="habit-xp"
+                class:done={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
+              >+{h.xp} XP</div>
+            </div>
+          </div>
+          <div
+            class="check"
+            class:checked={dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]}
+          >{(dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]) ? '✓' : ''}</div>
+        </button>
+        {#if h.origin === 'USER'}
+          <div class="habit-actions">
+            <button
+              type="button"
+              class="habit-action-btn"
+              title="Modifier"
+              aria-label="Modifier l’habitude"
+              on:click|stopPropagation={() => { editHabit = h }}
+            >✏️</button>
+            <button
+              type="button"
+              class="habit-action-btn danger"
+              title="Supprimer"
+              aria-label="Supprimer l’habitude"
+              on:click|stopPropagation={() => deleteUserHabit(h)}
+            >🗑</button>
+          </div>
+        {/if}
+      </div>
     {/each}
   </div>
 
@@ -226,12 +334,11 @@
     <div class="micro" style="color:var(--cyan); margin-bottom:10px">🌙 QUALITÉ DE SOMMEIL</div>
     <div class="sleep-grid">
       {#each Array.from({ length: 10 }, (_, i) => i + 1) as n}
-        {@const c = n <= 4 ? 'var(--red)' : n <= 7 ? 'var(--gold)' : 'var(--green)'}
         <button
           type="button"
           class="sleep-btn"
           class:sel={n <= sleep}
-          style="--c:{c}"
+          style="--c:{n <= 4 ? 'var(--red)' : n <= 7 ? 'var(--gold)' : 'var(--green)'}"
           disabled={dayBundleLocked}
           on:click={() => selectSleep(n)}
         >{n}</button>
@@ -262,6 +369,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <style>
   .view        { display: flex; flex-direction: column; }
@@ -277,6 +385,45 @@
   .circle-label { text-align: center; }
 
   .habit-list  { display: flex; flex-direction: column; gap: 8px; }
+  .habit-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .habit-row .habit {
+    flex: 1;
+    min-width: 0;
+  }
+  .habit-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .habit-action-btn {
+    width: 36px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-btn);
+    background: var(--surface);
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .habit-action-btn:hover {
+    border-color: var(--accent);
+    background: var(--border);
+  }
+  .habit-action-btn.danger:hover {
+    border-color: var(--red);
+    background: var(--red)22;
+  }
   .habit {
     background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px;
     padding: 11px 14px; display: flex; align-items: center; justify-content: space-between;
@@ -347,4 +494,79 @@
   .day-actions { margin-top: 6px; }
   .wide { width: 100%; }
   .edit-btn.wide { margin-top: 0; }
+  
+  .add-habit-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--accent);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .add-habit-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .educator-home .cta-groupe {
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    background: var(--grad-cta);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 18px var(--accent)44;
+  }
+  .educator-home .edu-section-label { margin: 18px 0 10px; }
+  .edu-board {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .edu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .edu-rank {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 800;
+    color: var(--muted);
+    min-width: 32px;
+  }
+  .edu-ava { font-size: 1.35rem; }
+  .edu-name { flex: 1; font-weight: 700; min-width: 0; }
+  .edu-xp {
+    font-weight: 800;
+    color: var(--gold);
+    font-size: 0.9rem;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .hint-edu {
+    margin-top: 14px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
 </style>
+
+{#if !$isEducatorAssociation && showAddHabitModal}
+  <AddHabitModal on:created={handleHabitCreated} on:close={() => showAddHabitModal = false} />
+{/if}
+{#if !$isEducatorAssociation && editHabit}
+  <EditHabitModal habit={editHabit} on:saved={handleHabitEditSaved} on:close={() => (editHabit = null)} />
+{/if}

@@ -7,14 +7,15 @@
    *    on ouvre l’app (Home) avec le « Message du jour » (phrases JSON selon l’humeur).
    * 3. Sinon → écran CheckIn (humeur + suite). Après validation, on repasse à l’app.
    *
-   * Le bootstrap utilise loadTodayResilient + 401 sur GET /checkin/today ne déclenche pas
-   * session:expired (évite fausse déco juste après login).
+   * Le bootstrap utilise loadTodayResilient ; client.js n’émet pas session:expired sur
+   * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
    */
   import { onMount, tick } from 'svelte'
   import { authStore, checkSession } from './stores/auth.js'
   import { tab }      from './stores/tab.js'
   import { loadToday, loadTodayResilient, resetDailyLog } from './stores/checkin.js'
   import { loadProfile, resetProfile } from './stores/profile.js'
+  import { loadGroups, resetGroupState, isAssociationOwner, isEducatorAssociation } from './stores/group.js'
   import { resetDayMessageCache } from './lib/dayMessage.js'
   import { hasMoodForToday } from './lib/checkinState.js'
 
@@ -29,12 +30,19 @@
   import AuthGuard from './components/modules/AuthGuard.svelte'
 
   const VIEWS = { home: Home, groupe: Groupe, stats: Stats, profil: Profil }
-  const TABS  = [
+  const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
     { key: 'groupe', ico: '👥', label: 'Groupe'       },
     { key: 'stats',  ico: '📊', label: 'Stats'        },
     { key: 'profil', ico: '⚙️', label: 'Profil'       },
   ]
+  const TABS_EDUCATOR = [
+    { key: 'home',   ico: '📋', label: 'Suivi'      },
+    { key: 'groupe', ico: '👥', label: 'Groupe'     },
+    { key: 'stats',  ico: '📊', label: 'Stats'      },
+    { key: 'profil', ico: '⚙️', label: 'Profil'     },
+  ]
+  $: bottomTabs = $isEducatorAssociation ? TABS_EDUCATOR : TABS_STUDENT
 
   let checkinDone   = false
   let loading       = true
@@ -49,10 +57,14 @@
       await tick()
       await new Promise((r) => setTimeout(r, 50))
       const log = await loadTodayResilient()
-      checkinDone = hasMoodForToday(log)
+      let done = hasMoodForToday(log)
+      const grps = await loadGroups()
+      if (!done && isAssociationOwner(grps)) done = true
+      checkinDone = done
       await loadProfile()
-    } finally {
       sessionReady = true
+    } catch {
+      /* 401 → session:expired peut avoir vidé authStore ; ne pas forcer sessionReady */
     }
   }
 
@@ -63,6 +75,7 @@
     window.addEventListener('session:expired', () => {
       authStore.set({ user: null, session: 0 })
       resetProfile()
+      resetGroupState()
       bootKey        = null
       sessionReady   = false
       checkinDone    = false
@@ -83,6 +96,7 @@
     bootKey        = null
     sessionReady   = false
     checkinDone    = false
+    resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
   }
@@ -121,7 +135,7 @@
     </AuthGuard>
   </main>
 
-  <BottomNav {TABS} />
+  <BottomNav TABS={bottomTabs} />
 {/if}
 
 <style>

@@ -1,4 +1,5 @@
 import { db } from '../../core/db.js'
+import { userIsAssociationOwner } from '../group/educatorScope.js'
 
 const todayDateUtc = () => new Date(new Date().toISOString().slice(0, 10))
 
@@ -16,7 +17,12 @@ export const getToday = (userId, dateStr) => {
   return db.dailyLog.findUnique({ where: { userId_date: { userId, date } } })
 }
 
-export const upsertDailyLog = (userId, { date: dateStr, ...data }) => {
+export const upsertDailyLog = async (userId, { date: dateStr, ...data }) => {
+  if (await userIsAssociationOwner(userId))
+    throw {
+      status: 403,
+      message: 'Compte éducateur association : pas de check-in / journal personnel sur ce profil.',
+    }
   const date = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
     ? dateFromYMD(dateStr)
     : todayDateUtc()

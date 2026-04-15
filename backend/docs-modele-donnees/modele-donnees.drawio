@@ -1,0 +1,169 @@
+<mxfile host="65bd71144e">
+    <diagram id="page-mcd" name="MCD">
+        <mxGraphModel dx="328" dy="228" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="t1" value="&lt;b&gt;MCD — Confiance+&lt;/b&gt;&lt;br&gt;Modèle conceptuel (entités / liaisons). Complète les cardinalités au besoin." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="520" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="Utilisateur" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="80" y="200" width="160" height="56" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="Groupe" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="440" y="100" width="160" height="56" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" value="Habitude" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="80" y="380" width="160" height="56" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" value="Journal habitude&#xa;(coche du jour)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="360" y="380" width="180" height="64" as="geometry"/>
+                </mxCell>
+                <mxCell id="6" value="Journal du jour&#xa;(humeur, sommeil, texte)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="80" y="520" width="200" height="64" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" value="Adhésion&#xa;(utilisateur ↔ groupe)&#xa;rôle, date d’entrée" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="420" y="220" width="200" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="2" target="4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e22" value="possède" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="e21" vertex="1" connectable="0">
+                    <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="2" target="7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="3" target="7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="2" target="5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="4" target="5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e51" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=ERmany;startArrow=ERone;endFill=1;startFill=0;" parent="1" source="2" target="6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-mld" name="MLD">
+        <mxGraphModel dx="740" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="m0" value="&lt;b&gt;MLD — tables relationnelles&lt;/b&gt;&lt;br&gt;PK soulignée implicitement ; FK → référence" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="480" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="m1" value="User&#xa;─────────&#xa;id (PK)&#xa;email (UQ, null)&#xa;username (UQ)&#xa;passwordHash&#xa;avatar, isPending&#xa;activationCode (UQ?)&#xa;createdAt, updatedAt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="100" width="200" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="m2" value="Group&#xa;─────────&#xa;id (PK)&#xa;name&#xa;type (enum)&#xa;inviteCode (UQ)&#xa;createdAt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="360" y="60" width="200" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="m3" value="GroupMember&#xa;─────────────&#xa;(userId, groupId) PK&#xa;userId FK → User&#xa;groupId FK → Group&#xa;role&#xa;joinedAt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="620" width="220" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="m4" value="Habit&#xa;─────────&#xa;id (PK)&#xa;userId FK → User&#xa;name, icon, xp, order&#xa;origin (enum)&#xa;isActive, createdAt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="320" width="220" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="m5" value="HabitLog&#xa;──────────&#xa;id (PK)&#xa;habitId FK → Habit&#xa;userId FK → User&#xa;date&#xa;proofUrl&#xa;UQ (habitId, date)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="320" width="240" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="m6" value="DailyLog&#xa;──────────&#xa;id (PK)&#xa;userId FK → User&#xa;date&#xa;mood, moodReason&#xa;sleepQuality, journal&#xa;updatedAt&#xa;UQ (userId, date)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="620" y="320" width="220" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="me1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m1" target="m3" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="310" y="156"/>
+                            <mxPoint x="310" y="49"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="me2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0;entryY=0.65;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m2" target="m3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="me3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m1" target="m4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="me4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m4" target="m5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="me5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m1" target="m6" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="140" y="300"/>
+                            <mxPoint x="730" y="300"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="me6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=ERone;startArrow=ERmany;endFill=0;startFill=1;dashed=1;" parent="1" source="m1" target="m5" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="140" y="300"/>
+                            <mxPoint x="440" y="300"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-mpd" name="MPD">
+        <mxGraphModel dx="407" dy="330" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="p0" value="&lt;b&gt;MPD — PostgreSQL 16 + Prisma&lt;/b&gt;&lt;br&gt;Types physiques ; schéma public par défaut" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="p1" value="&quot;User&quot;&#xa;────────────&#xa;id TEXT PK (cuid)&#xa;email TEXT NULL UNIQUE&#xa;username TEXT UNIQUE&#xa;passwordHash TEXT NULL&#xa;avatar TEXT DEFAULT&#xa;&quot;isPending&quot; BOOLEAN&#xa;&quot;activationCode&quot; TEXT NULL UNIQUE&#xa;&quot;createdAt&quot; TIMESTAMP(3)&#xa;&quot;updatedAt&quot; TIMESTAMP(3)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry y="80" width="240" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="p2" value="&quot;Group&quot;&#xa;────────────&#xa;id TEXT PK&#xa;name TEXT&#xa;type &quot;GroupType&quot; ENUM&#xa;&quot;inviteCode&quot; TEXT UNIQUE&#xa;&quot;createdAt&quot; TIMESTAMP(3)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="130" width="240" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="p3" value="&quot;GroupMember&quot;&#xa;──────────────&#xa;userId TEXT PK FK&#xa;groupId TEXT PK FK&#xa;role &quot;GroupRole&quot; ENUM&#xa;&quot;joinedAt&quot; TIMESTAMP(3)&#xa;ON DELETE CASCADE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="80" width="240" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="p4" value="&quot;Habit&quot;&#xa;────────────&#xa;id TEXT PK&#xa;userId TEXT FK&#xa;name, icon TEXT&#xa;xp INTEGER&#xa;&quot;order&quot; INTEGER&#xa;origin &quot;HabitOrigin&quot; ENUM&#xa;&quot;isActive&quot; BOOLEAN&#xa;&quot;createdAt&quot; TIMESTAMP(3)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="300" width="260" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="p5" value="&quot;HabitLog&quot;&#xa;──────────────&#xa;id TEXT PK&#xa;habitId TEXT FK&#xa;userId TEXT FK&#xa;date DATE (@db.Date)&#xa;proofUrl TEXT NULL&#xa;UNIQUE(habitId, date)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="300" width="260" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="p6" value="&quot;DailyLog&quot;&#xa;──────────────&#xa;id TEXT PK&#xa;userId TEXT FK&#xa;date DATE&#xa;mood INT NULL&#xa;&quot;moodReason&quot; TEXT NULL&#xa;&quot;sleepQuality&quot; INT NULL&#xa;journal TEXT NULL&#xa;&quot;updatedAt&quot; TIMESTAMP(3)&#xa;UNIQUE(userId, date)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;spacingTop=6;fontFamily=Courier New;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="300" width="260" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="p7" value="Enums PG :&#xa;GroupType, GroupRole, HabitOrigin&#xa;&#xa;Source : prisma/schema.prisma&#xa;+ migrations SQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;spacingTop=6;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="520" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="pe1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;dashed=1;endArrow=block;startArrow=block;" parent="1" source="p1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="265" y="130" as="sourcePoint"/>
+                        <mxPoint x="585" y="118" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="265" y="125"/>
+                            <mxPoint x="265" y="108"/>
+                            <mxPoint x="315" y="108"/>
+                            <mxPoint x="315" y="118"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="pe2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.6;entryDx=0;entryDy=0;dashed=1;endArrow=block;startArrow=block;" parent="1" source="p2" target="p3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="pe3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;dashed=1;endArrow=block;startArrow=block;" parent="1" source="p1" target="p4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="pe4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;endArrow=block;startArrow=block;" parent="1" source="p4" target="p5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { normalizeEmail } from '../../core/emailUtil.js'
 
 export const createGroupSchema = z.object({
   name: z.string().min(2).max(50),
@@ -9,7 +10,7 @@ export const joinGroupSchema = z.object({
   inviteCode: z.string().min(1),
 })
 
+/** Invité asso : e-mail seul (MVP) — pseudo généré côté serveur */
 export const createMemberSchema = z.object({
-  username: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_]+$/),
-  avatar:   z.string().emoji().optional().default('🦊'),
+  email: z.string().email().transform((v) => normalizeEmail(v)),
 })

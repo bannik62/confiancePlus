@@ -5,10 +5,10 @@
   "scripts": {
     "dev":        "node --watch src/server.js",
     "start":      "node src/server.js",
-    "db:migrate": "prisma migrate dev",
-    "db:push":    "prisma db push",
-    "db:seed":    "prisma db seed",
-    "db:studio":  "prisma studio"
+    "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
+    "db:push":    "dotenv -e ../.env -- prisma db push",
+    "db:seed":    "dotenv -e ../.env -- prisma db seed",
+    "db:studio":  "dotenv -e ../.env -- prisma studio"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -24,6 +24,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "dotenv-cli": "^8.0.0",
     "prisma": "^5.14.0"
   }
 }

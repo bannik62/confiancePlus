@@ -16,9 +16,24 @@
   let loading      = true
   let error        = ''
   let inviteCode   = ''
-  let newMember    = { username: '', avatar: '🐺' }
-  let newCode      = null   // code généré après createMember, affiché une seule fois
+  let inviteEmail    = ''
+  let newCode      = null   // dernier code membre asso (persisté session pour copie / navigation)
+  let memberCodePanelOpen = true // réduire = cache l’UI seulement, pas le stockage
+  let lastPanelGroupId    = null
   let showJoinForm = false
+
+  const memberCodeKey = (userId, groupId) =>
+    `habitTracker:assocMemberCode:${userId}:${groupId}`
+
+  const readStoredMemberCode = (userId, groupId) => {
+    if (!userId || !groupId || typeof sessionStorage === 'undefined') return null
+    return sessionStorage.getItem(memberCodeKey(userId, groupId))
+  }
+
+  const persistMemberCode = (userId, groupId, code) => {
+    if (!userId || !groupId || typeof sessionStorage === 'undefined' || !code) return
+    sessionStorage.setItem(memberCodeKey(userId, groupId), code)
+  }
 
   onMount(async () => {
     await loadGroupData()
@@ -26,6 +41,17 @@
     if ($hasGroup) tab = 'groupe'
     loading = false
   })
+
+  // Dernier code généré par groupe (session) — survit navigation / onglet tant que l’onglet navigateur reste ouvert
+  $: if (!loading && $authStore.user?.id && $activeGroup?.id) {
+    const s = readStoredMemberCode($authStore.user.id, $activeGroup.id)
+    newCode = s || null
+  }
+
+  $: if (!loading && $activeGroup?.id && $activeGroup.id !== lastPanelGroupId) {
+    lastPanelGroupId = $activeGroup.id
+    memberCodePanelOpen = true
+  }
 
   // ── Médale ────────────────────────────────────────────────────────────────
   const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
@@ -47,12 +73,13 @@
 
   // ── Créer un membre (éducateur) ───────────────────────────────────────────
   const createMember = async () => {
-    error   = ''
-    newCode = null
+    error = ''
     try {
-      const res = await groupApi.createMember($activeGroup.id, newMember)
+      const res = await groupApi.createMember($activeGroup.id, { email: inviteEmail })
       newCode = res.activationCode
-      newMember = { username: '', avatar: '🐺' }
+      persistMemberCode($authStore.user.id, $activeGroup.id, newCode)
+      memberCodePanelOpen = true
+      inviteEmail = ''
       await loadGroupLeaderboard($activeGroup.id)
     } catch (e) { error = e.message }
   }
@@ -165,18 +192,23 @@
     <!-- ── Panel éducateur (OWNER ASSOCIATION) ───────────────────────── -->
     {#if $myRole === 'OWNER' && $activeGroup?.type === 'ASSOCIATION'}
       <div class="educator-panel">
-        <div class="panel-title micro">AJOUTER UN MEMBRE</div>
-        <div class="form-row">
-          <input bind:value={newMember.username} placeholder="Pseudo du membre" />
-          <input bind:value={newMember.avatar}   placeholder="🐺" maxlength="2" class="avatar-input" />
-          <button class="btn-primary sm" on:click={createMember}>Créer</button>
+        <div class="panel-title micro">INVITER PAR E-MAIL</div>
+        <div class="form-row educator-invite">
+          <input type="email" bind:value={inviteEmail} placeholder="eleve@email.fr" class="email-invite" />
+          <button class="btn-primary sm" on:click={createMember}>Générer le code</button>
         </div>
 
         {#if newCode}
           <div class="code-result">
-            <span class="micro muted">CODE À TRANSMETTRE — valable une seule fois</span>
-            <div class="generated-code">{newCode}</div>
-            <span class="micro muted">Le membre l'utilisera dans l'onglet "Code asso"</span>
+            {#if memberCodePanelOpen}
+              <span class="micro muted">CODE À TRANSMETTRE — une activation consomme le code</span>
+              <div class="generated-code">{newCode}</div>
+              <span class="micro muted">Dernier code sur cet appareil (onglet ouvert). Invalide si l’élève s’est déjà activé.</span>
+              <button type="button" class="btn-code-toggle" on:click={() => memberCodePanelOpen = false}>Réduire</button>
+            {:else}
+              <span class="micro muted">Code mémorisé sur cet appareil — tu peux le réafficher quand tu veux.</span>
+              <button type="button" class="btn-code-toggle primary" on:click={() => memberCodePanelOpen = true}>Afficher le dernier code</button>
+            {/if}
           </div>
         {/if}
       </div>
@@ -200,6 +232,13 @@
             {m.username}
             {#if isMe(m.id)}<span class="you-badge">toi</span>{/if}
           </div>
+          {#if m.groupNames?.length}
+            <div class="group-chips" aria-label="Groupes">
+              {#each m.groupNames as gname}
+                <span class="group-chip">👥 {gname}</span>
+              {/each}
+            </div>
+          {/if}
           <div class="tags-row">
             <Tag color="var(--gold)">LVL {m.level}</Tag>
             {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
@@ -253,7 +292,28 @@
   }
   .info { flex: 1; }
   .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
-  .tags-row { display: flex; gap: 5px; margin-top: 4px; }
+  .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+
+  .group-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin: 4px 0 2px;
+  }
+  .group-chip {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px 7px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .you-badge {
     font-size: 10px; background: var(--accent); color: #fff;
@@ -297,6 +357,29 @@
     font-family: 'Rajdhani', sans-serif; font-size: 2rem;
     font-weight: 900; color: var(--gold); letter-spacing: 6px;
   }
+  .btn-code-toggle {
+    margin-top: 8px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  .btn-code-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .btn-code-toggle.primary {
+    margin-top: 10px;
+    border-color: var(--gold)66;
+    color: var(--gold);
+  }
+  .btn-code-toggle.primary:hover {
+    border-color: var(--gold);
+    color: #fff;
+    background: var(--gold)33;
+  }
 
   /* ── Sélecteur groupes ── */
   .group-selector { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -308,12 +391,12 @@
 
   /* ── Formulaires ── */
   .form-row { display: flex; gap: 8px; }
+  .educator-invite { flex-wrap: wrap; align-items: center; }
+  .email-invite { flex: 1 1 200px; min-width: 0; }
   input {
     flex: 1; background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; color: var(--text); font-size: .9rem; padding: 9px 12px;
   }
-  .avatar-input { flex: 0 0 52px; text-align: center; font-size: 1.2rem; }
-
   .btn-primary {
     background: var(--accent); border: none; border-radius: 8px;
     color: #fff; font-weight: 700; padding: 9px 16px; cursor: pointer; white-space: nowrap;

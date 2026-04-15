@@ -8,7 +8,12 @@ const envSchema = z.object({
   FRONTEND_URL:        z.string().default('http://localhost'),
   API_RATE_WINDOW_MS:  z.coerce.number().default(900000),
   API_RATE_MAX:        z.coerce.number().default(100),
-  AUTH_RATE_MAX:       z.coerce.number().default(10),
+  /** POST login/register/activate/check-code — /me exclu du compteur authLimiter */
+  AUTH_RATE_MAX:       z.coerce.number().default(30),
+  /** Derrière reverse proxy : `TRUST_PROXY=1` ou `true` — ne pas utiliser `z.coerce.boolean()` (\"false\" → true). */
+  TRUST_PROXY: z
+    .union([z.string(), z.undefined()])
+    .transform((s) => typeof s === 'string' && /^(1|true|yes)$/i.test(s.trim())),
 })
 
 const parsed = envSchema.safeParse(process.env)

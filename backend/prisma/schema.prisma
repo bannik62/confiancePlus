@@ -63,15 +63,21 @@ model GroupMember {
 
 // ── HABITS ─────────────────────────────────────────────────────────────────────
 
+enum HabitOrigin {
+  DEFAULT // pack seed / inscription
+  USER    // créée par l’utilisateur (modifiable / supprimable)
+}
+
 model Habit {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   userId    String
   name      String
   icon      String
-  xp        Int      @default(20)
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  xp        Int         @default(20)
+  order     Int         @default(0)
+  origin    HabitOrigin @default(DEFAULT)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs HabitLog[]

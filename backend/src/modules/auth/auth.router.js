@@ -52,13 +52,13 @@ router.post('/logout', (req, res) => {
 
 // ── Compte association ─────────────────────────────────────────────────────────
 
-// Étape 1 — vérifie le code, retourne username + avatar (sans session)
+// Étape 1 — vérifie le code, retourne infos limitées (sans session)
 router.post('/check-code', validate(checkCodeSchema), async (req, res, next) => {
   try { res.json(await service.checkCode(req.body)) }
   catch (e) { next(e) }
 })
 
-// Étape 2 — code + nouveau mdp → active le compte + ouvre la session
+// Étape 2 — code + e-mail + mdp + profil → active le compte + ouvre la session
 router.post('/activate', validate(activateSchema), async (req, res, next) => {
   try {
     const { user, token } = await service.activate(req.body)

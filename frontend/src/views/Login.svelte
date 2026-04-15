@@ -22,10 +22,26 @@
 
   // Étape du flux code association : 'enter-code' | 'set-password'
   let codeStep     = 'enter-code'
-  let pendingUser  = null   // { username, avatar } retourné par /check-code
+  let pendingUser  = null   // réponse /check-code (username, avatar, emailHint, ok)
 
   // Contexte d'inscription : 'solo' | 'create' | 'join'
   let registerContext = REGISTER_CONTEXT.SOLO
+
+  /** Raccourcis avatar — même idée que le picker d’habitudes */
+  const AVATAR_SUGGESTIONS = [
+    '🦊', '🦁', '🐺', '🐱', '🐻', '🐼', '🦄', '🐸', '🦉', '🐧',
+    '🐯', '🐰', '🦝', '🐨', '🐮', '👤', '😎', '🤖', '👽', '🎮',
+  ]
+
+  const pickRegisterAvatar = (emoji) => {
+    registerModel.avatar = emoji
+    registerModel = registerModel
+  }
+
+  const pickProfileAvatar = (emoji) => {
+    profileModel.avatar = emoji
+    profileModel = profileModel
+  }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const switchTab = (t) => {
@@ -33,6 +49,8 @@
     error = ''
     codeStep = 'enter-code'
     pendingUser = null
+    activateModel = new UserActivate()
+    profileModel = new UserCompleteProfile()
   }
 
   const finishAuth = (user) => {
@@ -83,7 +101,12 @@
     error   = ''
     try {
       pendingUser = await authApi.checkCode(activateModel.toPayload())
-      profileModel.code = activateModel.code   // transmet le code à l'étape 2
+      profileModel.prefillActivateStep(
+        activateModel.code,
+        pendingUser.username,
+        pendingUser.avatar,
+      )
+      profileModel = profileModel
       codeStep = 'set-password'
     } catch (e) {
       error = e.message ?? 'Code invalide'
@@ -212,14 +235,35 @@
           {#if registerModel.errors.password}<span class="field-error">{registerModel.errors.password}</span>{/if}
         </label>
 
-        <!-- Champ avatar (emoji picker simplifié) -->
-        <label>
-          Avatar
-          <input type="text" bind:value={registerModel.avatar}
-            on:input={() => { registerModel.avatar = registerModel.avatar; registerModel = registerModel }}
-            maxlength="2" placeholder="🦊" />
+        <!-- Avatar : grille + saisie libre -->
+        <div class="avatar-field">
+          <span class="avatar-field-label">Avatar</span>
+          <div class="avatar-preview" aria-hidden="true">{registerModel.avatar || '🦊'}</div>
+          <div class="emoji-suggestions" role="group" aria-label="Choisir un emoji">
+            {#each AVATAR_SUGGESTIONS as emoji}
+              <button
+                type="button"
+                class="emoji-btn"
+                class:selected={registerModel.avatar === emoji}
+                title={emoji}
+                on:click={() => pickRegisterAvatar(emoji)}
+              >{emoji}</button>
+            {/each}
+          </div>
+          <label class="avatar-input-label">
+            <span class="sr-only">Ou saisir un emoji</span>
+            <span class="muted-inline">Ou autre :</span>
+            <input
+              type="text"
+              bind:value={registerModel.avatar}
+              on:input={() => { registerModel.avatar = registerModel.avatar; registerModel = registerModel }}
+              maxlength="8"
+              placeholder="🦊"
+              autocomplete="off"
+            />
+          </label>
           {#if registerModel.errors.avatar}<span class="field-error">{registerModel.errors.avatar}</span>{/if}
-        </label>
+        </div>
 
         <!-- Champs contextuels -->
         {#if registerContext === REGISTER_CONTEXT.CREATE}
@@ -280,22 +324,73 @@
         <div class="welcome-banner">
           <span class="avatar-big">{pendingUser?.avatar}</span>
           <p>Bonjour <strong>{pendingUser?.username}</strong> !</p>
-          <small>Choisis ton mot de passe pour activer ton compte.</small>
+          <small>
+            {#if pendingUser?.emailHint}
+              Saisis l’e-mail utilisé pour ton invitation (indice : <strong>{pendingUser.emailHint}</strong>), puis ton pseudo, avatar et mot de passe.
+            {:else}
+              Saisis l’e-mail de ton invitation, puis ton pseudo, avatar et mot de passe.
+            {/if}
+          </small>
         </div>
 
         <form on:submit|preventDefault={handleActivate}>
           <label>
+            E-mail (invitation)
+            <input type="email" bind:value={profileModel.email}
+              on:input={() => { profileModel.email = profileModel.email; profileModel = profileModel }}
+              placeholder="ton@email.fr" autocomplete="email" />
+            {#if profileModel.errors.email}<span class="field-error">{profileModel.errors.email}</span>{/if}
+          </label>
+
+          <label>
+            Pseudo
+            <input type="text" bind:value={profileModel.username}
+              on:input={() => { profileModel.username = profileModel.username; profileModel = profileModel }}
+              placeholder="Lucas_42" />
+            {#if profileModel.errors.username}<span class="field-error">{profileModel.errors.username}</span>{/if}
+          </label>
+
+          <div class="avatar-field">
+            <span class="avatar-field-label">Avatar</span>
+            <div class="avatar-preview" aria-hidden="true">{profileModel.avatar || '🦊'}</div>
+            <div class="emoji-suggestions" role="group" aria-label="Choisir un emoji">
+              {#each AVATAR_SUGGESTIONS as emoji}
+                <button
+                  type="button"
+                  class="emoji-btn"
+                  class:selected={profileModel.avatar === emoji}
+                  title={emoji}
+                  on:click={() => pickProfileAvatar(emoji)}
+                >{emoji}</button>
+              {/each}
+            </div>
+            <label class="avatar-input-label">
+              <span class="sr-only">Ou saisir un emoji</span>
+              <span class="muted-inline">Ou autre :</span>
+              <input
+                type="text"
+                bind:value={profileModel.avatar}
+                on:input={() => { profileModel.avatar = profileModel.avatar; profileModel = profileModel }}
+                maxlength="8"
+                placeholder="🦊"
+                autocomplete="off"
+              />
+            </label>
+            {#if profileModel.errors.avatar}<span class="field-error">{profileModel.errors.avatar}</span>{/if}
+          </div>
+
+          <label>
             Mot de passe
             <input type="password" bind:value={profileModel.password}
               on:input={() => { profileModel.password = profileModel.password; profileModel = profileModel }}
-              placeholder="••••••••" />
+              placeholder="••••••••" autocomplete="new-password" />
             {#if profileModel.errors.password}<span class="field-error">{profileModel.errors.password}</span>{/if}
           </label>
           <label>
             Confirmer
             <input type="password" bind:value={profileModel.passwordConfirm}
               on:input={() => { profileModel.passwordConfirm = profileModel.passwordConfirm; profileModel = profileModel }}
-              placeholder="••••••••" />
+              placeholder="••••••••" autocomplete="new-password" />
             {#if profileModel.errors.passwordConfirm}<span class="field-error">{profileModel.errors.passwordConfirm}</span>{/if}
           </label>
           <button type="submit" class="btn-primary" disabled={loading}>
@@ -444,4 +539,72 @@
   .avatar-big { font-size: 3.5rem; }
   .welcome-banner p { font-size: 1.1rem; color: var(--text); }
   .welcome-banner small { color: var(--muted); font-size: .82rem; }
+
+  /* Picker avatar inscription */
+  .avatar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .avatar-field-label {
+    font-size: 0.85rem;
+    color: var(--text-label);
+  }
+  .avatar-preview {
+    font-size: 2.75rem;
+    line-height: 1;
+    text-align: center;
+    padding: 6px 0;
+  }
+  .emoji-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+  .emoji-btn {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 1.15rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  }
+  .emoji-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface);
+    transform: scale(1.06);
+  }
+  .emoji-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent)55;
+  }
+  .avatar-input-label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 2px;
+  }
+  .muted-inline {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 </style>

@@ -46,6 +46,7 @@
   --red-light:    #f87171;   /* rouge clair — messages d'erreur */
   --navy-deep:    #00152e;   /* marine profond — habit cochée fond */
   --stats-empty:  #1e2a3a;   /* fond barre stats vide */
+  --stats-low:    #1e2a3a;   /* calendrier heatmap — activité faible */
 
   /* ── Dégradés ──────────────────────────────────────────────── */
   --grad-xp:      linear-gradient(90deg,  #7c3aed, #f59e0b);

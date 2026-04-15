@@ -1,5 +1,8 @@
 import { db } from '../../core/db.js'
 import { hashPassword, verifyPassword, signToken } from '../../core/auth.js'
+import { createDefaultHabitsForUser } from '../../core/defaultHabits.js'
+import { normalizeEmail, maskEmailHint } from '../../core/emailUtil.js'
+import { userIsAssociationOwner } from '../group/educatorScope.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -11,20 +14,25 @@ const safeUser = (user) => {
 // ── Register (compte autonome) ────────────────────────────────────────────────
 
 export const register = async ({ email, username, password, avatar, group, inviteCode }) => {
+  const normEmail = normalizeEmail(email)
   const exists = await db.user.findFirst({
-    where: { OR: [{ email }, { username }] },
+    where: { OR: [{ email: normEmail }, { username }] },
   })
   if (exists) throw { status: 409, message: 'Email ou username déjà utilisé' }
 
   const user = await db.user.create({
     data: {
-      email,
+      email: normEmail,
       username,
       passwordHash: await hashPassword(password),
       avatar,
       isPending: false,
     },
   })
+
+  const skipDefaultHabits =
+    Boolean(group?.name) && (group.type ?? 'FRIENDS') === 'ASSOCIATION'
+  if (!skipDefaultHabits) await createDefaultHabitsForUser(user.id)
 
   // Créer un groupe si demandé
   if (group?.name) {
@@ -51,7 +59,7 @@ export const register = async ({ email, username, password, avatar, group, invit
 // ── Login (compte autonome) ───────────────────────────────────────────────────
 
 export const login = async ({ email, password }) => {
-  const user = await db.user.findUnique({ where: { email } })
+  const user = await db.user.findUnique({ where: { email: normalizeEmail(email) } })
   if (!user || !user.passwordHash)
     throw { status: 401, message: 'Identifiants invalides' }
 
@@ -60,6 +68,11 @@ export const login = async ({ email, password }) => {
 
   const valid = await verifyPassword(password, user.passwordHash)
   if (!valid) throw { status: 401, message: 'Identifiants invalides' }
+
+  // Comptes sans habitudes → pack par défaut, sauf éducateur association (pas d’habitudes perso)
+  const habitCount = await db.habit.count({ where: { userId: user.id, isActive: true } })
+  if (habitCount === 0 && !(await userIsAssociationOwner(user.id)))
+    await createDefaultHabitsForUser(user.id)
 
   return { user: safeUser(user), token: signToken({ id: user.id, username: user.username }) }
 }
@@ -71,18 +84,24 @@ export const login = async ({ email, password }) => {
 export const checkCode = async ({ code }) => {
   const user = await db.user.findUnique({
     where: { activationCode: code.toUpperCase() },
-    select: { id: true, username: true, avatar: true, isPending: true },
+    select: { id: true, username: true, avatar: true, isPending: true, email: true },
   })
 
   if (!user || !user.isPending)
     throw { status: 404, message: 'Code invalide ou déjà utilisé' }
 
-  return { username: user.username, avatar: user.avatar }
+  return {
+    ok:        true,
+    username:  user.username,
+    avatar:    user.avatar,
+    /** Indice e-mail masqué — pas l’adresse complète */
+    emailHint: user.email ? maskEmailHint(user.email) : null,
+  }
 }
 
 // ── Activate (code asso → choisir son mot de passe) ──────────────────────────
 
-export const activate = async ({ code, password }) => {
+export const activate = async ({ code, email, password, username, avatar }) => {
   const user = await db.user.findUnique({
     where: { activationCode: code.toUpperCase() },
   })
@@ -90,14 +109,30 @@ export const activate = async ({ code, password }) => {
   if (!user || !user.isPending)
     throw { status: 404, message: 'Code invalide ou déjà utilisé' }
 
+  const norm = normalizeEmail(email)
+  if (!user.email)
+    throw { status: 400, message: 'Invitation incomplète — demande un nouvel envoi à ton éducateur' }
+  if (user.email !== norm)
+    throw { status: 403, message: 'Cet e-mail ne correspond pas à l\'invitation' }
+
+  const taken = await db.user.findFirst({
+    where: { username, id: { not: user.id } },
+  })
+  if (taken) throw { status: 409, message: 'Ce pseudo est déjà pris' }
+
   const updated = await db.user.update({
     where: { id: user.id },
     data: {
       passwordHash:   await hashPassword(password),
       isPending:      false,
-      activationCode: null,   // code consommé — ne peut plus être réutilisé
+      activationCode: null,
+      username,
+      avatar:         avatar ?? '🦊',
     },
   })
+
+  const habitCount = await db.habit.count({ where: { userId: updated.id, isActive: true } })
+  if (habitCount === 0) await createDefaultHabitsForUser(updated.id)
 
   return { user: safeUser(updated), token: signToken({ id: updated.id, username: updated.username }) }
 }

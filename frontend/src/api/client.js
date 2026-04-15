@@ -9,11 +9,15 @@ const getCsrfToken = () => {
 // Méthodes qui modifient l'état → doivent porter le header CSRF
 const MUTATION_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
 
-/** Ne pas diffuser session:expired sur ce GET — évite une fausse déconnexion juste après login (cookie pas encore pris en compte sur la requête suivante). */
-const isTransientAuthCheckGet = (method, path) => {
-  if (method !== 'GET') return false
-  const base = path.split('?')[0]
-  return base === '/checkin/today'
+const pathBase = (path) => path.split('?')[0]
+
+/** 401 sans session établie : ne pas traiter comme « session expirée » (évite fausse déco + mauvais message). */
+const shouldDispatchSessionExpiredOn401 = (method, path) => {
+  const base = pathBase(path)
+  if (method === 'GET' && base === '/checkin/today') return false
+  if (method === 'POST' && ['/auth/login', '/auth/register', '/auth/activate'].includes(base))
+    return false
+  return true
 }
 
 const request = async (method, path, body) => {
@@ -32,16 +36,28 @@ const request = async (method, path, body) => {
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 
-  // Session expirée → nettoyage (sauf GET /checkin/today : voir isTransientAuthCheckGet)
   if (res.status === 401) {
-    if (!isTransientAuthCheckGet(method, path))
+    const errBody = await res.json().catch(() => ({}))
+    const message =
+      typeof errBody.error === 'string' && errBody.error.length ? errBody.error : 'Session expirée'
+    if (shouldDispatchSessionExpiredOn401(method, path))
       window.dispatchEvent(new CustomEvent('session:expired'))
-    throw { status: 401, message: 'Session expirée' }
+    throw { status: 401, message }
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erreur réseau' }))
-    throw { status: res.status, message: err.error ?? 'Erreur inconnue', code: err.code }
+    let message = typeof err.error === 'string' ? err.error : null
+    if (!message && err.errors && typeof err.errors === 'object') {
+      const parts = []
+      for (const [field, msgs] of Object.entries(err.errors)) {
+        if (Array.isArray(msgs) && msgs.length)
+          parts.push(`${field}: ${msgs.join(', ')}`)
+      }
+      message = parts.length ? parts.join(' · ') : 'Données invalides'
+    }
+    if (!message) message = 'Erreur inconnue'
+    throw { status: res.status, message, code: err.code, errors: err.errors }
   }
 
   return res.status === 204 ? null : res.json()

@@ -15,6 +15,9 @@ import statsRouter   from './modules/stats/stats.router.js'
 
 const app = express()
 
+if (config.TRUST_PROXY)
+  app.set('trust proxy', 1)
+
 // ── Middlewares globaux ────────────────────────────────────────────────────────
 app.use(cors({
   origin:      config.FRONTEND_URL,
