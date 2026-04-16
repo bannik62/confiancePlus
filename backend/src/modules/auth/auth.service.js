@@ -1,4 +1,5 @@
 import { db } from '../../core/db.js'
+import { config } from '../../core/config.js'
 import { hashPassword, verifyPassword, signToken } from '../../core/auth.js'
 import { createDefaultHabitsForUser } from '../../core/defaultHabits.js'
 import { normalizeEmail, maskEmailHint } from '../../core/emailUtil.js'
@@ -19,7 +20,17 @@ const tokenPayload = (user) => ({
 
 // ── Register (compte autonome) ────────────────────────────────────────────────
 
+export const getRegisterStatus = () => ({ registerOpen: config.REGISTER_OPEN })
+
 export const register = async ({ email, username, password, avatar, group, inviteCode }) => {
+  if (!config.REGISTER_OPEN)
+    throw {
+      status: 403,
+      code:   'REGISTER_CLOSED',
+      message:
+        'Les inscriptions publiques sont fermées. Utilise l’onglet « Code asso » si tu as reçu un code, ou connecte-toi.',
+    }
+
   const normEmail = normalizeEmail(email)
   const exists = await db.user.findFirst({
     where: { OR: [{ email: normEmail }, { username }] },

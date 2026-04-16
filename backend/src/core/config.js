@@ -14,6 +14,17 @@ const envSchema = z.object({
   TRUST_PROXY: z
     .union([z.string(), z.undefined()])
     .transform((s) => typeof s === 'string' && /^(1|true|yes)$/i.test(s.trim())),
+  /**
+   * Inscription publique `POST /auth/register`.
+   * `false` / `0` / `no` / `off` (insensible à la casse) → fermé. Absent ou autre → ouvert.
+   * Les flux code association (`check-code` / `activate`) restent disponibles.
+   */
+  REGISTER_OPEN: z
+    .union([z.string(), z.undefined()])
+    .transform((s) => {
+      if (typeof s !== 'string' || !s.trim()) return true
+      return !/^(0|false|no|off)$/i.test(s.trim())
+    }),
 })
 
 const parsed = envSchema.safeParse(process.env)

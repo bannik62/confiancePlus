@@ -15,7 +15,11 @@ const pathBase = (path) => path.split('?')[0]
 const shouldDispatchSessionExpiredOn401 = (method, path) => {
   const base = pathBase(path)
   if (method === 'GET' && base === '/checkin/today') return false
-  if (method === 'POST' && ['/auth/login', '/auth/register', '/auth/activate'].includes(base))
+  if (method === 'GET' && base === '/auth/register-status') return false
+  if (
+    method === 'POST' &&
+    ['/auth/login', '/auth/register', '/auth/activate', '/auth/check-code'].includes(base)
+  )
     return false
   return true
 }

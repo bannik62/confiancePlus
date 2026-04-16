@@ -17,6 +17,9 @@ services:
   backend:
     build: ./backend
     env_file: .env
+    # Docker / reverse-proxy ajoutent souvent X-Forwarded-For ; Express doit faire confiance au 1er proxy (rate-limit + req.ip).
+    environment:
+      TRUST_PROXY: "1"
     ports:
       - "3000:3000"
     depends_on:

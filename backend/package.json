@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev":        "prisma generate && node --watch src/server.js",
-    "start":      "node src/server.js",
+    "dev": "prisma generate && node --watch-path=src --watch src/server.js",
+    "start": "node src/server.js",
     "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
-    "db:push":    "dotenv -e ../.env -- prisma db push",
-    "db:seed":    "dotenv -e ../.env -- prisma db seed",
-    "db:studio":  "dotenv -e ../.env -- prisma studio"
+    "db:push": "dotenv -e ../.env -- prisma db push",
+    "db:seed": "dotenv -e ../.env -- prisma db seed",
+    "db:studio": "dotenv -e ../.env -- prisma studio"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -21,6 +21,8 @@
   // ── States UI ──────────────────────────────────────────────────────────────
   let error    = ''
   let loading  = false
+  /** Inscription libre `POST /auth/register` (flux « Code asso » reste actif si fermé). */
+  let registerOpen = true
 
   // Étape du flux code association : 'enter-code' | 'set-password'
   let codeStep     = 'enter-code'
@@ -59,13 +61,23 @@
     }
   })
 
-  const switchTab = (t) => {
+  const refreshRegisterStatus = async () => {
+    try {
+      const r = await authApi.getRegisterStatus()
+      registerOpen = r?.registerOpen !== false
+    } catch {
+      registerOpen = true
+    }
+  }
+
+  const switchTab = async (t) => {
     tab = t
     error = ''
     codeStep = 'enter-code'
     pendingUser = null
     activateModel = new UserActivate()
     profileModel = new UserCompleteProfile()
+    if (t === 'register') await refreshRegisterStatus()
   }
 
   const finishAuth = (user) => {
@@ -93,6 +105,7 @@
 
   // ── Handlers Register ──────────────────────────────────────────────────────
   const handleRegister = async () => {
+    if (!registerOpen) return
     registerModel = registerModel
     if (!registerModel.validate()) return
 
@@ -159,9 +172,9 @@
 
     <!-- ── Onglets ─────────────────────────────────────────────────────── -->
     <div class="tabs">
-      <button class:active={tab === 'login'}    on:click={() => switchTab('login')}>Connexion</button>
-      <button class:active={tab === 'register'} on:click={() => switchTab('register')}>S'inscrire</button>
-      <button class:active={tab === 'code'}     on:click={() => switchTab('code')}>Code asso</button>
+      <button class:active={tab === 'login'}    on:click={() => void switchTab('login')}>Connexion</button>
+      <button class:active={tab === 'register'} on:click={() => void switchTab('register')}>S'inscrire</button>
+      <button class:active={tab === 'code'}     on:click={() => void switchTab('code')}>Code asso</button>
     </div>
 
     {#if error}
@@ -264,7 +277,13 @@
     <!-- Onglet REGISTER -->
     <!-- ════════════════════════════════════════════════════════════════════ -->
     {:else if tab === 'register'}
+      {#if !registerOpen}
+        <p class="hint register-closed">
+          Les inscriptions libres sont fermées pour l’instant. Utilise l’onglet « Code asso » si tu as reçu un code, ou connecte-toi.
+        </p>
+      {/if}
       <form on:submit|preventDefault={handleRegister}>
+        <fieldset class="register-fields" disabled={!registerOpen}>
 
         <!-- Contexte -->
         <fieldset class="context-picker">
@@ -370,9 +389,10 @@
           </label>
         {/if}
 
-        <button type="submit" class="btn-primary" disabled={loading}>
+        <button type="submit" class="btn-primary" disabled={loading || !registerOpen}>
           {loading ? 'Inscription…' : 'Créer mon compte'}
         </button>
+        </fieldset>
       </form>
 
     <!-- ════════════════════════════════════════════════════════════════════ -->
@@ -603,6 +623,17 @@
 
   /* Hint */
   .hint { color: var(--muted); font-size: .85rem; text-align: center; }
+  .register-closed {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .register-fields:disabled {
+    opacity: 0.55;
+    pointer-events: none;
+  }
 
   /* Bienvenue asso */
   .welcome-banner {
