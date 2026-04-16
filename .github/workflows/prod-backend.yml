@@ -27,19 +27,20 @@ jobs:
             sudo chmod -R g+rwX "$DEP"
 
       - name: Copy backend to VPS (scp)
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
           port: ${{ secrets.PORT }}
-          source: "backend/**"
+          source: "backend"
           target: "${{ secrets.DEPLOY_PATH }}/backend"
           strip_components: 1
+          tar_exec: /bin/tar
           rm: false
 
       - name: Copy docker-compose.prod.yml to VPS (scp)
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.PROD_SERVER_USER }}
@@ -47,6 +48,7 @@ jobs:
           port: ${{ secrets.PORT }}
           source: "docker-compose.prod.yml"
           target: "${{ secrets.DEPLOY_PATH }}"
+          tar_exec: /bin/tar
           rm: false
 
       - name: Rebuild and restart backend

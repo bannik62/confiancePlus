@@ -36,13 +36,14 @@ jobs:
             sudo chmod -R g+rwX "$DEP"
 
       - name: Copy frontend dist to VPS (scp)
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
           port: ${{ secrets.PORT }}
-          source: "frontend/dist/**"
+          source: "frontend/dist"
           target: "${{ secrets.DEPLOY_PATH }}/frontend"
           strip_components: 2
+          tar_exec: /bin/tar
           rm: false
