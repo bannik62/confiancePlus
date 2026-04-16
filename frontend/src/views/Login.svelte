@@ -167,7 +167,7 @@
 
     <div class="brand">
       <span class="logo">★</span>
-      <h1>Confiance<span class="plus">+</span></h1>
+      <h1>Habi<span class="plus">Tracks</span></h1>
     </div>
 
     <!-- ── Onglets ─────────────────────────────────────────────────────── -->
