@@ -24,12 +24,12 @@ jobs:
       - name: Ensure target dir exists
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST_HABITTRACKS }}
-          username: ${{ secrets.PROD_SERVER_USER_HABITTRACKS }}
-          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKS }}
-          port: 2222
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
           script: |
-            DEP="${{ secrets.DEPLOY_PATH_HABITTRACKS }}"
+            DEP="${{ secrets.DEPLOY_PATH }}"
             sudo mkdir -p "$DEP/frontend" "$DEP/backend"
             sudo chown -R "$(whoami):www-data" "$DEP"
             sudo find "$DEP" -type d -exec chmod g+s {} \;
@@ -38,11 +38,11 @@ jobs:
       - name: Copy frontend dist to VPS (scp)
         uses: appleboy/scp-action@v0.1.6
         with:
-          host: ${{ secrets.VPS_HOST_HABITTRACKS }}
-          username: ${{ secrets.PROD_SERVER_USER_HABITTRACKS }}
-          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKS }}
-          port: 2222
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
           source: "frontend/dist/**"
-          target: "${{ secrets.DEPLOY_PATH_HABITTRACKS }}/frontend"
+          target: "${{ secrets.DEPLOY_PATH }}/frontend"
           strip_components: 2
           rm: false
