@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: habitracks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -35,15 +35,20 @@ jobs:
             sudo find "$DEP" -type d -exec chmod g+s {} \;
             sudo chmod -R g+rwX "$DEP"
 
-      - name: Copy frontend dist to VPS (scp)
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.PROD_SERVER_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
-          port: ${{ secrets.PORT }}
-          source: "frontend/dist"
-          target: "${{ secrets.DEPLOY_PATH }}/frontend"
-          strip_components: 2
-          tar_exec: /bin/tar
-          rm: false
+      - name: Copy frontend dist to VPS (rsync)
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.PROD_SERVER_USER }}
+          VPS_PORT: ${{ secrets.PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          DEP="$(printf '%s' "$DEPLOY_PATH" | tr -d '\r\n')"
+          test -n "$DEP"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/habitracks_deploy
+          chmod 600 ~/.ssh/habitracks_deploy
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          export RSYNC_RSH="ssh -i $HOME/.ssh/habitracks_deploy -p $VPS_PORT -o StrictHostKeyChecking=accept-new"
+          rsync -avz --delete frontend/dist/ "${VPS_USER}@${VPS_HOST}:${DEP}/frontend/"
