@@ -3,7 +3,7 @@
   import { authStore } from '../stores/auth.js'
   import {
     groups, activeGroup, groupLeaderboard, globalLeaderboard,
-    myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard,
+    myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard, loadGroups,
   } from '../stores/group.js'
   import { groupApi } from '../api/group.js'
   import Tag  from '../components/ui/Tag.svelte'
@@ -21,6 +21,7 @@
   let memberCodePanelOpen = true // réduire = cache l’UI seulement, pas le stockage
   let lastPanelGroupId    = null
   let showJoinForm = false
+  let sharingSaving = false
 
   const memberCodeKey = (userId, groupId) =>
     `habitTracker:assocMemberCode:${userId}:${groupId}`
@@ -87,6 +88,23 @@
   const switchGroup = async (g) => {
     activeGroup.set(g)
     await loadGroupLeaderboard(g.id)
+  }
+
+  const setSensitiveSharing = async (checked) => {
+    if (!$activeGroup?.id) return
+    sharingSaving = true
+    error = ''
+    try {
+      await groupApi.patchSensitiveSharing($activeGroup.id, {
+        shareSensitiveCheckinWithOwner: checked,
+      })
+      await loadGroups()
+      if ($activeGroup?.id) await loadGroupLeaderboard($activeGroup.id)
+    } catch (e) {
+      error = e.message
+    } finally {
+      sharingSaving = false
+    }
   }
 </script>
 
@@ -164,6 +182,30 @@
         </div>
       {/if}
     </div>
+
+    {#if $myRole === 'MEMBER' && $activeGroup?.type === 'ASSOCIATION'}
+      <Card style="margin-bottom:14px;border-left:3px solid var(--accent)">
+        <div class="micro" style="color:var(--accent);margin-bottom:6px">TRANSPARENCE — VUE ÉDUCATEUR</div>
+        <p class="consent-copy">
+          Le <strong>responsable</strong> de cette association peut consulter ton <strong>classement</strong>,
+          tes <strong>habitudes</strong> cochées et des <strong>statistiques agrégées</strong> pour t’accompagner.
+          Par défaut, l’<strong>humeur</strong>, la <strong>phrase mémorable</strong> (motif) et le
+          <strong>journal</strong> du check-in <strong>ne sont pas</strong> partagés.
+        </p>
+        <label class="share-row">
+          <input
+            type="checkbox"
+            checked={$activeGroup?.shareSensitiveCheckinWithOwner === true}
+            disabled={sharingSaving}
+            on:change={(e) => setSensitiveSharing(e.currentTarget.checked)}
+          />
+          <span>
+            J’autorise le responsable du groupe à voir aussi mon <strong>humeur</strong>, la phrase liée et mon
+            <strong>journal</strong> du check-in (révocable à tout moment).
+          </span>
+        </label>
+      </Card>
+    {/if}
 
     <!-- ── Leaderboard groupe ─────────────────────────────────────────── -->
     <div class="board">
@@ -281,6 +323,10 @@
   }
   .row-member.top { border-color: var(--gold)66; box-shadow: 0 0 14px var(--gold)44; }
   .row-member.me  { border-color: var(--accent)99; box-shadow: 0 0 10px var(--accent)44; }
+  .row-member.top.me {
+    border-color: color-mix(in srgb, var(--gold) 70%, #f59e0b 30%);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 50%, transparent);
+  }
 
   .medal { font-size: 14px; color: var(--muted); font-weight: 900; width: 24px; text-align: center; }
   .top .medal { color: var(--gold); }
@@ -414,4 +460,31 @@
   .error   { color: var(--red); font-size: .85rem; margin-bottom: 8px; }
   .loading { color: var(--muted); text-align: center; padding: 40px 0; }
   .section-label { margin-bottom: 12px; }
+
+  .consent-copy {
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 0 0 12px;
+  }
+  .share-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .share-row input {
+    flex: 0 0 auto;
+    margin-top: 3px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+  .share-row input:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
 </style>

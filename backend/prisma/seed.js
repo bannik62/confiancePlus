@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import { DEFAULT_HABITS } from '../src/core/defaultHabitsData.js'
+import { seedMotivationalPhrasesFromRepoJson } from '../src/modules/admin/admin.service.js'
 
 const db   = new PrismaClient()
 const SALT = 12
@@ -35,6 +36,22 @@ async function main() {
   })
   await seedHabits(solo.id, 'solo')
   console.log('  ✅ User solo       → solo@demo.dev / demo1234')
+
+  // ── 1b. Admin (hors parcours app) ───────────────────────────────────────
+  const adminPass = process.env.ADMIN_SEED_PASSWORD || 'demo1234'
+  await db.user.upsert({
+    where:  { username: 'AdminDemo' },
+    update: { isAdmin: true },
+    create: {
+      email:        'admin@demo.dev',
+      username:     'AdminDemo',
+      passwordHash: await hash(adminPass),
+      avatar:       '⚙️',
+      isPending:    false,
+      isAdmin:      true,
+    },
+  })
+  console.log('  ✅ Admin           → admin@demo.dev / (ADMIN_SEED_PASSWORD ou demo1234)')
 
   // ── 2. Éducateur ──────────────────────────────────────────────────────────
   const educator = await db.user.upsert({
@@ -91,9 +108,14 @@ async function main() {
 
   console.log('  ✅ Groupe          → "Association Démo" (code: DEMO-ASSO-2024)')
 
+  const phrasesRes = await seedMotivationalPhrasesFromRepoJson()
+  if (phrasesRes.ok) console.log('  ✅ Phrases du jour → import JSON → BDD')
+  else console.log('  ⚠️  Phrases du jour —', phrasesRes.message)
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('  Comptes de démo disponibles :')
   console.log('  solo@demo.dev        → user seul')
+  console.log('  admin@demo.dev       → administration (hors app)')
   console.log('  educateur@demo.dev   → éducateur (gère l\'asso)')
   console.log('  membre@demo.dev      → membre de l\'asso')
   console.log('  Mot de passe commun : demo1234')

@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto'
 import { db } from '../../core/db.js'
 import { normalizeEmail } from '../../core/emailUtil.js'
 import { levelFromXP, titleForLevel, computeStreak } from '../../core/xpEngine.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
@@ -35,6 +36,8 @@ const generateUniqueUsernameFromEmail = async (normalizedEmail) => {
 }
 
 export const createGroup = async (userId, { name, type = 'FRIENDS' }) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de groupe dans l’app.' }
   const group = await db.group.create({ data: { name, type } })
   // Le créateur devient automatiquement OWNER
   await db.groupMember.create({ data: { userId, groupId: group.id, role: 'OWNER' } })
@@ -42,6 +45,8 @@ export const createGroup = async (userId, { name, type = 'FRIENDS' }) => {
 }
 
 export const joinGroup = async (userId, { inviteCode }) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas d’adhésion groupe dans l’app.' }
   const group = await db.group.findUnique({ where: { inviteCode } })
   if (!group) throw { status: 404, message: 'Groupe introuvable' }
 
@@ -93,7 +98,10 @@ export const getMyGroups = async (userId) => {
     where:   { members: { some: { userId } } },
     include: {
       _count:  { select: { members: true } },
-      members: { where: { userId }, select: { role: true } },
+      members: {
+        where: { userId },
+        select: { role: true, shareSensitiveCheckinWithOwner: true },
+      },
     },
   })
   // Aplatir : role pour le front ; inviteCode uniquement pour OWNER (pas pour MEMBER)
@@ -102,9 +110,30 @@ export const getMyGroups = async (userId) => {
     return {
       ...rest,
       role,
+      shareSensitiveCheckinWithOwner: members[0]?.shareSensitiveCheckinWithOwner ?? false,
       ...(role === 'OWNER' ? { inviteCode } : {}),
     }
   })
+}
+
+/** Membre d’une association : met à jour le consentement de partage avec l’éducateur (OWNER). */
+export const updateSensitiveSharing = async (userId, groupId, shareSensitiveCheckinWithOwner) => {
+  const group = await db.group.findUnique({ where: { id: groupId }, select: { type: true } })
+  if (!group) throw { status: 404, message: 'Groupe introuvable' }
+  if (group.type !== 'ASSOCIATION')
+    throw { status: 403, message: 'Ce réglage n’existe que pour les groupes association' }
+
+  const m = await db.groupMember.findUnique({
+    where: { userId_groupId: { userId, groupId } },
+  })
+  if (!m || m.role !== 'MEMBER')
+    throw { status: 403, message: 'Seuls les membres peuvent modifier ce consentement' }
+
+  await db.groupMember.update({
+    where: { userId_groupId: { userId, groupId } },
+    data: { shareSensitiveCheckinWithOwner },
+  })
+  return { shareSensitiveCheckinWithOwner }
 }
 
 // Éducateur (OWNER d’un groupe ASSOCIATION) crée un invité pending (e-mail + code)

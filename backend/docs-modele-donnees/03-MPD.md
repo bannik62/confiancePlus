@@ -52,7 +52,18 @@ Les identifiants `@default(cuid())` sont des **chaînes** côté PostgreSQL.
 - **UNIQUE** : `User.email`, `User.username`, `User.activationCode`, `Group.inviteCode`, `HabitLog(habitId, date)`, `DailyLog(userId, date)`.
 - **FK + ON DELETE CASCADE** : toutes les relations Prisma `onDelete: Cascade` sur `GroupMember`, `Habit`, `HabitLog`, `DailyLog`.
 
-*(Pas d’index secondaires explicites dans le schéma Prisma actuel — le moteur utilise les index PK/UNIQUE.)*
+### Index secondaires (perf requêtes)
+
+Migration **`20260415120000_add_query_indexes`** :
+
+| Index | Table | Colonne(s) | Intérêt |
+|-------|--------|------------|---------|
+| `Habit_userId_idx` | `Habit` | `userId` | Liste / filtres habitudes par utilisateur |
+| `HabitLog_userId_idx` | `HabitLog` | `userId` | Agrégations / historique par user sans partir de `habitId` seul |
+| `DailyLog_userId_idx` | `DailyLog` | `userId` | Filtres par user (partiellement redondant avec l’UNIQUE `(userId, date)` — acceptable) |
+| `GroupMember_groupId_idx` | `GroupMember` | `groupId` | Membres d’un groupe (la PK composite commence par `userId`) |
+
+Déclarés dans `prisma/schema.prisma` via `@@index([...])`.
 
 ---
 

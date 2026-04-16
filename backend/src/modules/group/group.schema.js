@@ -14,3 +14,7 @@ export const joinGroupSchema = z.object({
 export const createMemberSchema = z.object({
   email: z.string().email().transform((v) => normalizeEmail(v)),
 })
+
+export const sensitiveSharingSchema = z.object({
+  shareSensitiveCheckinWithOwner: z.boolean(),
+})

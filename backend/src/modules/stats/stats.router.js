@@ -6,7 +6,11 @@ const router = Router()
 router.use(requireAuth)
 
 router.get('/me',      async (req, res, next) => {
-  try { res.json(await service.getMyStats(req.user.id)) }
+  try {
+    const clientToday =
+      typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
+    res.json(await service.getMyStats(req.user.id, { clientToday }))
+  }
   catch (e) { next(e) }
 })
 

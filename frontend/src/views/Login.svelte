@@ -1,8 +1,10 @@
 <script>
+  import { onMount } from 'svelte'
   import { authApi } from '../api/auth.js'
   import { setAuth } from '../stores/auth.js'
+  import { rememberPostLoginActiveGroup } from '../stores/group.js'
   import { tab as navTab } from '../stores/tab.js'
-  import { UserLogin }           from '../models/UserLogin.js'
+  import { UserLogin, LOGIN_MODE } from '../models/UserLogin.js'
   import { UserRegister, REGISTER_CONTEXT } from '../models/UserRegister.js'
   import { UserActivate }        from '../models/UserActivate.js'
   import { UserCompleteProfile } from '../models/UserCompleteProfile.js'
@@ -44,6 +46,19 @@
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  onMount(() => {
+    try {
+      const raw = sessionStorage.getItem('authNotice')
+      if (!raw) return
+      sessionStorage.removeItem('authNotice')
+      const o = JSON.parse(raw)
+      if (o?.type === 'suspended' && typeof o.message === 'string' && o.message.length)
+        error = o.message
+    } catch {
+      /* ignore */
+    }
+  })
+
   const switchTab = (t) => {
     tab = t
     error = ''
@@ -66,8 +81,9 @@
     loading = true
     error   = ''
     try {
-      const { user } = await authApi.login(loginModel.toPayload())
-      finishAuth(user)
+      const res = await authApi.login(loginModel.toPayload())
+      if (res.matchedGroupId) rememberPostLoginActiveGroup(res.matchedGroupId)
+      finishAuth(res.user)
     } catch (e) {
       error = e.message ?? 'Erreur de connexion'
     } finally {
@@ -157,6 +173,66 @@
     <!-- ════════════════════════════════════════════════════════════════════ -->
     {#if tab === 'login'}
       <form on:submit|preventDefault={handleLogin}>
+        <fieldset class="context-picker">
+          <legend>Je me connecte pour…</legend>
+          <label class="radio">
+            <input
+              type="radio"
+              name="loginMode"
+              value={LOGIN_MODE.SOLO}
+              checked={loginModel.loginMode === LOGIN_MODE.SOLO}
+              on:change={() => {
+                loginModel.loginMode = LOGIN_MODE.SOLO
+                loginModel = loginModel
+              }}
+            />
+            Mon suivi perso (habitudes & check-in)
+          </label>
+          <label class="radio">
+            <input
+              type="radio"
+              name="loginMode"
+              value={LOGIN_MODE.EDUCATOR}
+              checked={loginModel.loginMode === LOGIN_MODE.EDUCATOR}
+              on:change={() => {
+                loginModel.loginMode = LOGIN_MODE.EDUCATOR
+                loginModel = loginModel
+              }}
+            />
+            Gérer mon association (éducateur)
+          </label>
+          <label class="radio">
+            <input
+              type="radio"
+              name="loginMode"
+              value={LOGIN_MODE.FRIENDS}
+              checked={loginModel.loginMode === LOGIN_MODE.FRIENDS}
+              on:change={() => {
+                loginModel.loginMode = LOGIN_MODE.FRIENDS
+                loginModel = loginModel
+              }}
+            />
+            Accéder à un groupe (code d’invitation)
+          </label>
+        </fieldset>
+
+        {#if loginModel.loginMode === LOGIN_MODE.FRIENDS}
+          <label>
+            Code d’invitation du groupe
+            <input
+              type="text"
+              value={loginModel.inviteCode}
+              on:input={(ev) => {
+                loginModel.inviteCode = ev.currentTarget.value
+                loginModel = loginModel
+              }}
+              placeholder="ex. code copié depuis l’invite"
+              autocomplete="off"
+            />
+            {#if loginModel.errors.inviteCode}<span class="field-error">{loginModel.errors.inviteCode}</span>{/if}
+          </label>
+        {/if}
+
         <label>
           Email
           <input

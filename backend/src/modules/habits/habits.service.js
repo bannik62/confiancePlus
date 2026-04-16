@@ -1,11 +1,17 @@
 import { db } from '../../core/db.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 const forbidEducatorHabitMutations = async (userId) => {
   if (await userIsAssociationOwner(userId))
     throw {
       status: 403,
       message: 'Compte éducateur association : pas d’habitudes personnelles sur ce profil. Utilise un autre compte pour ton suivi perso.',
+    }
+  if (await userIsAppAdmin(userId))
+    throw {
+      status: 403,
+      message: 'Compte administrateur : pas d’habitudes dans l’app.',
     }
 }
 
@@ -23,7 +29,7 @@ const dateFromYMD = (ymd) => {
 
 /** @param {string} [dateStr] — YYYY-MM-DD côté client ; sinon jour UTC serveur */
 export const getHabits = async (userId, dateStr) => {
-  if (await userIsAssociationOwner(userId)) return []
+  if (await userIsAssociationOwner(userId) || (await userIsAppAdmin(userId))) return []
   const day =
     dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateFromYMD(dateStr) : utcCalendarDate()
   return db.habit.findMany({

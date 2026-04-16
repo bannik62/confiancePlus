@@ -1,5 +1,6 @@
 import { db } from '../../core/db.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 const todayDateUtc = () => new Date(new Date().toISOString().slice(0, 10))
 
@@ -22,6 +23,11 @@ export const upsertDailyLog = async (userId, { date: dateStr, ...data }) => {
     throw {
       status: 403,
       message: 'Compte éducateur association : pas de check-in / journal personnel sur ce profil.',
+    }
+  if (await userIsAppAdmin(userId))
+    throw {
+      status: 403,
+      message: 'Compte administrateur : pas de check-in dans l’app.',
     }
   const date = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
     ? dateFromYMD(dateStr)

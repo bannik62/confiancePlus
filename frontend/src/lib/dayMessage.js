@@ -1,5 +1,12 @@
 import data from '../data/dayMessages.json'
 
+/** Données API `/api/content/day-messages` (même forme que le JSON local) ; `null` = fallback fichier. */
+let remote = null
+
+export const setRemoteDayMessages = (payload) => {
+  remote = payload && typeof payload === 'object' ? payload : null
+}
+
 /** 1–3 encouragement, 4–7 maintien, 8–10 félicitation */
 export const categoryForMood = (mood) => {
   const m = Number(mood)
@@ -8,7 +15,11 @@ export const categoryForMood = (mood) => {
   return 'felicitation'
 }
 
-const phrasesFor = (cat) => data[cat]?.phrases ?? []
+const phrasesFor = (cat) => {
+  const fromApi = remote?.[cat]?.phrases
+  if (Array.isArray(fromApi) && fromApi.length > 0) return fromApi
+  return data[cat]?.phrases ?? []
+}
 
 /** Tirage aléatoire dans la catégorie */
 export const randomPhraseForMood = (mood) => {

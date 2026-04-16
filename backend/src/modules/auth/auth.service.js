@@ -11,6 +11,12 @@ const safeUser = (user) => {
   return rest
 }
 
+const tokenPayload = (user) => ({
+  id: user.id,
+  username: user.username,
+  isAdmin: user.isAdmin === true,
+})
+
 // ── Register (compte autonome) ────────────────────────────────────────────────
 
 export const register = async ({ email, username, password, avatar, group, inviteCode }) => {
@@ -53,12 +59,64 @@ export const register = async ({ email, username, password, avatar, group, invit
     })
   }
 
-  return { user: safeUser(user), token: signToken({ id: user.id, username: user.username }) }
+  const withLogin = await db.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  })
+  return { user: safeUser(withLogin), token: signToken(tokenPayload(withLogin)) }
 }
 
 // ── Login (compte autonome) ───────────────────────────────────────────────────
 
-export const login = async ({ email, password }) => {
+const assertLoginMode = async (userId, loginMode, inviteCode) => {
+  const isOwner = await userIsAssociationOwner(userId)
+
+  if (loginMode === 'SOLO') {
+    if (isOwner)
+      throw {
+        status: 403,
+        message:
+          'Ce compte est celui d’un responsable associatif : le suivi perso (habitudes / check-in) n’est pas disponible ici. Utilise un autre e-mail pour ton suivi perso, ou connecte-toi en mode « Éducateur association ».',
+      }
+    return { matchedGroupId: undefined }
+  }
+
+  if (loginMode === 'EDUCATOR') {
+    if (!isOwner)
+      throw {
+        status: 403,
+        message:
+          'Ce compte n’est pas celui d’un responsable associatif. Choisis « Suivi perso » ou « Groupe avec code » selon ton cas.',
+      }
+    return { matchedGroupId: undefined }
+  }
+
+  // FRIENDS — inviteCode déjà validé non vide par le schéma
+  const group = await db.group.findUnique({
+    where:   { inviteCode },
+    select:  { id: true },
+  })
+  if (!group)
+    throw {
+      status: 403,
+      message: 'Aucun groupe ne correspond à ce code d’invitation.',
+    }
+
+  const member = await db.groupMember.findUnique({
+    where: { userId_groupId: { userId, groupId: group.id } },
+    select: { userId: true },
+  })
+  if (!member)
+    throw {
+      status: 403,
+      message:
+        'Ce compte n’est pas membre du groupe lié à ce code. Vérifie le code ou choisis un autre mode de connexion.',
+    }
+
+  return { matchedGroupId: group.id }
+}
+
+export const login = async ({ email, password, loginMode, inviteCode }) => {
   const user = await db.user.findUnique({ where: { email: normalizeEmail(email) } })
   if (!user || !user.passwordHash)
     throw { status: 401, message: 'Identifiants invalides' }
@@ -66,15 +124,33 @@ export const login = async ({ email, password }) => {
   if (user.isPending)
     throw { status: 403, message: 'Compte non activé — utilise ton code association' }
 
+  if (user.isSuspended)
+    throw { status: 403, message: 'Compte suspendu — contacte le support.', code: 'SUSPENDED' }
+
   const valid = await verifyPassword(password, user.passwordHash)
   if (!valid) throw { status: 401, message: 'Identifiants invalides' }
 
-  // Comptes sans habitudes → pack par défaut, sauf éducateur association (pas d’habitudes perso)
-  const habitCount = await db.habit.count({ where: { userId: user.id, isActive: true } })
-  if (habitCount === 0 && !(await userIsAssociationOwner(user.id)))
-    await createDefaultHabitsForUser(user.id)
+  const { matchedGroupId } = await assertLoginMode(user.id, loginMode, inviteCode)
 
-  return { user: safeUser(user), token: signToken({ id: user.id, username: user.username }) }
+  const refreshed = await db.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  })
+
+  // Comptes sans habitudes → pack par défaut, sauf éducateur association / admin (hors parcours perso)
+  const habitCount = await db.habit.count({ where: { userId: refreshed.id, isActive: true } })
+  if (
+    habitCount === 0 &&
+    !(await userIsAssociationOwner(refreshed.id)) &&
+    !refreshed.isAdmin
+  )
+    await createDefaultHabitsForUser(refreshed.id)
+
+  return {
+    user:             safeUser(refreshed),
+    token:            signToken(tokenPayload(refreshed)),
+    ...(matchedGroupId ? { matchedGroupId } : {}),
+  }
 }
 
 // ── Check code association ────────────────────────────────────────────────────
@@ -128,13 +204,14 @@ export const activate = async ({ code, email, password, username, avatar }) => {
       activationCode: null,
       username,
       avatar:         avatar ?? '🦊',
+      lastLoginAt:    new Date(),
     },
   })
 
   const habitCount = await db.habit.count({ where: { userId: updated.id, isActive: true } })
   if (habitCount === 0) await createDefaultHabitsForUser(updated.id)
 
-  return { user: safeUser(updated), token: signToken({ id: updated.id, username: updated.username }) }
+  return { user: safeUser(updated), token: signToken(tokenPayload(updated)) }
 }
 
 // ── Me ────────────────────────────────────────────────────────────────────────
@@ -142,7 +219,17 @@ export const activate = async ({ code, email, password, username, avatar }) => {
 export const me = async (userId) => {
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, email: true, username: true, avatar: true, isPending: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      avatar: true,
+      isPending: true,
+      isAdmin: true,
+      isSuspended: true,
+      createdAt: true,
+      lastLoginAt: true,
+    },
   })
   return user
 }

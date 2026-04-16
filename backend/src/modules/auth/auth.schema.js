@@ -23,10 +23,25 @@ export const registerSchema = z.object({
   inviteCode: z.string().optional(),
 })
 
-export const loginSchema = z.object({
-  email:    z.string().email().transform((v) => normalizeEmail(v)),
-  password: z.string().min(1),
-})
+export const loginSchema = z
+  .object({
+    email: z.string().email().transform((v) => normalizeEmail(v)),
+    password: z.string().min(1),
+    loginMode: z.enum(['SOLO', 'EDUCATOR', 'FRIENDS']),
+    inviteCode: z
+      .string()
+      .optional()
+      .transform((v) => (typeof v === 'string' ? v.trim() : '')),
+  })
+  .superRefine((data, ctx) => {
+    if (data.loginMode === 'FRIENDS' && !data.inviteCode) {
+      ctx.addIssue({
+        code:    z.ZodIssueCode.custom,
+        message: "Code d'invitation requis pour ce mode de connexion",
+        path:    ['inviteCode'],
+      })
+    }
+  })
 
 export const checkCodeSchema = z.object({
   code: z.string()

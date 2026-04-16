@@ -1,7 +1,11 @@
 import { api } from './client.js'
+import { localDateString } from '../lib/dateLocal.js'
 
 export const statsApi = {
-  getMyStats:          () => api.get('/stats/me'),
+  getMyStats: () => {
+    const q = new URLSearchParams({ clientToday: localDateString() })
+    return api.get(`/stats/me?${q}`)
+  },
   getEducatorOverview: () => api.get('/stats/educator-overview'),
   getMyProfile:        () => api.get('/stats/profile'),
   globalLeaderboard:   () => api.get('/stats/leaderboard'),

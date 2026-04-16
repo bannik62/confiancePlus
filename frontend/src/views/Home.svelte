@@ -15,7 +15,9 @@
     loadGroupData,
     groupLeaderboard,
     hasGroup,
+    educatorAssociationGroupId,
   } from '../stores/group.js'
+  import EducatorMemberFollowupModal from '../components/educator/EducatorMemberFollowupModal.svelte'
   import { tab } from '../stores/tab.js'
 
   const coerceSleep = (sq) =>
@@ -38,6 +40,8 @@
   let showAddHabitModal = false
   /** Habitude perso en cours d’édition (origin USER) */
   let editHabit = null
+  /** Suivi éducateur : membre sélectionné depuis l’aperçu classement */
+  let followMember = null
 
   const pullDraftFromServer = () => {
     const log = get(dailyLog)
@@ -211,14 +215,24 @@
   </button>
   {#if $hasGroup && $groupLeaderboard.length > 0}
     <p class="micro muted edu-section-label">Aperçu du classement</p>
+    <p class="hint-edu muted" style="margin-top:-4px;margin-bottom:10px;font-size:0.82rem">
+      Touche une ligne pour ouvrir le suivi détaillé (habitudes, stats, calendrier — données sensibles selon le consentement de l’élève).
+    </p>
     <div class="edu-board">
       {#each $groupLeaderboard.slice(0, 10) as m, i}
-        <div class="edu-row">
+        <button
+          type="button"
+          class="edu-row"
+          disabled={!$educatorAssociationGroupId}
+          on:click={() => {
+            followMember = { id: m.id, username: m.username }
+          }}
+        >
           <span class="edu-rank">#{i + 1}</span>
           <span class="edu-ava">{m.avatar}</span>
           <span class="edu-name">{m.username}</span>
           <span class="edu-xp">{m.totalXP.toLocaleString()} XP</span>
-        </div>
+        </button>
       {/each}
     </div>
   {:else if !$hasGroup}
@@ -541,6 +555,20 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .edu-row:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .edu-row:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
   .edu-rank {
     font-family: 'Rajdhani', sans-serif;
@@ -569,4 +597,12 @@
 {/if}
 {#if !$isEducatorAssociation && editHabit}
   <EditHabitModal habit={editHabit} on:saved={handleHabitEditSaved} on:close={() => (editHabit = null)} />
+{/if}
+
+{#if $isEducatorAssociation && followMember && $educatorAssociationGroupId}
+  <EducatorMemberFollowupModal
+    groupId={$educatorAssociationGroupId}
+    member={followMember}
+    on:close={() => (followMember = null)}
+  />
 {/if}

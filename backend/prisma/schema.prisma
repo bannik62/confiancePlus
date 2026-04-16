@@ -18,6 +18,10 @@ model User {
   avatar         String   @default("🦊")
   isPending      Boolean  @default(false)  // true = créé par éducateur, pas encore activé
   activationCode String?  @unique          // code 6 chars, null après activation
+  // Compte opérateur (hors parcours élève / éducateur dans l’app)
+  isAdmin        Boolean  @default(false)
+  isSuspended    Boolean  @default(false) // blocage connexion + API (hors déconnexion)
+  lastLoginAt    DateTime? // dernière session (login / register / activation)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -25,6 +29,30 @@ model User {
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
   memberships GroupMember[]
+}
+
+// Phrases « message du jour » (Home) — éditables depuis le back-office admin
+model MotivationalPhrase {
+  id        String   @id @default(cuid())
+  category  String   // encouragement | maintien | felicitation
+  text      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([category, sortOrder])
+}
+
+// Actions admin (support / conformité) — pas de FK pour conserver l’historique si un user est supprimé
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  targetId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ── GROUPS ─────────────────────────────────────────────────────────────────────
@@ -53,12 +81,15 @@ model GroupMember {
   userId   String
   groupId  String
   role     GroupRole @default(MEMBER)
+  // Membre ASSO : consentement pour partager humeur, phrase mémorable, journal avec l’éducateur.
+  shareSensitiveCheckinWithOwner Boolean @default(false)
   joinedAt DateTime  @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([userId, groupId])
+  @@index([groupId])
 }
 
 // ── HABITS ─────────────────────────────────────────────────────────────────────
@@ -81,6 +112,8 @@ model Habit {
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs HabitLog[]
+
+  @@index([userId])
 }
 
 model HabitLog {
@@ -94,6 +127,7 @@ model HabitLog {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, date])
+  @@index([userId])
 }
 
 // ── DAILY LOG ──────────────────────────────────────────────────────────────────
@@ -112,4 +146,5 @@ model DailyLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
+  @@index([userId])
 }

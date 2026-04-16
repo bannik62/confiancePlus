@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev":        "node --watch src/server.js",
+    "dev":        "prisma generate && node --watch src/server.js",
     "start":      "node src/server.js",
     "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
     "db:push":    "dotenv -e ../.env -- prisma db push",

@@ -11,12 +11,14 @@
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
    */
   import { onMount, tick } from 'svelte'
-  import { authStore, checkSession } from './stores/auth.js'
+  import { get } from 'svelte/store'
+  import { authStore, checkSession, clearAuth, isAppAdmin } from './stores/auth.js'
   import { tab }      from './stores/tab.js'
   import { loadToday, loadTodayResilient, resetDailyLog } from './stores/checkin.js'
   import { loadProfile, resetProfile } from './stores/profile.js'
   import { loadGroups, resetGroupState, isAssociationOwner, isEducatorAssociation } from './stores/group.js'
-  import { resetDayMessageCache } from './lib/dayMessage.js'
+  import { resetDayMessageCache, setRemoteDayMessages } from './lib/dayMessage.js'
+  import { loadDayMessagesPublic } from './api/content.js'
   import { hasMoodForToday } from './lib/checkinState.js'
 
   import Login   from './views/Login.svelte'
@@ -25,6 +27,7 @@
   import Groupe  from './views/Groupe.svelte'
   import Stats   from './views/Stats.svelte'
   import Profil  from './views/Profil.svelte'
+  import Admin   from './views/Admin.svelte'
   import Topbar    from './components/modules/Topbar.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
@@ -56,6 +59,19 @@
     try {
       await tick()
       await new Promise((r) => setTimeout(r, 50))
+      try {
+        const dm = await loadDayMessagesPublic()
+        setRemoteDayMessages(dm)
+      } catch {
+        setRemoteDayMessages(null)
+      }
+
+      if (get(isAppAdmin)) {
+        checkinDone = true
+        sessionReady = true
+        return
+      }
+
       const log = await loadTodayResilient()
       let done = hasMoodForToday(log)
       const grps = await loadGroups()
@@ -72,14 +88,21 @@
     await checkSession()
     loading = false
 
-    window.addEventListener('session:expired', () => {
+    const resetSessionUi = () => {
       authStore.set({ user: null, session: 0 })
       resetProfile()
       resetGroupState()
-      bootKey        = null
-      sessionReady   = false
-      checkinDone    = false
+      bootKey = null
+      sessionReady = false
+      checkinDone = false
       resetDayMessageCache()
+    }
+
+    window.addEventListener('session:expired', resetSessionUi)
+
+    window.addEventListener('session:suspended', () => {
+      void clearAuth()
+      resetSessionUi()
     })
   })
 
@@ -119,6 +142,13 @@
 
 {:else if !$authStore.user}
   <Login />
+
+{:else if $isAppAdmin}
+  {#if !sessionReady}
+    <div class="splash">Chargement…</div>
+  {:else}
+    <Admin />
+  {/if}
 
 {:else if !sessionReady}
   <div class="splash">Chargement…</div>

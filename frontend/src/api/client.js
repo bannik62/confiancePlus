@@ -36,31 +36,46 @@ const request = async (method, path, body) => {
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 
+  if (res.ok)
+    return res.status === 204 ? null : res.json()
+
+  const err = await res.json().catch(() => ({ error: 'Erreur réseau' }))
+
   if (res.status === 401) {
-    const errBody = await res.json().catch(() => ({}))
     const message =
-      typeof errBody.error === 'string' && errBody.error.length ? errBody.error : 'Session expirée'
+      typeof err.error === 'string' && err.error.length ? err.error : 'Session expirée'
     if (shouldDispatchSessionExpiredOn401(method, path))
       window.dispatchEvent(new CustomEvent('session:expired'))
     throw { status: 401, message }
   }
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erreur réseau' }))
-    let message = typeof err.error === 'string' ? err.error : null
-    if (!message && err.errors && typeof err.errors === 'object') {
-      const parts = []
-      for (const [field, msgs] of Object.entries(err.errors)) {
-        if (Array.isArray(msgs) && msgs.length)
-          parts.push(`${field}: ${msgs.join(', ')}`)
-      }
-      message = parts.length ? parts.join(' · ') : 'Données invalides'
+  if (res.status === 403 && err.code === 'SUSPENDED') {
+    try {
+      sessionStorage.setItem(
+        'authNotice',
+        JSON.stringify({
+          type: 'suspended',
+          message:
+            typeof err.error === 'string' && err.error.length ? err.error : 'Compte suspendu',
+        }),
+      )
+    } catch {
+      /* mode privé / quota */
     }
-    if (!message) message = 'Erreur inconnue'
-    throw { status: res.status, message, code: err.code, errors: err.errors }
+    window.dispatchEvent(new CustomEvent('session:suspended'))
   }
 
-  return res.status === 204 ? null : res.json()
+  let message = typeof err.error === 'string' ? err.error : null
+  if (!message && err.errors && typeof err.errors === 'object') {
+    const parts = []
+    for (const [field, msgs] of Object.entries(err.errors)) {
+      if (Array.isArray(msgs) && msgs.length)
+        parts.push(`${field}: ${msgs.join(', ')}`)
+    }
+    message = parts.length ? parts.join(' · ') : 'Données invalides'
+  }
+  if (!message) message = 'Erreur inconnue'
+  throw { status: res.status, message, code: err.code, errors: err.errors }
 }
 
 export const api = {

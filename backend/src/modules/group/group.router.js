@@ -1,7 +1,12 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middlewares/requireAuth.js'
 import { validate }    from '../../middlewares/validate.js'
-import { createGroupSchema, joinGroupSchema, createMemberSchema } from './group.schema.js'
+import {
+  createGroupSchema,
+  joinGroupSchema,
+  createMemberSchema,
+  sensitiveSharingSchema,
+} from './group.schema.js'
 import * as service from './group.service.js'
 
 const router = Router()
@@ -32,5 +37,19 @@ router.post('/:id/members', validate(createMemberSchema), async (req, res, next)
   try { res.status(201).json(await service.createMember(req.params.id, req.user.id, req.body)) }
   catch (e) { next(e) }
 })
+
+router.patch(
+  '/:id/membership/sensitive-sharing',
+  validate(sensitiveSharingSchema),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.updateSensitiveSharing(req.user.id, req.params.id, req.body.shareSensitiveCheckinWithOwner),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 export default router

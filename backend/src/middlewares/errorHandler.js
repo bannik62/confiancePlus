@@ -17,8 +17,12 @@ export const errorHandler = (err, req, res, next) => {
       })
   }
 
-  // Erreur métier volontaire : throw { status: 403, message: '...' }
-  if (err.status) return res.status(err.status).json({ error: err.message })
+  // Erreur métier volontaire : throw { status: 403, message: '...', code?: 'SUSPENDED' }
+  if (err.status) {
+    const body = { error: err.message }
+    if (err.code) body.code = err.code
+    return res.status(err.status).json(body)
+  }
 
   res.status(500).json({ error: 'Erreur interne du serveur' })
 }

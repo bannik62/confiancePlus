@@ -54,7 +54,18 @@ backend/
         migration.sql
       20260414120000_add_habit_origin/
         migration.sql
+      20260415120000_add_query_indexes/
+        migration.sql
+      20260415130000_share_sensitive_checkin/
+        migration.sql
+      20260416100000_admin_and_day_messages/
+        migration.sql
+      20260416110000_user_last_login_at/
+        migration.sql
+      20260416120000_admin_suspend_audit/
+        migration.sql
       migration_lock.toml
+    dayMessages.seed.json
     schema.prisma
     seed.js
   scripts/
@@ -75,9 +86,15 @@ backend/
       errorHandler.js
       logger.js
       rateLimiter.js
+      requireAdmin.js
       requireAuth.js
       validate.js
     modules/
+      admin/
+        admin.router.js
+        admin.schema.js
+        admin.service.js
+        adminScope.js
       auth/
         auth.router.js
         auth.schema.js
@@ -86,6 +103,12 @@ backend/
         checkin.router.js
         checkin.schema.js
         checkin.service.js
+      content/
+        content.router.js
+        content.service.js
+      educator/
+        educator.router.js
+        educator.service.js
       group/
         educatorScope.js
         group.router.js
@@ -109,13 +132,18 @@ frontend/
     workbox-2ae722a1.js
   src/
     api/
+      admin.js
       auth.js
       checkin.js
       client.js
+      content.js
+      educator.js
       group.js
       habits.js
       stats.js
     components/
+      educator/
+        EducatorMemberFollowupModal.svelte
       habits/
         AddHabitModal.svelte
         EditHabitModal.svelte
@@ -154,6 +182,7 @@ frontend/
     styles/
       theme.css
     views/
+      Admin.svelte
       CheckIn.svelte
       Groupe.svelte
       Home.svelte
@@ -181,6 +210,1489 @@ README.md
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="backend/prisma/migrations/20260415120000_add_query_indexes/migration.sql">
+-- Index pour requêtes fréquentes (liste par user, membres par groupe)
+CREATE INDEX "Habit_userId_idx" ON "Habit"("userId");
+CREATE INDEX "HabitLog_userId_idx" ON "HabitLog"("userId");
+CREATE INDEX "DailyLog_userId_idx" ON "DailyLog"("userId");
+CREATE INDEX "GroupMember_groupId_idx" ON "GroupMember"("groupId");
+</file>
+
+<file path="backend/prisma/migrations/20260415130000_share_sensitive_checkin/migration.sql">
+-- AlterTable
+ALTER TABLE "GroupMember" ADD COLUMN "shareSensitiveCheckinWithOwner" BOOLEAN NOT NULL DEFAULT false;
+</file>
+
+<file path="backend/prisma/migrations/20260416100000_admin_and_day_messages/migration.sql">
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "isAdmin" BOOLEAN NOT NULL DEFAULT false;
+
+-- CreateTable
+CREATE TABLE "MotivationalPhrase" (
+    "id" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MotivationalPhrase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "MotivationalPhrase_category_sortOrder_idx" ON "MotivationalPhrase"("category", "sortOrder");
+</file>
+
+<file path="backend/prisma/migrations/20260416110000_user_last_login_at/migration.sql">
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "lastLoginAt" TIMESTAMP(3);
+</file>
+
+<file path="backend/prisma/migrations/20260416120000_admin_suspend_audit/migration.sql">
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "isSuspended" BOOLEAN NOT NULL DEFAULT false;
+
+-- CreateTable
+CREATE TABLE "AdminAuditLog" (
+    "id" TEXT NOT NULL,
+    "actorId" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "targetId" TEXT,
+    "meta" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AdminAuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "AdminAuditLog_createdAt_idx" ON "AdminAuditLog"("createdAt");
+</file>
+
+<file path="backend/prisma/dayMessages.seed.json">
+{
+  "_comment": "Copie de référence pour le seed Docker (backend seul monté dans /app). La source éditoriale reste frontend/src/data/dayMessages.json.",
+  "felicitation": {
+    "phrases": [
+      "T'es en feu aujourd'hui ⚡ Garde cette énergie.",
+      "Ça avance fort. Continue comme ça 🔥",
+      "Ta régularité paie. Profite du momentum.",
+      "Belle journée côté effort — assume-le.",
+      "Tu stack les victoires. Une de plus aujourd'hui."
+    ]
+  },
+  "maintien": {
+    "phrases": [
+      "Chaque jour compte. T'as déjà fait le plus dur : t'es là. 💪",
+      "Pas besoin d'être parfait·e. Un pas suffit.",
+      "La constance bat l'intensité sur la durée.",
+      "Respire. Tu peux avancer à ton rythme.",
+      "La journée est encore là — un petit geste compte."
+    ]
+  },
+  "encouragement": {
+    "phrases": [
+      "Les jours difficiles forgent les gens solides. Continue. 🛡️",
+      "C'est ok d'être bas·se. Demain est une autre page.",
+      "Un jour plus dur ne définit pas qui tu es.",
+      "Sois doux·ce avec toi-même aujourd'hui.",
+      "T'as le droit de ralentir. L'important, c'est de rester dans le jeu."
+    ]
+  }
+}
+</file>
+
+<file path="backend/src/middlewares/requireAdmin.js">
+/**
+ * Après requireAuth — JWT doit contenir isAdmin: true (aligné sur la BDD au login).
+ */
+export const requireAdmin = (req, res, next) => {
+  if (req.user?.isAdmin !== true)
+    return res.status(403).json({ error: 'Accès réservé administrateur' })
+  next()
+}
+</file>
+
+<file path="backend/src/modules/admin/admin.router.js">
+import { Router } from 'express'
+import { requireAuth } from '../../middlewares/requireAuth.js'
+import { requireAdmin } from '../../middlewares/requireAdmin.js'
+import { validate } from '../../middlewares/validate.js'
+import { dayMessagesReplaceSchema, userSuspensionSchema } from './admin.schema.js'
+import * as service from './admin.service.js'
+
+const router = Router()
+router.use(requireAuth, requireAdmin)
+
+router.get('/users', async (req, res, next) => {
+  try {
+    res.json(
+      await service.listUsers({
+        page: req.query.page,
+        limit: req.query.limit,
+      }),
+    )
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/users/:id', async (req, res, next) => {
+  try {
+    res.json(await service.deleteUser(req.user.id, req.params.id))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.patch('/users/:id/suspension', validate(userSuspensionSchema), async (req, res, next) => {
+  try {
+    res.json(await service.setUserSuspended(req.user.id, req.params.id, req.body.suspended))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/audit', async (req, res, next) => {
+  try {
+    res.json(await service.listAudit({ limit: req.query.limit }))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/groups', async (req, res, next) => {
+  try {
+    res.json(await service.listGroups())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/day-messages', async (req, res, next) => {
+  try {
+    res.json(await service.getDayMessagesAdmin())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/day-messages', validate(dayMessagesReplaceSchema), async (req, res, next) => {
+  try {
+    res.json(await service.replaceDayMessages(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+export default router
+</file>
+
+<file path="backend/src/modules/admin/admin.schema.js">
+import { z } from 'zod'
+
+const phraseList = z.object({
+  phrases: z.array(z.string()),
+})
+
+export const dayMessagesReplaceSchema = z.object({
+  encouragement: phraseList,
+  maintien: phraseList,
+  felicitation: phraseList,
+})
+
+export const userSuspensionSchema = z.object({
+  suspended: z.boolean(),
+})
+</file>
+
+<file path="backend/src/modules/admin/admin.service.js">
+import { readFileSync } from 'fs'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+import { db } from '../../core/db.js'
+
+const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
+
+const logAudit = async (actorId, action, targetId = null, meta) => {
+  await db.adminAuditLog.create({
+    data: {
+      actorId,
+      action,
+      ...(targetId != null ? { targetId } : {}),
+      ...(meta !== undefined ? { meta } : {}),
+    },
+  })
+}
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/** @param {import('@prisma/client').Prisma.TransactionClient} tx */
+const replacePhrasesTx = async (tx, payload) => {
+  await tx.motivationalPhrase.deleteMany({})
+  let order = 0
+  for (const cat of CATEGORIES) {
+    const phrases = payload?.[cat]?.phrases
+    if (!Array.isArray(phrases)) continue
+    for (const text of phrases) {
+      const t = typeof text === 'string' ? text.trim() : ''
+      if (!t) continue
+      await tx.motivationalPhrase.create({
+        data: { category: cat, text: t, sortOrder: order++, isActive: true },
+      })
+    }
+  }
+}
+
+/** Seed / reset : JSON monorepo (hôte) ou copie embarquée sous prisma/ (Docker : seul backend monté sur /app). */
+export const seedMotivationalPhrasesFromRepoJson = async () => {
+  const candidates = [
+    join(__dirname, '../../../..', 'frontend', 'src', 'data', 'dayMessages.json'),
+    join(__dirname, '../../..', 'prisma', 'dayMessages.seed.json'),
+  ]
+  let payload = null
+  for (const jsonPath of candidates) {
+    try {
+      payload = JSON.parse(readFileSync(jsonPath, 'utf8'))
+      break
+    } catch {
+      /* essai suivant */
+    }
+  }
+  if (!payload) return { ok: false, message: 'Fichier dayMessages (aucun chemin valide)' }
+  await db.$transaction((tx) => replacePhrasesTx(tx, payload))
+  return { ok: true }
+}
+
+export const getDayMessagesAdmin = async () => getDayMessagesShape()
+
+const getDayMessagesShape = async () => {
+  const base = await db.motivationalPhrase.findMany({
+    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { id: 'asc' }],
+  })
+  const out = {}
+  for (const cat of CATEGORIES) {
+    out[cat] = { phrases: base.filter((r) => r.category === cat).map((r) => r.text) }
+  }
+  return out
+}
+
+export const replaceDayMessages = async (actorId, body) => {
+  await db.$transaction((tx) => replacePhrasesTx(tx, body))
+  const phraseCount = await db.motivationalPhrase.count()
+  await logAudit(actorId, 'DAY_MESSAGES_REPLACE', null, { phraseCount })
+  return getDayMessagesShape()
+}
+
+export const listUsers = async ({ page = 0, limit = 30 }) => {
+  const p = Math.max(0, parseInt(String(page), 10) || 0)
+  const l = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 30))
+  const [users, total] = await Promise.all([
+    db.user.findMany({
+      skip: p * l,
+      take: l,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        isPending: true,
+        isAdmin: true,
+        isSuspended: true,
+        createdAt: true,
+        lastLoginAt: true,
+        avatar: true,
+      },
+    }),
+    db.user.count(),
+  ])
+  return { users, total, page: p, limit: l }
+}
+
+export const deleteUser = async (actorId, targetId) => {
+  if (actorId === targetId)
+    throw { status: 403, message: 'Suppression de ton propre compte interdite depuis l’admin.' }
+
+  const target = await db.user.findUnique({ where: { id: targetId } })
+  if (!target) throw { status: 404, message: 'Utilisateur introuvable' }
+
+  if (target.isAdmin) {
+    const adminCount = await db.user.count({ where: { isAdmin: true } })
+    if (adminCount <= 1) throw { status: 403, message: 'Impossible de supprimer le dernier administrateur' }
+  }
+
+  await logAudit(actorId, 'USER_DELETE', targetId, {
+    username: target.username,
+    email: target.email ?? null,
+  })
+  await db.user.delete({ where: { id: targetId } })
+  return { ok: true }
+}
+
+export const setUserSuspended = async (actorId, targetId, suspended) => {
+  if (actorId === targetId)
+    throw { status: 403, message: 'Tu ne peux pas suspendre ou réactiver ton propre compte depuis l’admin.' }
+
+  const target = await db.user.findUnique({ where: { id: targetId } })
+  if (!target) throw { status: 404, message: 'Utilisateur introuvable' }
+
+  if (suspended && target.isAdmin) {
+    const otherActiveAdmins = await db.user.count({
+      where: {
+        isAdmin: true,
+        isSuspended: false,
+        id: { not: targetId },
+      },
+    })
+    if (otherActiveAdmins < 1)
+      throw { status: 403, message: 'Impossible de suspendre le dernier administrateur actif' }
+  }
+
+  await db.user.update({
+    where: { id: targetId },
+    data: { isSuspended: suspended },
+  })
+  await logAudit(actorId, suspended ? 'USER_SUSPEND' : 'USER_UNSUSPEND', targetId, {
+    username: target.username,
+  })
+  return { ok: true, id: targetId, isSuspended: suspended }
+}
+
+export const listAudit = async ({ limit = 50 }) => {
+  const l = Math.min(200, Math.max(1, parseInt(String(limit), 10) || 50))
+  const items = await db.adminAuditLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: l,
+  })
+  return { items }
+}
+
+export const listGroups = async () => {
+  const rows = await db.group.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { _count: { select: { members: true } } },
+  })
+  return {
+    groups: rows.map((g) => ({
+      id: g.id,
+      name: g.name,
+      type: g.type,
+      inviteCode: g.inviteCode,
+      createdAt: g.createdAt,
+      memberCount: g._count.members,
+    })),
+  }
+}
+</file>
+
+<file path="backend/src/modules/admin/adminScope.js">
+import { db } from '../../core/db.js'
+
+export const userIsAppAdmin = async (userId) => {
+  const u = await db.user.findUnique({
+    where: { id: userId },
+    select: { isAdmin: true },
+  })
+  return u?.isAdmin === true
+}
+</file>
+
+<file path="backend/src/modules/content/content.router.js">
+import { Router } from 'express'
+import * as service from './content.service.js'
+
+const router = Router()
+
+router.get('/day-messages', async (req, res, next) => {
+  try {
+    res.json(await service.getDayMessagesPublic())
+  } catch (e) {
+    next(e)
+  }
+})
+
+export default router
+</file>
+
+<file path="backend/src/modules/content/content.service.js">
+import { db } from '../../core/db.js'
+
+const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
+
+/** Format attendu par le front (même forme que dayMessages.json). */
+export const getDayMessagesPublic = async () => {
+  const rows = await db.motivationalPhrase.findMany({
+    where: { isActive: true },
+    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { id: 'asc' }],
+  })
+  const out = {}
+  for (const cat of CATEGORIES) {
+    out[cat] = { phrases: rows.filter((r) => r.category === cat).map((r) => r.text) }
+  }
+  return out
+}
+</file>
+
+<file path="backend/src/modules/educator/educator.router.js">
+import { Router } from 'express'
+import { requireAuth } from '../../middlewares/requireAuth.js'
+import * as service from './educator.service.js'
+
+const router = Router()
+router.use(requireAuth)
+
+router.get('/groups/:groupId/members/:memberId/overview', async (req, res, next) => {
+  try {
+    const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined
+    const habitsDate = typeof req.query.habitsDate === 'string' ? req.query.habitsDate : undefined
+    res.json(
+      await service.getMemberOverviewForEducator(req.user.id, req.params.groupId, req.params.memberId, {
+        year,
+        habitsDate,
+      }),
+    )
+  } catch (e) {
+    next(e)
+  }
+})
+
+export default router
+</file>
+
+<file path="backend/src/modules/educator/educator.service.js">
+import { db } from '../../core/db.js'
+import * as habitsService from '../habits/habits.service.js'
+import { getMyStats, getCalendarYear, getInsights } from '../stats/stats.service.js'
+
+const utcYmd = () => new Date().toISOString().slice(0, 10)
+
+/**
+ * Vue agrégée pour l’éducateur (OWNER d’une ASSO) sur un membre.
+ * Humeur / phrase / journal masqués si le membre n’a pas consenti.
+ */
+export const getMemberOverviewForEducator = async (
+  requesterId,
+  groupId,
+  memberId,
+  { year, habitsDate } = {},
+) => {
+  const ownerRow = await db.groupMember.findFirst({
+    where: { userId: requesterId, groupId, role: 'OWNER', group: { type: 'ASSOCIATION' } },
+  })
+  if (!ownerRow) throw { status: 403, message: 'Accès refusé' }
+
+  const target = await db.groupMember.findUnique({
+    where: { userId_groupId: { userId: memberId, groupId } },
+    include: { user: { select: { username: true, avatar: true, isPending: true } } },
+  })
+  if (!target || target.role !== 'MEMBER') throw { status: 404, message: 'Membre introuvable' }
+  if (target.user.isPending) throw { status: 404, message: 'Compte non activé' }
+
+  const share = target.shareSensitiveCheckinWithOwner === true
+
+  const y = year && year >= 2020 && year <= 2100 ? year : new Date().getFullYear()
+  const dateStr = habitsDate && /^\d{4}-\d{2}-\d{2}$/.test(habitsDate) ? habitsDate : undefined
+  const resolvedHabitsDate = dateStr ?? utcYmd()
+
+  const [habits, stats, calendar, insights] = await Promise.all([
+    habitsService.getHabits(memberId, dateStr),
+    getMyStats(memberId),
+    getCalendarYear(memberId, y),
+    share ? getInsights(memberId, 30) : Promise.resolve(null),
+  ])
+
+  let calendarOut = calendar
+  if (!share) {
+    calendarOut = {
+      ...calendar,
+      days: calendar.days.map((d) => ({
+        ...d,
+        mood: null,
+        moodReason: null,
+        journal: null,
+      })),
+    }
+  }
+
+  const insightsOut =
+    share && insights
+      ? insights
+      : { daysAnalyzed: 0, moodBySuccess: null, moodBySleep: null, bestDay: null, worstDay: null }
+
+  return {
+    member: {
+      id: memberId,
+      username: target.user.username,
+      avatar: target.user.avatar,
+    },
+    sensitiveMasked: !share,
+    shareSensitiveCheckinWithOwner: share,
+    habitsDate: resolvedHabitsDate,
+    habits,
+    stats,
+    calendar: calendarOut,
+    insights: insightsOut,
+  }
+}
+</file>
+
+<file path="frontend/src/api/admin.js">
+import { api } from './client.js'
+
+export const adminApi = {
+  users: (params = {}) => {
+    const q = new URLSearchParams()
+    if (params.page != null) q.set('page', String(params.page))
+    if (params.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return api.get(`/admin/users${qs ? `?${qs}` : ''}`)
+  },
+  deleteUser: (id) => api.delete(`/admin/users/${encodeURIComponent(id)}`),
+  patchUserSuspension: (id, suspended) =>
+    api.patch(`/admin/users/${encodeURIComponent(id)}/suspension`, { suspended }),
+  audit: (params = {}) => {
+    const q = new URLSearchParams()
+    if (params.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return api.get(`/admin/audit${qs ? `?${qs}` : ''}`)
+  },
+  groups: () => api.get('/admin/groups'),
+  getDayMessages: () => api.get('/admin/day-messages'),
+  putDayMessages: (body) => api.put('/admin/day-messages', body),
+}
+</file>
+
+<file path="frontend/src/api/content.js">
+const BASE = '/api'
+
+/** Pas d’auth requise — phrases du jour pour l’app. */
+export const loadDayMessagesPublic = async () => {
+  const res = await fetch(`${BASE}/content/day-messages`, { credentials: 'include' })
+  if (!res.ok) return null
+  return res.json()
+}
+</file>
+
+<file path="frontend/src/api/educator.js">
+import { api } from './client.js'
+
+export const educatorApi = {
+  memberOverview: (groupId, memberId, { year, habitsDate } = {}) => {
+    const q = new URLSearchParams()
+    if (year != null) q.set('year', String(year))
+    if (habitsDate) q.set('habitsDate', habitsDate)
+    const qs = q.toString()
+    return api.get(
+      `/educator/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}/overview${qs ? `?${qs}` : ''}`,
+    )
+  },
+}
+</file>
+
+<file path="frontend/src/components/educator/EducatorMemberFollowupModal.svelte">
+<script>
+  import { createEventDispatcher } from 'svelte'
+  import { educatorApi } from '../../api/educator.js'
+  import Card from '../ui/Card.svelte'
+  import CalendarHeatmap from '../stats/CalendarHeatmap.svelte'
+  import DaySnapshot from '../stats/DaySnapshot.svelte'
+  import InsightsCard from '../stats/InsightsCard.svelte'
+
+  /** @type {string} */
+  export let groupId = ''
+  /** @type {{ id: string, username: string } | null} */
+  export let member = null
+
+  const dispatch = createEventDispatcher()
+  const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+  const currentYear = new Date().getFullYear()
+
+  let loading = true
+  let err = ''
+  /** @type {any} */
+  let data = null
+  let heatmapColorMode = 'rate'
+  /** @type {any} */
+  let selectedDay = null
+  let showDayModal = false
+  let loadSeq = 0
+
+  const load = async () => {
+    if (!groupId || !member?.id) return
+    const seq = ++loadSeq
+    loading = true
+    err = ''
+    try {
+      const res = await educatorApi.memberOverview(groupId, member.id, { year: currentYear })
+      if (seq === loadSeq) data = res
+    } catch (e) {
+      if (seq === loadSeq) {
+        err = e.message || 'Erreur de chargement'
+        data = null
+      }
+    } finally {
+      if (seq === loadSeq) loading = false
+    }
+  }
+
+  $: if (groupId && member?.id) void load()
+
+  const close = () => dispatch('close')
+
+  const handleDayClick = (event) => {
+    const day = event.detail
+    if (day.habitsDone > 0 || day.mood || day.sleepQuality || day.journal) {
+      selectedDay = day
+      showDayModal = true
+    }
+  }
+
+  const closeDayModal = () => {
+    showDayModal = false
+    selectedDay = null
+  }
+
+  const handleModeChange = (event) => {
+    heatmapColorMode = event.detail
+  }
+</script>
+
+{#if member}
+  <div class="overlay" role="presentation" on:click={close}></div>
+  <div class="modal-root" role="dialog" aria-modal="true" aria-labelledby="edu-follow-title">
+    <Card style="max-width:520px;width:min(520px,94vw);max-height:min(88vh,720px);overflow:auto;position:relative">
+      <button type="button" class="close-btn" on:click={close} aria-label="Fermer">✕</button>
+
+      <h2 id="edu-follow-title" class="title">Suivi — {member.username}</h2>
+
+      {#if loading}
+        <div class="loading">Chargement…</div>
+      {:else if err}
+        <p class="error">{err}</p>
+      {:else if data}
+        {#if data.sensitiveMasked}
+          <p class="banner">
+            Ce compte n’a <strong>pas autorisé</strong> le partage de l’humeur, de la phrase mémorable ni du journal
+            avec le responsable du groupe. Tu vois toutefois les <strong>habitudes</strong>, le
+            <strong>sommeil</strong> et les <strong>statistiques agrégées</strong>.
+          </p>
+        {:else}
+          <p class="banner ok">L’élève a accepté le partage des données sensibles du check-in avec le responsable.</p>
+        {/if}
+
+        <div class="micro muted" style="margin:10px 0 6px">HABITUDES — {data.habitsDate}</div>
+        <div class="habit-list">
+          {#each data.habits || [] as h (h.id)}
+            <div class="habit-row-ro">
+              <span class="ico">{h.icon}</span>
+              <div class="habit-meta">
+                <div class="habit-name" class:done={!!h.logs?.length}>{h.name}</div>
+                <div class="habit-xp" class:done={!!h.logs?.length}>+{h.xp} XP</div>
+              </div>
+              <div class="check" class:checked={!!h.logs?.length}>{h.logs?.length ? '✓' : ''}</div>
+            </div>
+          {/each}
+        </div>
+
+        <Card glow style="margin-top:14px;margin-bottom:10px">
+          <div class="micro purple">TAUX DE RÉUSSITE — 7 JOURS</div>
+          <div class="bars">
+            {#each data.stats?.byDay || [] as d, i}
+              <div class="bar-col">
+                <div class="rate">{d.rate}%</div>
+                <div
+                  class="bar"
+                  style="height:{d.rate}%; background: {d.rate === 100
+                    ? 'linear-gradient(180deg,var(--gold),var(--red))'
+                    : d.rate >= 70
+                      ? 'linear-gradient(180deg,var(--accent),var(--accent-mid))'
+                      : 'var(--stats-empty)'}"
+                />
+                <div class="day" class:today={i === 6}>{DAYS[new Date(d.date).getDay()]}</div>
+              </div>
+            {/each}
+          </div>
+        </Card>
+
+        <Card style="margin-bottom:10px">
+          <div class="micro purple">PAR HABITUDE (7 JOURS)</div>
+          {#each data.stats?.byHabit || [] as h}
+            <div class="habit-stat-row">
+              <div class="habit-stat-meta">
+                <span>{h.icon} {h.name}</span>
+                <span
+                  class="pct"
+                  style="color:{h.rate >= 80 ? 'var(--gold)' : h.rate >= 60 ? 'var(--accent)' : 'var(--muted)'}"
+                  >{h.rate}%</span
+                >
+              </div>
+              <div class="track">
+                <div
+                  class="fill"
+                  style="width:{h.rate}%; background:{h.rate >= 80
+                    ? 'linear-gradient(90deg,var(--gold),var(--red))'
+                    : 'linear-gradient(90deg,var(--accent),var(--cyan))'}"
+                />
+              </div>
+            </div>
+          {/each}
+        </Card>
+
+        <InsightsCard insights={data.insights} />
+
+        <div style="margin-top:12px">
+          <Card>
+            <div class="micro purple" style="margin-bottom:10px">CALENDRIER {currentYear}</div>
+            {#if data.calendar?.days}
+              <CalendarHeatmap
+                days={data.calendar.days}
+                colorMode={heatmapColorMode}
+                on:dayclick={handleDayClick}
+                on:modechange={handleModeChange}
+              />
+            {:else}
+              <div class="muted">Aucune donnée calendrier.</div>
+            {/if}
+          </Card>
+        </div>
+      {/if}
+    </Card>
+  </div>
+{/if}
+
+{#if showDayModal && selectedDay}
+  <DaySnapshot day={selectedDay} on:close={closeDayModal} />
+{/if}
+
+<style>
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 80;
+  }
+  .modal-root {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    pointer-events: none;
+  }
+  .modal-root :global(.card) {
+    pointer-events: auto;
+  }
+  .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+  .close-btn:hover {
+    color: var(--text);
+    background: var(--border);
+  }
+  .title {
+    margin: 0 28px 12px 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  .loading,
+  .error {
+    font-size: 0.95rem;
+    margin: 8px 0;
+  }
+  .error {
+    color: var(--red);
+  }
+  .banner {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--gold) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+    margin-bottom: 12px;
+  }
+  .banner.ok {
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    border-color: color-mix(in srgb, var(--cyan) 35%, transparent);
+  }
+  .micro {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .purple {
+    color: var(--accent-light);
+    margin-bottom: 8px;
+  }
+  .habit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .habit-row-ro {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .ico {
+    font-size: 20px;
+  }
+  .habit-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .habit-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .habit-name.done {
+    color: var(--accent-light);
+  }
+  .habit-xp {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .habit-xp.done {
+    color: var(--gold);
+  }
+  .check {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--border);
+    border: 2px solid var(--accent-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 900;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .check.checked {
+    background: var(--grad-cta);
+    border: none;
+  }
+  .bars {
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+    align-items: flex-end;
+    height: 120px;
+    margin-top: 8px;
+  }
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .rate {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .bar {
+    width: 100%;
+    max-width: 22px;
+    min-height: 4px;
+    border-radius: 4px 4px 0 0;
+    align-self: center;
+  }
+  .day {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+  }
+  .day.today {
+    color: var(--gold);
+  }
+  .habit-stat-row {
+    margin-top: 8px;
+  }
+  .habit-stat-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .pct {
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+  }
+  .track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    border-radius: 4px;
+  }
+</style>
+</file>
+
+<file path="frontend/src/views/Admin.svelte">
+<script>
+  import { onMount } from 'svelte'
+  import { authStore, clearAuth } from '../stores/auth.js'
+  import { adminApi } from '../api/admin.js'
+  import Card from '../components/ui/Card.svelte'
+
+  let users = []
+  let total = 0
+  let page = 0
+  let limit = 25
+  let loading = true
+  let err = ''
+
+  let enc = ''
+  let maint = ''
+  let fel = ''
+  let msgLoading = true
+  let msgErr = ''
+  let msgOk = ''
+
+  let auditItems = []
+  let groups = []
+  let auditLoading = true
+
+  const auditActionLabel = (code) =>
+    ({
+      USER_DELETE: 'Suppression compte',
+      USER_SUSPEND: 'Suspension compte',
+      USER_UNSUSPEND: 'Réactivation compte',
+      DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
+    }[code] ?? code)
+
+  const loadUsers = async () => {
+    err = ''
+    try {
+      const res = await adminApi.users({ page, limit })
+      users = res.users ?? []
+      total = res.total ?? 0
+    } catch (e) {
+      err = e.message || 'Erreur chargement utilisateurs'
+      users = []
+    }
+  }
+
+  const loadAudit = async () => {
+    try {
+      const res = await adminApi.audit({ limit: 40 })
+      auditItems = res.items ?? []
+    } catch {
+      auditItems = []
+    }
+  }
+
+  const loadGroups = async () => {
+    try {
+      const res = await adminApi.groups()
+      groups = res.groups ?? []
+    } catch {
+      groups = []
+    }
+  }
+
+  const loadMessages = async () => {
+    msgErr = ''
+    msgOk = ''
+    try {
+      const data = await adminApi.getDayMessages()
+      enc = (data.encouragement?.phrases ?? []).join('\n')
+      maint = (data.maintien?.phrases ?? []).join('\n')
+      fel = (data.felicitation?.phrases ?? []).join('\n')
+    } catch (e) {
+      msgErr = e.message || 'Erreur chargement messages'
+    }
+  }
+
+  onMount(async () => {
+    loading = true
+    auditLoading = true
+    await Promise.all([loadUsers(), loadMessages(), loadAudit(), loadGroups()])
+    loading = false
+    auditLoading = false
+    msgLoading = false
+  })
+
+  const nextPage = async () => {
+    if ((page + 1) * limit >= total) return
+    page += 1
+    loading = true
+    await loadUsers()
+    loading = false
+  }
+
+  const prevPage = async () => {
+    if (page <= 0) return
+    page -= 1
+    loading = true
+    await loadUsers()
+    loading = false
+  }
+
+  const linesToPhrases = (t) =>
+    String(t)
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+  const saveMessages = async () => {
+    msgErr = ''
+    msgOk = ''
+    msgLoading = true
+    try {
+      await adminApi.putDayMessages({
+        encouragement: { phrases: linesToPhrases(enc) },
+        maintien: { phrases: linesToPhrases(maint) },
+        felicitation: { phrases: linesToPhrases(fel) },
+      })
+      msgOk = 'Messages enregistrés.'
+      await loadAudit()
+    } catch (e) {
+      msgErr = e.message || 'Erreur enregistrement'
+    } finally {
+      msgLoading = false
+    }
+  }
+
+  const removeUser = async (u) => {
+    if (!confirm(`Supprimer définitivement le compte « ${u.username} » (${u.email ?? 'sans e-mail'}) ? Données associées supprimées (RGPD).`))
+      return
+    err = ''
+    try {
+      await adminApi.deleteUser(u.id)
+      await Promise.all([loadUsers(), loadAudit()])
+    } catch (e) {
+      err = e.message || 'Suppression impossible'
+    }
+  }
+
+  const toggleSuspend = async (u) => {
+    err = ''
+    try {
+      await adminApi.patchUserSuspension(u.id, !u.isSuspended)
+      await Promise.all([loadUsers(), loadAudit()])
+    } catch (e) {
+      err = e.message || 'Action impossible'
+    }
+  }
+</script>
+
+<div class="admin">
+  <header class="head">
+    <div>
+      <div class="sup">ADMINISTRATION</div>
+      <h1>Tableau de bord</h1>
+    </div>
+    <button type="button" class="btn-out" on:click={() => clearAuth()}>Déconnexion</button>
+  </header>
+
+  {#if err}<p class="err">{err}</p>{/if}
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">UTILISATEURS — {total} compte(s)</div>
+    {#if loading}
+      <p class="muted">Chargement…</p>
+    {:else if !users.length}
+      <p class="muted">Aucun utilisateur sur cette page.</p>
+    {:else}
+      <div class="table">
+        {#each users as u}
+          <div class="row">
+            <div class="cell grow">
+              <div class="uname">{u.username}</div>
+              <div class="mail">{u.email ?? '—'}</div>
+              <div class="tags">
+                {#if u.isAdmin}<span class="tag">admin</span>{/if}
+                {#if u.isPending}<span class="tag pending">pending</span>{/if}
+                {#if u.isSuspended}<span class="tag susp">suspendu</span>{/if}
+              </div>
+              <div class="dates">
+                <span>Créé : {new Date(u.createdAt).toLocaleString('fr-FR')}</span>
+                <span>Dernière connexion : {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('fr-FR') : '—'}</span>
+              </div>
+            </div>
+            <div class="cell actions">
+              {#if u.id !== $authStore.user?.id}
+                {#if u.isSuspended}
+                  <button type="button" class="btn-susp" on:click={() => toggleSuspend(u)}>Réactiver</button>
+                {:else}
+                  <button type="button" class="btn-susp" on:click={() => toggleSuspend(u)}>Suspendre</button>
+                {/if}
+              {/if}
+              {#if !(u.isAdmin && u.id === $authStore.user?.id)}
+                <button type="button" class="btn-del" on:click={() => removeUser(u)}>Supprimer</button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+      <div class="pager">
+        <button type="button" disabled={page === 0} on:click={prevPage}>Précédent</button>
+        <span class="muted">Page {page + 1}</span>
+        <button type="button" disabled={(page + 1) * limit >= total} on:click={nextPage}>Suivant</button>
+      </div>
+    {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">GROUPES (lecture seule)</div>
+    {#if !groups.length}
+      <p class="muted" style="margin-top:8px">Aucun groupe.</p>
+    {:else}
+      <div class="groups">
+        {#each groups as g}
+          <div class="grow">
+            <span class="uname">{g.name}</span>
+            <span class="gmeta">{g.type} · {g.memberCount} membre(s) · code {g.inviteCode}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">JOURNAL ADMIN (récent)</div>
+    {#if auditLoading}
+      <p class="muted" style="margin-top:8px">Chargement…</p>
+    {:else if !auditItems.length}
+      <p class="muted" style="margin-top:8px">Aucune entrée.</p>
+    {:else}
+      <ul class="audit">
+        {#each auditItems as a}
+          <li>
+            <time datetime={a.createdAt}>{new Date(a.createdAt).toLocaleString('fr-FR')}</time>
+            <span class="aud-act">{auditActionLabel(a.action)}</span>
+            <span class="aud-meta">
+              acteur {a.actorId.slice(0, 8)}…
+              {#if a.targetId} · cible {a.targetId.slice(0, 8)}…{/if}
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </Card>
+
+  <Card>
+    <div class="sup muted">MESSAGES DU JOUR (une phrase par ligne)</div>
+    {#if msgErr}<p class="err">{msgErr}</p>{/if}
+    {#if msgOk}<p class="ok">{msgOk}</p>{/if}
+    <div class="grid-msg">
+      <label>
+        <span class="lbl">Encouragement</span>
+        <textarea bind:value={enc} rows="6" spellcheck="false"></textarea>
+      </label>
+      <label>
+        <span class="lbl">Maintien</span>
+        <textarea bind:value={maint} rows="6" spellcheck="false"></textarea>
+      </label>
+      <label>
+        <span class="lbl">Félicitation</span>
+        <textarea bind:value={fel} rows="6" spellcheck="false"></textarea>
+      </label>
+    </div>
+    <button type="button" class="btn-save" disabled={msgLoading} on:click={saveMessages}>
+      {msgLoading ? 'Enregistrement…' : 'Enregistrer les messages'}
+    </button>
+  </Card>
+</div>
+
+<style>
+  .admin {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 16px 14px 40px;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 900;
+    font-family: 'Rajdhani', sans-serif;
+    margin: 4px 0 0;
+  }
+  .sup {
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--gold);
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .btn-out {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .btn-out:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .err {
+    color: var(--red);
+    font-size: 0.88rem;
+    margin-bottom: 10px;
+  }
+  .ok {
+    color: var(--green);
+    font-size: 0.88rem;
+    margin-bottom: 8px;
+  }
+  .table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .cell {
+    font-size: 0.88rem;
+  }
+  .cell.grow {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .uname {
+    font-weight: 800;
+  }
+  .mail {
+    color: var(--muted);
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
+  .tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--gold)22;
+    color: var(--gold);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .tag.pending {
+    background: var(--cyan)22;
+    color: var(--cyan);
+  }
+  .tag.susp {
+    background: #f59e0b22;
+    color: #fbbf24;
+  }
+  .cell.actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 100px;
+  }
+  .btn-susp {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .btn-susp:hover {
+    border-color: #f59e0b88;
+    color: var(--text);
+  }
+  .groups {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .groups .grow {
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .gmeta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+    word-break: break-all;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .audit {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.78rem;
+  }
+  .audit li {
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .audit time {
+    display: block;
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+  }
+  .aud-act {
+    font-weight: 800;
+    color: var(--gold);
+  }
+  .aud-meta {
+    display: block;
+    color: var(--muted);
+    margin-top: 4px;
+    font-size: 0.72rem;
+  }
+  .dates {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+    line-height: 1.35;
+  }
+  .btn-del {
+    border: 1px solid var(--red)55;
+    background: transparent;
+    color: var(--red);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .btn-del:hover {
+    background: var(--red)18;
+  }
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .pager button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .pager button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .grid-msg {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  @media (min-width: 640px) {
+    .grid-msg {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+  }
+  .lbl {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px;
+    font-size: 0.82rem;
+    resize: vertical;
+    font-family: 'Exo 2', sans-serif;
+  }
+  .btn-save {
+    margin-top: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--grad-cta);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .btn-save:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+</style>
+</file>
 
 <file path="backend/docs-modele-donnees/01-MCD.md">
 # MCD — Modèle Conceptuel de Données
@@ -448,7 +1960,18 @@ Les identifiants `@default(cuid())` sont des **chaînes** côté PostgreSQL.
 - **UNIQUE** : `User.email`, `User.username`, `User.activationCode`, `Group.inviteCode`, `HabitLog(habitId, date)`, `DailyLog(userId, date)`.
 - **FK + ON DELETE CASCADE** : toutes les relations Prisma `onDelete: Cascade` sur `GroupMember`, `Habit`, `HabitLog`, `DailyLog`.
 
-*(Pas d’index secondaires explicites dans le schéma Prisma actuel — le moteur utilise les index PK/UNIQUE.)*
+### Index secondaires (perf requêtes)
+
+Migration **`20260415120000_add_query_indexes`** :
+
+| Index | Table | Colonne(s) | Intérêt |
+|-------|--------|------------|---------|
+| `Habit_userId_idx` | `Habit` | `userId` | Liste / filtres habitudes par utilisateur |
+| `HabitLog_userId_idx` | `HabitLog` | `userId` | Agrégations / historique par user sans partir de `habitId` seul |
+| `DailyLog_userId_idx` | `DailyLog` | `userId` | Filtres par user (partiellement redondant avec l’UNIQUE `(userId, date)` — acceptable) |
+| `GroupMember_groupId_idx` | `GroupMember` | `groupId` | Membres d’un groupe (la PK composite commence par `userId`) |
+
+Déclarés dans `prisma/schema.prisma` via `@@index([...])`.
 
 ---
 
@@ -663,6 +2186,29 @@ Ce dossier regroupe les **trois niveaux Merise** appliqués au domaine métier d
 - **VS Code / Cursor** : extension **« Draw.io Integration »** puis ouvrir le fichier dans l’éditeur.
 
 Tu peux déplacer les blocs, ajouter des cardinalités ou des couleurs : le fichier est un gabarit de départ aligné sur `prisma/schema.prisma`.
+
+---
+
+## État documentaire — **15 avril 2026, 12h47**
+
+### Déjà en place (lié à ce dossier / au MPD)
+
+- Documentation **MCD / MLD / MPD** (fichiers `.md`) + **diagrammes Draw.io** (`modele-donnees.drawio`, 3 onglets).
+- **MPD** : migration **`20260414120000_add_habit_origin`** (enum + colonne `origin` sur `Habit`).
+- **MPD** : migration **`20260415120000_add_query_indexes`** — index sur `Habit.userId`, `HabitLog.userId`, `DailyLog.userId`, `GroupMember.groupId` (voir [03-MPD.md](./03-MPD.md)).
+- Schéma Prisma aligné (`@@index`, `HabitOrigin`, etc.).
+
+### Pistes restantes (hors doc ou à décider plus tard)
+
+| Sujet | Détail |
+|--------|--------|
+| **Cohérence `HabitLog`** | Garantir que `userId` = propriétaire de l’`habitId` (trigger SQL ou règle applicative stricte + tests). |
+| **Index `DailyLog(userId)`** | Un peu redondant avec l’index unique `(userId, date)` ; à retirer un jour si on veut limiter l’écriture disque. |
+| **Audit `HabitLog`** | Ajouter `createdAt` (et éventuellement `updatedAt`) si besoin de traçabilité fine. |
+| **Rôles applicatifs** | Admin global, fermeture inscriptions par `.env`, etc. — **non** dans ce dossier ; évolution produit / schéma `User` si tu les implémentes. |
+| **MCD / Draw.io** | Enrichir cardinalités, note explicative « profils = `GroupMember` + `Group.type` + règles app » (pas d’enum `userSeul` en base). |
+
+*Dernière mise à jour du bloc ci-dessus : **15 avril 2026, 12h47**.*
 </file>
 
 <file path="backend/prisma/migrations/20260411160733_init/migration.sql">
@@ -1102,21 +2648,34 @@ export const logger = (req, res, next) => {
 
 <file path="backend/src/middlewares/requireAuth.js">
 import { verifyToken } from '../core/auth.js'
+import { db } from '../core/db.js'
 
-export const requireAuth = (req, res, next) => {
-  // Cookie httpOnly en priorité (web/PWA)
-  // Fallback Bearer header pour les clients API externes si besoin
-  const token = req.cookies?.token
-    ?? req.headers.authorization?.split(' ')[1]
-
-  if (!token)
-    return res.status(401).json({ error: 'Non authentifié' })
-
+export const requireAuth = async (req, res, next) => {
   try {
-    req.user = verifyToken(token)
+    // Cookie httpOnly en priorité (web/PWA)
+    // Fallback Bearer header pour les clients API externes si besoin
+    const token = req.cookies?.token
+      ?? req.headers.authorization?.split(' ')[1]
+
+    if (!token)
+      return res.status(401).json({ error: 'Non authentifié' })
+
+    try {
+      req.user = verifyToken(token)
+    } catch {
+      return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' })
+    }
+
+    const row = await db.user.findUnique({
+      where: { id: req.user.id },
+      select: { isSuspended: true },
+    })
+    if (row?.isSuspended)
+      return res.status(403).json({ error: 'Compte suspendu — contacte le support.', code: 'SUSPENDED' })
+
     next()
-  } catch {
-    res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' })
+  } catch (e) {
+    next(e)
   }
 }
 </file>
@@ -1197,7 +2756,12 @@ export const userIsAssociationOwner = async (userId) => {
 import { Router } from 'express'
 import { requireAuth } from '../../middlewares/requireAuth.js'
 import { validate }    from '../../middlewares/validate.js'
-import { createGroupSchema, joinGroupSchema, createMemberSchema } from './group.schema.js'
+import {
+  createGroupSchema,
+  joinGroupSchema,
+  createMemberSchema,
+  sensitiveSharingSchema,
+} from './group.schema.js'
 import * as service from './group.service.js'
 
 const router = Router()
@@ -1228,6 +2792,20 @@ router.post('/:id/members', validate(createMemberSchema), async (req, res, next)
   try { res.status(201).json(await service.createMember(req.params.id, req.user.id, req.body)) }
   catch (e) { next(e) }
 })
+
+router.patch(
+  '/:id/membership/sensitive-sharing',
+  validate(sensitiveSharingSchema),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.updateSensitiveSharing(req.user.id, req.params.id, req.body.shareSensitiveCheckinWithOwner),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 export default router
 </file>
@@ -5847,6 +7425,7 @@ export const groupApi = {
   join:           (inviteCode)               => api.post('/group/join', { inviteCode }),
   leaderboard:    (groupId)                  => api.get(`/group/${groupId}/leaderboard`),
   createMember:   (groupId, data)            => api.post(`/group/${groupId}/members`, data),
+  patchSensitiveSharing: (groupId, body)    => api.patch(`/group/${groupId}/membership/sensitive-sharing`, body),
 }
 </file>
 
@@ -7627,6 +9206,13 @@ export const localDateString = (d = new Date()) => {
 <file path="frontend/src/lib/dayMessage.js">
 import data from '../data/dayMessages.json'
 
+/** Données API `/api/content/day-messages` (même forme que le JSON local) ; `null` = fallback fichier. */
+let remote = null
+
+export const setRemoteDayMessages = (payload) => {
+  remote = payload && typeof payload === 'object' ? payload : null
+}
+
 /** 1–3 encouragement, 4–7 maintien, 8–10 félicitation */
 export const categoryForMood = (mood) => {
   const m = Number(mood)
@@ -7635,7 +9221,11 @@ export const categoryForMood = (mood) => {
   return 'felicitation'
 }
 
-const phrasesFor = (cat) => data[cat]?.phrases ?? []
+const phrasesFor = (cat) => {
+  const fromApi = remote?.[cat]?.phrases
+  if (Array.isArray(fromApi) && fromApi.length > 0) return fromApi
+  return data[cat]?.phrases ?? []
+}
 
 /** Tirage aléatoire dans la catégorie */
 export const randomPhraseForMood = (mood) => {
@@ -7947,13 +9537,17 @@ export class UserRegister extends BaseModel {
 </file>
 
 <file path="frontend/src/stores/auth.js">
-import { writable } from 'svelte/store'
+import { writable, derived } from 'svelte/store'
 import { authApi }  from '../api/auth.js'
 import { tab }      from './tab.js'
+import { setRemoteDayMessages, resetDayMessageCache } from '../lib/dayMessage.js'
 
 // Uniquement les infos d'affichage — jamais le JWT
 // session : incrémenté à chaque nouvelle session (cookie ou login) pour forcer le bootstrap App (check-in du jour)
 export const authStore = writable({ user: null, session: 0 })
+
+/** Compte opérateur (back-office), hors parcours élève / éducateur */
+export const isAppAdmin = derived(authStore, ($s) => $s.user?.isAdmin === true)
 
 const bump = (u) =>
   authStore.update((s) => ({ user: u, session: s.session + 1 }))
@@ -7964,7 +9558,22 @@ export const checkSession = async () => {
     const user = await authApi.me()
     bump(user)
     return true
-  } catch {
+  } catch (e) {
+    if (e?.status === 403 && e?.code === 'SUSPENDED') {
+      try {
+        sessionStorage.setItem(
+          'authNotice',
+          JSON.stringify({
+            type: 'suspended',
+            message: typeof e.message === 'string' && e.message.length ? e.message : 'Compte suspendu',
+          }),
+        )
+      } catch {
+        /* ignore */
+      }
+      await clearAuth()
+      return false
+    }
     authStore.set({ user: null, session: 0 })
     return false
   }
@@ -7977,6 +9586,8 @@ export const setAuth = ({ user }) => bump(user)
 export const clearAuth = async () => {
   await authApi.logout().catch(() => {})
   tab.set('home')
+  setRemoteDayMessages(null)
+  resetDayMessageCache()
   authStore.set({ user: null, session: 0 })
 }
 </file>
@@ -8466,7 +10077,8 @@ volumes:
     "build:front":  "npm run build --prefix frontend",
     "install:all":  "npm install --prefix frontend && npm install --prefix backend",
 
-    "db:migrate":   "docker compose exec backend npx prisma migrate dev --name init",
+    "db:migrate":   "docker compose exec -T backend npx prisma migrate deploy",
+    "db:migrate:dev": "docker compose exec -T backend npx prisma migrate dev",
     "db:push":      "docker compose exec backend npx prisma db push",
     "db:seed":      "docker compose exec backend npx prisma db seed",
     "db:studio":    "docker compose exec backend npx prisma studio",
@@ -8642,6 +10254,10 @@ model User {
   avatar         String   @default("🦊")
   isPending      Boolean  @default(false)  // true = créé par éducateur, pas encore activé
   activationCode String?  @unique          // code 6 chars, null après activation
+  // Compte opérateur (hors parcours élève / éducateur dans l’app)
+  isAdmin        Boolean  @default(false)
+  isSuspended    Boolean  @default(false) // blocage connexion + API (hors déconnexion)
+  lastLoginAt    DateTime? // dernière session (login / register / activation)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -8649,6 +10265,30 @@ model User {
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
   memberships GroupMember[]
+}
+
+// Phrases « message du jour » (Home) — éditables depuis le back-office admin
+model MotivationalPhrase {
+  id        String   @id @default(cuid())
+  category  String   // encouragement | maintien | felicitation
+  text      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([category, sortOrder])
+}
+
+// Actions admin (support / conformité) — pas de FK pour conserver l’historique si un user est supprimé
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  targetId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ── GROUPS ─────────────────────────────────────────────────────────────────────
@@ -8677,12 +10317,15 @@ model GroupMember {
   userId   String
   groupId  String
   role     GroupRole @default(MEMBER)
+  // Membre ASSO : consentement pour partager humeur, phrase mémorable, journal avec l’éducateur.
+  shareSensitiveCheckinWithOwner Boolean @default(false)
   joinedAt DateTime  @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([userId, groupId])
+  @@index([groupId])
 }
 
 // ── HABITS ─────────────────────────────────────────────────────────────────────
@@ -8705,6 +10348,8 @@ model Habit {
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs HabitLog[]
+
+  @@index([userId])
 }
 
 model HabitLog {
@@ -8718,6 +10363,7 @@ model HabitLog {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, date])
+  @@index([userId])
 }
 
 // ── DAILY LOG ──────────────────────────────────────────────────────────────────
@@ -8736,6 +10382,7 @@ model DailyLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
+  @@index([userId])
 }
 </file>
 
@@ -8743,6 +10390,7 @@ model DailyLog {
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import { DEFAULT_HABITS } from '../src/core/defaultHabitsData.js'
+import { seedMotivationalPhrasesFromRepoJson } from '../src/modules/admin/admin.service.js'
 
 const db   = new PrismaClient()
 const SALT = 12
@@ -8777,6 +10425,22 @@ async function main() {
   })
   await seedHabits(solo.id, 'solo')
   console.log('  ✅ User solo       → solo@demo.dev / demo1234')
+
+  // ── 1b. Admin (hors parcours app) ───────────────────────────────────────
+  const adminPass = process.env.ADMIN_SEED_PASSWORD || 'demo1234'
+  await db.user.upsert({
+    where:  { username: 'AdminDemo' },
+    update: { isAdmin: true },
+    create: {
+      email:        'admin@demo.dev',
+      username:     'AdminDemo',
+      passwordHash: await hash(adminPass),
+      avatar:       '⚙️',
+      isPending:    false,
+      isAdmin:      true,
+    },
+  })
+  console.log('  ✅ Admin           → admin@demo.dev / (ADMIN_SEED_PASSWORD ou demo1234)')
 
   // ── 2. Éducateur ──────────────────────────────────────────────────────────
   const educator = await db.user.upsert({
@@ -8833,9 +10497,14 @@ async function main() {
 
   console.log('  ✅ Groupe          → "Association Démo" (code: DEMO-ASSO-2024)')
 
+  const phrasesRes = await seedMotivationalPhrasesFromRepoJson()
+  if (phrasesRes.ok) console.log('  ✅ Phrases du jour → import JSON → BDD')
+  else console.log('  ⚠️  Phrases du jour —', phrasesRes.message)
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('  Comptes de démo disponibles :')
   console.log('  solo@demo.dev        → user seul')
+  console.log('  admin@demo.dev       → administration (hors app)')
   console.log('  educateur@demo.dev   → éducateur (gère l\'asso)')
   console.log('  membre@demo.dev      → membre de l\'asso')
   console.log('  Mot de passe commun : demo1234')
@@ -8897,8 +10566,12 @@ export const errorHandler = (err, req, res, next) => {
       })
   }
 
-  // Erreur métier volontaire : throw { status: 403, message: '...' }
-  if (err.status) return res.status(err.status).json({ error: err.message })
+  // Erreur métier volontaire : throw { status: 403, message: '...', code?: 'SUSPENDED' }
+  if (err.status) {
+    const body = { error: err.message }
+    if (err.code) body.code = err.code
+    return res.status(err.status).json(body)
+  }
 
   res.status(500).json({ error: 'Erreur interne du serveur' })
 }
@@ -9075,6 +10748,12 @@ const safeUser = (user) => {
   return rest
 }
 
+const tokenPayload = (user) => ({
+  id: user.id,
+  username: user.username,
+  isAdmin: user.isAdmin === true,
+})
+
 // ── Register (compte autonome) ────────────────────────────────────────────────
 
 export const register = async ({ email, username, password, avatar, group, inviteCode }) => {
@@ -9117,7 +10796,11 @@ export const register = async ({ email, username, password, avatar, group, invit
     })
   }
 
-  return { user: safeUser(user), token: signToken({ id: user.id, username: user.username }) }
+  const withLogin = await db.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  })
+  return { user: safeUser(withLogin), token: signToken(tokenPayload(withLogin)) }
 }
 
 // ── Login (compte autonome) ───────────────────────────────────────────────────
@@ -9130,15 +10813,27 @@ export const login = async ({ email, password }) => {
   if (user.isPending)
     throw { status: 403, message: 'Compte non activé — utilise ton code association' }
 
+  if (user.isSuspended)
+    throw { status: 403, message: 'Compte suspendu — contacte le support.', code: 'SUSPENDED' }
+
   const valid = await verifyPassword(password, user.passwordHash)
   if (!valid) throw { status: 401, message: 'Identifiants invalides' }
 
-  // Comptes sans habitudes → pack par défaut, sauf éducateur association (pas d’habitudes perso)
-  const habitCount = await db.habit.count({ where: { userId: user.id, isActive: true } })
-  if (habitCount === 0 && !(await userIsAssociationOwner(user.id)))
-    await createDefaultHabitsForUser(user.id)
+  const refreshed = await db.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  })
 
-  return { user: safeUser(user), token: signToken({ id: user.id, username: user.username }) }
+  // Comptes sans habitudes → pack par défaut, sauf éducateur association / admin (hors parcours perso)
+  const habitCount = await db.habit.count({ where: { userId: refreshed.id, isActive: true } })
+  if (
+    habitCount === 0 &&
+    !(await userIsAssociationOwner(refreshed.id)) &&
+    !refreshed.isAdmin
+  )
+    await createDefaultHabitsForUser(refreshed.id)
+
+  return { user: safeUser(refreshed), token: signToken(tokenPayload(refreshed)) }
 }
 
 // ── Check code association ────────────────────────────────────────────────────
@@ -9192,13 +10887,14 @@ export const activate = async ({ code, email, password, username, avatar }) => {
       activationCode: null,
       username,
       avatar:         avatar ?? '🦊',
+      lastLoginAt:    new Date(),
     },
   })
 
   const habitCount = await db.habit.count({ where: { userId: updated.id, isActive: true } })
   if (habitCount === 0) await createDefaultHabitsForUser(updated.id)
 
-  return { user: safeUser(updated), token: signToken({ id: updated.id, username: updated.username }) }
+  return { user: safeUser(updated), token: signToken(tokenPayload(updated)) }
 }
 
 // ── Me ────────────────────────────────────────────────────────────────────────
@@ -9206,7 +10902,17 @@ export const activate = async ({ code, email, password, username, avatar }) => {
 export const me = async (userId) => {
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, email: true, username: true, avatar: true, isPending: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      avatar: true,
+      isPending: true,
+      isAdmin: true,
+      isSuspended: true,
+      createdAt: true,
+      lastLoginAt: true,
+    },
   })
   return user
 }
@@ -9215,6 +10921,7 @@ export const me = async (userId) => {
 <file path="backend/src/modules/checkin/checkin.service.js">
 import { db } from '../../core/db.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 const todayDateUtc = () => new Date(new Date().toISOString().slice(0, 10))
 
@@ -9237,6 +10944,11 @@ export const upsertDailyLog = async (userId, { date: dateStr, ...data }) => {
     throw {
       status: 403,
       message: 'Compte éducateur association : pas de check-in / journal personnel sur ce profil.',
+    }
+  if (await userIsAppAdmin(userId))
+    throw {
+      status: 403,
+      message: 'Compte administrateur : pas de check-in dans l’app.',
     }
   const date = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
     ? dateFromYMD(dateStr)
@@ -9265,6 +10977,10 @@ export const joinGroupSchema = z.object({
 /** Invité asso : e-mail seul (MVP) — pseudo généré côté serveur */
 export const createMemberSchema = z.object({
   email: z.string().email().transform((v) => normalizeEmail(v)),
+})
+
+export const sensitiveSharingSchema = z.object({
+  shareSensitiveCheckinWithOwner: z.boolean(),
 })
 </file>
 
@@ -9310,12 +11026,18 @@ export const listHabitsQuerySchema = z.object({
 <file path="backend/src/modules/habits/habits.service.js">
 import { db } from '../../core/db.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 const forbidEducatorHabitMutations = async (userId) => {
   if (await userIsAssociationOwner(userId))
     throw {
       status: 403,
       message: 'Compte éducateur association : pas d’habitudes personnelles sur ce profil. Utilise un autre compte pour ton suivi perso.',
+    }
+  if (await userIsAppAdmin(userId))
+    throw {
+      status: 403,
+      message: 'Compte administrateur : pas d’habitudes dans l’app.',
     }
 }
 
@@ -9333,7 +11055,7 @@ const dateFromYMD = (ymd) => {
 
 /** @param {string} [dateStr] — YYYY-MM-DD côté client ; sinon jour UTC serveur */
 export const getHabits = async (userId, dateStr) => {
-  if (await userIsAssociationOwner(userId)) return []
+  if (await userIsAssociationOwner(userId) || (await userIsAppAdmin(userId))) return []
   const day =
     dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateFromYMD(dateStr) : utcCalendarDate()
   return db.habit.findMany({
@@ -9460,6 +11182,7 @@ export default router
 import { db } from '../../core/db.js'
 import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
 
 // 7 derniers jours au format YYYY-MM-DD
@@ -9472,7 +11195,7 @@ const last7Days = () => {
 }
 
 export const getMyStats = async (userId) => {
-  if (await userIsAssociationOwner(userId)) {
+  if ((await userIsAssociationOwner(userId)) || (await userIsAppAdmin(userId))) {
     const days = last7Days()
     return {
       byDay:   days.map((day) => ({ date: day, rate: 0 })),
@@ -9506,21 +11229,26 @@ export const getMyStats = async (userId) => {
   return { byDay, byHabit }
 }
 
-/** UserIds à exclure du classement global (proprio d’au moins une asso). */
-const associationOwnerUserIds = async () => {
-  const rows = await db.groupMember.findMany({
-    where:   { role: 'OWNER', group: { type: 'ASSOCIATION' } },
-    select:  { userId: true },
-    distinct: ['userId'],
-  })
-  return rows.map((r) => r.userId)
+/** UserIds à exclure du classement global (proprio d’au moins une asso + comptes admin). */
+const leaderboardExcludedUserIds = async () => {
+  const [ownerRows, admins] = await Promise.all([
+    db.groupMember.findMany({
+      where:   { role: 'OWNER', group: { type: 'ASSOCIATION' } },
+      select:  { userId: true },
+      distinct: ['userId'],
+    }),
+    db.user.findMany({ where: { isAdmin: true }, select: { id: true } }),
+  ])
+  const ids = new Set([...ownerRows.map((r) => r.userId), ...admins.map((a) => a.id)])
+  return [...ids]
 }
 
 export const getGlobalLeaderboard = async () => {
-  const excludeIds = await associationOwnerUserIds()
+  const excludeIds = await leaderboardExcludedUserIds()
   const users = await db.user.findMany({
     where: {
       isPending: false,
+      isSuspended: false,
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: {
@@ -9582,6 +11310,9 @@ export const getEducatorAssociationOverview = async (userId) => {
 }
 
 export const getMyProfile = async (userId) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de profil joueur.' }
+
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: { id: true, username: true, avatar: true, createdAt: true },
@@ -9605,6 +11336,9 @@ export const getMyProfile = async (userId) => {
 
 // Calendrier année : tous les jours avec data agrégée + détails émotionnels
 export const getCalendarYear = async (userId, year) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de calendrier joueur.' }
+
   const startDate = new Date(`${year}-01-01`)
   const endDate   = new Date(`${year}-12-31`)
   
@@ -9692,6 +11426,9 @@ export const getCalendarYear = async (userId, year) => {
 
 // Insights : corrélations mood/sommeil/réussite sur les N derniers jours
 export const getInsights = async (userId, daysCount = 30) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas d’insights joueur.' }
+
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - daysCount)
   
@@ -9820,7 +11557,10 @@ import authRouter    from './modules/auth/auth.router.js'
 import habitsRouter  from './modules/habits/habits.router.js'
 import checkinRouter from './modules/checkin/checkin.router.js'
 import groupRouter   from './modules/group/group.router.js'
-import statsRouter   from './modules/stats/stats.router.js'
+import statsRouter    from './modules/stats/stats.router.js'
+import educatorRouter from './modules/educator/educator.router.js'
+import contentRouter  from './modules/content/content.router.js'
+import adminRouter    from './modules/admin/admin.router.js'
 
 const app = express()
 
@@ -9840,11 +11580,14 @@ app.use('/api', apiLimiter)
 // ── Routes ────────────────────────────────────────────────────────────────────
 // /api/auth est exempt du CSRF : pas de session au moment du login/register
 app.use('/api/auth',    authLimiter, authRouter)
+app.use('/api/content', contentRouter)
 // CSRF actif sur toutes les routes authentifiées
 app.use('/api/habits',  csrfProtect, habitsRouter)
 app.use('/api/checkin', csrfProtect, checkinRouter)
 app.use('/api/group',   csrfProtect, groupRouter)
-app.use('/api/stats',   statsRouter)   // stats = GET uniquement, csrfProtect les ignore déjà
+app.use('/api/stats',    statsRouter)   // stats = GET uniquement, csrfProtect les ignore déjà
+app.use('/api/educator', csrfProtect, educatorRouter)
+app.use('/api/admin', csrfProtect, adminRouter)
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 
@@ -9860,7 +11603,7 @@ export default app
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev":        "node --watch src/server.js",
+    "dev":        "prisma generate && node --watch src/server.js",
     "start":      "node src/server.js",
     "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
     "db:push":    "dotenv -e ../.env -- prisma db push",
@@ -9926,31 +11669,46 @@ const request = async (method, path, body) => {
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 
+  if (res.ok)
+    return res.status === 204 ? null : res.json()
+
+  const err = await res.json().catch(() => ({ error: 'Erreur réseau' }))
+
   if (res.status === 401) {
-    const errBody = await res.json().catch(() => ({}))
     const message =
-      typeof errBody.error === 'string' && errBody.error.length ? errBody.error : 'Session expirée'
+      typeof err.error === 'string' && err.error.length ? err.error : 'Session expirée'
     if (shouldDispatchSessionExpiredOn401(method, path))
       window.dispatchEvent(new CustomEvent('session:expired'))
     throw { status: 401, message }
   }
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erreur réseau' }))
-    let message = typeof err.error === 'string' ? err.error : null
-    if (!message && err.errors && typeof err.errors === 'object') {
-      const parts = []
-      for (const [field, msgs] of Object.entries(err.errors)) {
-        if (Array.isArray(msgs) && msgs.length)
-          parts.push(`${field}: ${msgs.join(', ')}`)
-      }
-      message = parts.length ? parts.join(' · ') : 'Données invalides'
+  if (res.status === 403 && err.code === 'SUSPENDED') {
+    try {
+      sessionStorage.setItem(
+        'authNotice',
+        JSON.stringify({
+          type: 'suspended',
+          message:
+            typeof err.error === 'string' && err.error.length ? err.error : 'Compte suspendu',
+        }),
+      )
+    } catch {
+      /* mode privé / quota */
     }
-    if (!message) message = 'Erreur inconnue'
-    throw { status: res.status, message, code: err.code, errors: err.errors }
+    window.dispatchEvent(new CustomEvent('session:suspended'))
   }
 
-  return res.status === 204 ? null : res.json()
+  let message = typeof err.error === 'string' ? err.error : null
+  if (!message && err.errors && typeof err.errors === 'object') {
+    const parts = []
+    for (const [field, msgs] of Object.entries(err.errors)) {
+      if (Array.isArray(msgs) && msgs.length)
+        parts.push(`${field}: ${msgs.join(', ')}`)
+    }
+    message = parts.length ? parts.join(' · ') : 'Données invalides'
+  }
+  if (!message) message = 'Erreur inconnue'
+  throw { status: res.status, message, code: err.code, errors: err.errors }
 }
 
 export const api = {
@@ -10123,7 +11881,7 @@ export class UserCompleteProfile extends BaseModel {
 </file>
 
 <file path="frontend/src/stores/group.js">
-import { writable, derived } from 'svelte/store'
+import { writable, derived, get } from 'svelte/store'
 import { groupApi } from '../api/group.js'
 import { statsApi } from '../api/stats.js'
 
@@ -10141,8 +11899,14 @@ export const hasGroup = derived(groups, ($g) => $g.length > 0)
 
 export const loadGroups = async () => {
   const data = await groupApi.getMyGroups()
+  const previousId = get(activeGroup)?.id
   groups.set(data)
-  if (data.length > 0) activeGroup.set(data[0])
+  if (data.length > 0) {
+    const keep = previousId ? data.find((g) => g.id === previousId) : null
+    activeGroup.set(keep || data[0])
+  } else {
+    activeGroup.set(null)
+  }
   return data
 }
 
@@ -10161,8 +11925,12 @@ export const loadGlobalLeaderboard = async () => {
 // Charge tout en parallèle
 export const loadGroupData = async () => {
   const grps = await loadGroups()
+  const leaderboardGroupId =
+    grps.find((g) => g.type === 'ASSOCIATION' && g.role === 'OWNER')?.id ??
+    grps.find((g) => g.role === 'OWNER')?.id ??
+    grps[0]?.id
   await Promise.all([
-    grps.length > 0 ? loadGroupLeaderboard(grps[0].id) : Promise.resolve(),
+    leaderboardGroupId ? loadGroupLeaderboard(leaderboardGroupId) : Promise.resolve(),
     loadGlobalLeaderboard(),
   ])
 }
@@ -10181,6 +11949,11 @@ export const isAssociationOwner = (grps) =>
 
 /** Store réactif — même critère que le skip check-in / garde-fous API */
 export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner($g))
+
+/** Groupe ASSO dont l’utilisateur est OWNER (suivi éducateur / classement aperçu). */
+export const educatorAssociationGroupId = derived(groups, ($g) =>
+  $g.find((x) => x.type === 'ASSOCIATION' && x.role === 'OWNER')?.id ?? null,
+)
 </file>
 
 <file path="frontend/src/styles/theme.css">
@@ -10250,7 +12023,7 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   import { authStore } from '../stores/auth.js'
   import {
     groups, activeGroup, groupLeaderboard, globalLeaderboard,
-    myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard,
+    myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard, loadGroups,
   } from '../stores/group.js'
   import { groupApi } from '../api/group.js'
   import Tag  from '../components/ui/Tag.svelte'
@@ -10268,6 +12041,7 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   let memberCodePanelOpen = true // réduire = cache l’UI seulement, pas le stockage
   let lastPanelGroupId    = null
   let showJoinForm = false
+  let sharingSaving = false
 
   const memberCodeKey = (userId, groupId) =>
     `habitTracker:assocMemberCode:${userId}:${groupId}`
@@ -10334,6 +12108,23 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   const switchGroup = async (g) => {
     activeGroup.set(g)
     await loadGroupLeaderboard(g.id)
+  }
+
+  const setSensitiveSharing = async (checked) => {
+    if (!$activeGroup?.id) return
+    sharingSaving = true
+    error = ''
+    try {
+      await groupApi.patchSensitiveSharing($activeGroup.id, {
+        shareSensitiveCheckinWithOwner: checked,
+      })
+      await loadGroups()
+      if ($activeGroup?.id) await loadGroupLeaderboard($activeGroup.id)
+    } catch (e) {
+      error = e.message
+    } finally {
+      sharingSaving = false
+    }
   }
 </script>
 
@@ -10411,6 +12202,30 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
         </div>
       {/if}
     </div>
+
+    {#if $myRole === 'MEMBER' && $activeGroup?.type === 'ASSOCIATION'}
+      <Card style="margin-bottom:14px;border-left:3px solid var(--accent)">
+        <div class="micro" style="color:var(--accent);margin-bottom:6px">TRANSPARENCE — VUE ÉDUCATEUR</div>
+        <p class="consent-copy">
+          Le <strong>responsable</strong> de cette association peut consulter ton <strong>classement</strong>,
+          tes <strong>habitudes</strong> cochées et des <strong>statistiques agrégées</strong> pour t’accompagner.
+          Par défaut, l’<strong>humeur</strong>, la <strong>phrase mémorable</strong> (motif) et le
+          <strong>journal</strong> du check-in <strong>ne sont pas</strong> partagés.
+        </p>
+        <label class="share-row">
+          <input
+            type="checkbox"
+            checked={$activeGroup?.shareSensitiveCheckinWithOwner === true}
+            disabled={sharingSaving}
+            on:change={(e) => setSensitiveSharing(e.currentTarget.checked)}
+          />
+          <span>
+            J’autorise le responsable du groupe à voir aussi mon <strong>humeur</strong>, la phrase liée et mon
+            <strong>journal</strong> du check-in (révocable à tout moment).
+          </span>
+        </label>
+      </Card>
+    {/if}
 
     <!-- ── Leaderboard groupe ─────────────────────────────────────────── -->
     <div class="board">
@@ -10661,6 +12476,33 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   .error   { color: var(--red); font-size: .85rem; margin-bottom: 8px; }
   .loading { color: var(--muted); text-align: center; padding: 40px 0; }
   .section-label { margin-bottom: 12px; }
+
+  .consent-copy {
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 0 0 12px;
+  }
+  .share-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .share-row input {
+    flex: 0 0 auto;
+    margin-top: 3px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+  .share-row input:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
 </style>
 </file>
 
@@ -10682,7 +12524,9 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
     loadGroupData,
     groupLeaderboard,
     hasGroup,
+    educatorAssociationGroupId,
   } from '../stores/group.js'
+  import EducatorMemberFollowupModal from '../components/educator/EducatorMemberFollowupModal.svelte'
   import { tab } from '../stores/tab.js'
 
   const coerceSleep = (sq) =>
@@ -10705,6 +12549,8 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   let showAddHabitModal = false
   /** Habitude perso en cours d’édition (origin USER) */
   let editHabit = null
+  /** Suivi éducateur : membre sélectionné depuis l’aperçu classement */
+  let followMember = null
 
   const pullDraftFromServer = () => {
     const log = get(dailyLog)
@@ -10878,14 +12724,24 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   </button>
   {#if $hasGroup && $groupLeaderboard.length > 0}
     <p class="micro muted edu-section-label">Aperçu du classement</p>
+    <p class="hint-edu muted" style="margin-top:-4px;margin-bottom:10px;font-size:0.82rem">
+      Touche une ligne pour ouvrir le suivi détaillé (habitudes, stats, calendrier — données sensibles selon le consentement de l’élève).
+    </p>
     <div class="edu-board">
       {#each $groupLeaderboard.slice(0, 10) as m, i}
-        <div class="edu-row">
+        <button
+          type="button"
+          class="edu-row"
+          disabled={!$educatorAssociationGroupId}
+          on:click={() => {
+            followMember = { id: m.id, username: m.username }
+          }}
+        >
           <span class="edu-rank">#{i + 1}</span>
           <span class="edu-ava">{m.avatar}</span>
           <span class="edu-name">{m.username}</span>
           <span class="edu-xp">{m.totalXP.toLocaleString()} XP</span>
-        </div>
+        </button>
       {/each}
     </div>
   {:else if !$hasGroup}
@@ -11208,6 +13064,20 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .edu-row:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .edu-row:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
   .edu-rank {
     font-family: 'Rajdhani', sans-serif;
@@ -11237,10 +13107,19 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
 {#if !$isEducatorAssociation && editHabit}
   <EditHabitModal habit={editHabit} on:saved={handleHabitEditSaved} on:close={() => (editHabit = null)} />
 {/if}
+
+{#if $isEducatorAssociation && followMember && $educatorAssociationGroupId}
+  <EducatorMemberFollowupModal
+    groupId={$educatorAssociationGroupId}
+    member={followMember}
+    on:close={() => (followMember = null)}
+  />
+{/if}
 </file>
 
 <file path="frontend/src/views/Login.svelte">
 <script>
+  import { onMount } from 'svelte'
   import { authApi } from '../api/auth.js'
   import { setAuth } from '../stores/auth.js'
   import { tab as navTab } from '../stores/tab.js'
@@ -11286,6 +13165,19 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  onMount(() => {
+    try {
+      const raw = sessionStorage.getItem('authNotice')
+      if (!raw) return
+      sessionStorage.removeItem('authNotice')
+      const o = JSON.parse(raw)
+      if (o?.type === 'suspended' && typeof o.message === 'string' && o.message.length)
+        error = o.message
+    } catch {
+      /* ignore */
+    }
+  })
+
   const switchTab = (t) => {
     tab = t
     error = ''
@@ -12238,12 +14130,14 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
    */
   import { onMount, tick } from 'svelte'
-  import { authStore, checkSession } from './stores/auth.js'
+  import { get } from 'svelte/store'
+  import { authStore, checkSession, clearAuth, isAppAdmin } from './stores/auth.js'
   import { tab }      from './stores/tab.js'
   import { loadToday, loadTodayResilient, resetDailyLog } from './stores/checkin.js'
   import { loadProfile, resetProfile } from './stores/profile.js'
   import { loadGroups, resetGroupState, isAssociationOwner, isEducatorAssociation } from './stores/group.js'
-  import { resetDayMessageCache } from './lib/dayMessage.js'
+  import { resetDayMessageCache, setRemoteDayMessages } from './lib/dayMessage.js'
+  import { loadDayMessagesPublic } from './api/content.js'
   import { hasMoodForToday } from './lib/checkinState.js'
 
   import Login   from './views/Login.svelte'
@@ -12252,6 +14146,7 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
   import Groupe  from './views/Groupe.svelte'
   import Stats   from './views/Stats.svelte'
   import Profil  from './views/Profil.svelte'
+  import Admin   from './views/Admin.svelte'
   import Topbar    from './components/modules/Topbar.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
@@ -12283,6 +14178,19 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
     try {
       await tick()
       await new Promise((r) => setTimeout(r, 50))
+      try {
+        const dm = await loadDayMessagesPublic()
+        setRemoteDayMessages(dm)
+      } catch {
+        setRemoteDayMessages(null)
+      }
+
+      if (get(isAppAdmin)) {
+        checkinDone = true
+        sessionReady = true
+        return
+      }
+
       const log = await loadTodayResilient()
       let done = hasMoodForToday(log)
       const grps = await loadGroups()
@@ -12299,14 +14207,21 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
     await checkSession()
     loading = false
 
-    window.addEventListener('session:expired', () => {
+    const resetSessionUi = () => {
       authStore.set({ user: null, session: 0 })
       resetProfile()
       resetGroupState()
-      bootKey        = null
-      sessionReady   = false
-      checkinDone    = false
+      bootKey = null
+      sessionReady = false
+      checkinDone = false
       resetDayMessageCache()
+    }
+
+    window.addEventListener('session:expired', resetSessionUi)
+
+    window.addEventListener('session:suspended', () => {
+      void clearAuth()
+      resetSessionUi()
     })
   })
 
@@ -12346,6 +14261,13 @@ export const isEducatorAssociation = derived(groups, ($g) => isAssociationOwner(
 
 {:else if !$authStore.user}
   <Login />
+
+{:else if $isAppAdmin}
+  {#if !sessionReady}
+    <div class="splash">Chargement…</div>
+  {:else}
+    <Admin />
+  {/if}
 
 {:else if !sessionReady}
   <div class="splash">Chargement…</div>
@@ -12395,6 +14317,7 @@ import { randomBytes } from 'crypto'
 import { db } from '../../core/db.js'
 import { normalizeEmail } from '../../core/emailUtil.js'
 import { levelFromXP, titleForLevel, computeStreak } from '../../core/xpEngine.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
@@ -12428,6 +14351,8 @@ const generateUniqueUsernameFromEmail = async (normalizedEmail) => {
 }
 
 export const createGroup = async (userId, { name, type = 'FRIENDS' }) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de groupe dans l’app.' }
   const group = await db.group.create({ data: { name, type } })
   // Le créateur devient automatiquement OWNER
   await db.groupMember.create({ data: { userId, groupId: group.id, role: 'OWNER' } })
@@ -12435,6 +14360,8 @@ export const createGroup = async (userId, { name, type = 'FRIENDS' }) => {
 }
 
 export const joinGroup = async (userId, { inviteCode }) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas d’adhésion groupe dans l’app.' }
   const group = await db.group.findUnique({ where: { inviteCode } })
   if (!group) throw { status: 404, message: 'Groupe introuvable' }
 
@@ -12486,7 +14413,10 @@ export const getMyGroups = async (userId) => {
     where:   { members: { some: { userId } } },
     include: {
       _count:  { select: { members: true } },
-      members: { where: { userId }, select: { role: true } },
+      members: {
+        where: { userId },
+        select: { role: true, shareSensitiveCheckinWithOwner: true },
+      },
     },
   })
   // Aplatir : role pour le front ; inviteCode uniquement pour OWNER (pas pour MEMBER)
@@ -12495,9 +14425,30 @@ export const getMyGroups = async (userId) => {
     return {
       ...rest,
       role,
+      shareSensitiveCheckinWithOwner: members[0]?.shareSensitiveCheckinWithOwner ?? false,
       ...(role === 'OWNER' ? { inviteCode } : {}),
     }
   })
+}
+
+/** Membre d’une association : met à jour le consentement de partage avec l’éducateur (OWNER). */
+export const updateSensitiveSharing = async (userId, groupId, shareSensitiveCheckinWithOwner) => {
+  const group = await db.group.findUnique({ where: { id: groupId }, select: { type: true } })
+  if (!group) throw { status: 404, message: 'Groupe introuvable' }
+  if (group.type !== 'ASSOCIATION')
+    throw { status: 403, message: 'Ce réglage n’existe que pour les groupes association' }
+
+  const m = await db.groupMember.findUnique({
+    where: { userId_groupId: { userId, groupId } },
+  })
+  if (!m || m.role !== 'MEMBER')
+    throw { status: 403, message: 'Seuls les membres peuvent modifier ce consentement' }
+
+  await db.groupMember.update({
+    where: { userId_groupId: { userId, groupId } },
+    data: { shareSensitiveCheckinWithOwner },
+  })
+  return { shareSensitiveCheckinWithOwner }
 }
 
 // Éducateur (OWNER d’un groupe ASSOCIATION) crée un invité pending (e-mail + code)

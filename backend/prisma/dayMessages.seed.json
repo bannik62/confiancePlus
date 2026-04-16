@@ -1,0 +1,30 @@
+{
+  "_comment": "Copie de référence pour le seed Docker (backend seul monté dans /app). La source éditoriale reste frontend/src/data/dayMessages.json.",
+  "felicitation": {
+    "phrases": [
+      "T'es en feu aujourd'hui ⚡ Garde cette énergie.",
+      "Ça avance fort. Continue comme ça 🔥",
+      "Ta régularité paie. Profite du momentum.",
+      "Belle journée côté effort — assume-le.",
+      "Tu stack les victoires. Une de plus aujourd'hui."
+    ]
+  },
+  "maintien": {
+    "phrases": [
+      "Chaque jour compte. T'as déjà fait le plus dur : t'es là. 💪",
+      "Pas besoin d'être parfait·e. Un pas suffit.",
+      "La constance bat l'intensité sur la durée.",
+      "Respire. Tu peux avancer à ton rythme.",
+      "La journée est encore là — un petit geste compte."
+    ]
+  },
+  "encouragement": {
+    "phrases": [
+      "Les jours difficiles forgent les gens solides. Continue. 🛡️",
+      "C'est ok d'être bas·se. Demain est une autre page.",
+      "Un jour plus dur ne définit pas qui tu es.",
+      "Sois doux·ce avec toi-même aujourd'hui.",
+      "T'as le droit de ralentir. L'important, c'est de rester dans le jeu."
+    ]
+  }
+}

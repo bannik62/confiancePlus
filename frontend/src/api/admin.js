@@ -1,0 +1,23 @@
+import { api } from './client.js'
+
+export const adminApi = {
+  users: (params = {}) => {
+    const q = new URLSearchParams()
+    if (params.page != null) q.set('page', String(params.page))
+    if (params.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return api.get(`/admin/users${qs ? `?${qs}` : ''}`)
+  },
+  deleteUser: (id) => api.delete(`/admin/users/${encodeURIComponent(id)}`),
+  patchUserSuspension: (id, suspended) =>
+    api.patch(`/admin/users/${encodeURIComponent(id)}/suspension`, { suspended }),
+  audit: (params = {}) => {
+    const q = new URLSearchParams()
+    if (params.limit != null) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return api.get(`/admin/audit${qs ? `?${qs}` : ''}`)
+  },
+  groups: () => api.get('/admin/groups'),
+  getDayMessages: () => api.get('/admin/day-messages'),
+  putDayMessages: (body) => api.put('/admin/day-messages', body),
+}

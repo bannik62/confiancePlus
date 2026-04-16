@@ -6,4 +6,5 @@ export const groupApi = {
   join:           (inviteCode)               => api.post('/group/join', { inviteCode }),
   leaderboard:    (groupId)                  => api.get(`/group/${groupId}/leaderboard`),
   createMember:   (groupId, data)            => api.post(`/group/${groupId}/members`, data),
+  patchSensitiveSharing: (groupId, body)    => api.patch(`/group/${groupId}/membership/sensitive-sharing`, body),
 }

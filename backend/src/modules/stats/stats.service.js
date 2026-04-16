@@ -1,28 +1,47 @@
 import { db } from '../../core/db.js'
 import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
 
-// 7 derniers jours au format YYYY-MM-DD
-const last7Days = () => {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    return d.toISOString().slice(0, 10)
-  })
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Aligné sur les logs d’habitudes (@db.Date, midi UTC) */
+const dateFromYMD = (ymd) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
 }
 
-export const getMyStats = async (userId) => {
-  if (await userIsAssociationOwner(userId)) {
-    const days = last7Days()
+/**
+ * 7 jours civils se terminant à anchorYmd (YYYY-MM-DD), ordre lundi → dimanche côté affichage.
+ * Arithmétique en UTC sur y/m/d pour éviter les fuseaux du serveur.
+ */
+const last7DaysFromAnchor = (anchorYmd) => {
+  const [y, m, d] = anchorYmd.split('-').map(Number)
+  const out = []
+  for (let i = 0; i < 7; i++) {
+    const offset = 6 - i
+    const dt = new Date(Date.UTC(y, m - 1, d - offset, 12, 0, 0, 0))
+    out.push(dt.toISOString().slice(0, 10))
+  }
+  return out
+}
+
+const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
+
+export const getMyStats = async (userId, { clientToday } = {}) => {
+  const anchor =
+    clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  const days = last7DaysFromAnchor(anchor)
+
+  if ((await userIsAssociationOwner(userId)) || (await userIsAppAdmin(userId))) {
     return {
       byDay:   days.map((day) => ({ date: day, rate: 0 })),
       byHabit: [],
     }
   }
 
-  const days   = last7Days()
-  const from   = new Date(days[0])
+  const from   = dateFromYMD(days[0])
   const habits = await db.habit.findMany({
     where: { userId, isActive: true },
     include: { logs: { where: { date: { gte: from } } } },
@@ -47,21 +66,26 @@ export const getMyStats = async (userId) => {
   return { byDay, byHabit }
 }
 
-/** UserIds à exclure du classement global (proprio d’au moins une asso). */
-const associationOwnerUserIds = async () => {
-  const rows = await db.groupMember.findMany({
-    where:   { role: 'OWNER', group: { type: 'ASSOCIATION' } },
-    select:  { userId: true },
-    distinct: ['userId'],
-  })
-  return rows.map((r) => r.userId)
+/** UserIds à exclure du classement global (proprio d’au moins une asso + comptes admin). */
+const leaderboardExcludedUserIds = async () => {
+  const [ownerRows, admins] = await Promise.all([
+    db.groupMember.findMany({
+      where:   { role: 'OWNER', group: { type: 'ASSOCIATION' } },
+      select:  { userId: true },
+      distinct: ['userId'],
+    }),
+    db.user.findMany({ where: { isAdmin: true }, select: { id: true } }),
+  ])
+  const ids = new Set([...ownerRows.map((r) => r.userId), ...admins.map((a) => a.id)])
+  return [...ids]
 }
 
 export const getGlobalLeaderboard = async () => {
-  const excludeIds = await associationOwnerUserIds()
+  const excludeIds = await leaderboardExcludedUserIds()
   const users = await db.user.findMany({
     where: {
       isPending: false,
+      isSuspended: false,
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: {
@@ -123,6 +147,9 @@ export const getEducatorAssociationOverview = async (userId) => {
 }
 
 export const getMyProfile = async (userId) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de profil joueur.' }
+
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: { id: true, username: true, avatar: true, createdAt: true },
@@ -146,6 +173,9 @@ export const getMyProfile = async (userId) => {
 
 // Calendrier année : tous les jours avec data agrégée + détails émotionnels
 export const getCalendarYear = async (userId, year) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de calendrier joueur.' }
+
   const startDate = new Date(`${year}-01-01`)
   const endDate   = new Date(`${year}-12-31`)
   
@@ -233,6 +263,9 @@ export const getCalendarYear = async (userId, year) => {
 
 // Insights : corrélations mood/sommeil/réussite sur les N derniers jours
 export const getInsights = async (userId, daysCount = 30) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas d’insights joueur.' }
+
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - daysCount)
   

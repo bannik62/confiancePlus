@@ -4,6 +4,12 @@
   import { authStore } from '../stores/auth.js'
   import { isEducatorAssociation } from '../stores/group.js'
   import { statsApi } from '../api/stats.js'
+  import { localDateString, weekdayLetterMonFirst } from '../lib/dateLocal.js'
+  import {
+    globalTaskRateBarBg,
+    globalTaskRateFillBg,
+    globalTaskRateLabelColor,
+  } from '../lib/statRateColors.js'
   import Card from '../components/ui/Card.svelte'
   import Tag from '../components/ui/Tag.svelte'
   import CalendarHeatmap from '../components/stats/CalendarHeatmap.svelte'
@@ -16,13 +22,12 @@
   let selectedDay = null
   let showModal = false
   let insights = null
-  let heatmapColorMode = 'rate'
+  let heatmapColorMode = 'activity'
 
   /** Réponse GET /stats/educator-overview */
   let educatorOverview = null
   let loadingEducator = true
 
-  const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
   const currentYear = new Date().getFullYear()
 
   const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`)
@@ -63,7 +68,13 @@
 
   const handleDayClick = (event) => {
     const day = event.detail
-    if (day.habitsDone > 0 || day.mood || day.sleepQuality || day.journal) {
+    if (
+      day.habitsDone > 0 ||
+      day.mood ||
+      day.sleepQuality ||
+      day.journal ||
+      (day.moodReason && String(day.moodReason).trim())
+    ) {
       selectedDay = day
       showModal = true
     }
@@ -121,18 +132,14 @@
     <Card glow style="margin-bottom:12px">
       <div class="micro purple">📊 TAUX DE RÉUSSITE — 7 JOURS</div>
       <div class="bars">
-        {#each byDay as d, i}
+        {#each byDay as d}
           <div class="bar-col">
-            <div class="rate">{d.rate}%</div>
+            <div class="rate" style="color: {globalTaskRateLabelColor(d.rate)}">{d.rate}%</div>
             <div
               class="bar"
-              style="height:{d.rate}%; background: {d.rate === 100
-                ? 'linear-gradient(180deg,var(--gold),var(--red))'
-                : d.rate >= 70
-                  ? 'linear-gradient(180deg,var(--accent),var(--accent-mid))'
-                  : 'var(--stats-empty)'}"
+              style="height:{d.rate}%; background: {globalTaskRateBarBg(d.rate)}"
             />
-            <div class="day" class:today={i === 6}>{DAYS[new Date(d.date).getDay()]}</div>
+            <div class="day" class:today={d.date === localDateString()}>{weekdayLetterMonFirst(d.date)}</div>
           </div>
         {/each}
       </div>
@@ -144,18 +151,12 @@
         <div class="habit-row">
           <div class="habit-meta">
             <span>{h.icon} {h.name}</span>
-            <span
-              class="pct"
-              style="color:{h.rate >= 80 ? 'var(--gold)' : h.rate >= 60 ? 'var(--accent)' : 'var(--muted)'}"
-              >{h.rate}%</span
-            >
+            <span class="pct" style="color: {globalTaskRateLabelColor(h.rate)}">{h.rate}%</span>
           </div>
           <div class="track">
             <div
               class="fill"
-              style="width:{h.rate}%; background:{h.rate >= 80
-                ? 'linear-gradient(90deg,var(--gold),var(--red))'
-                : 'linear-gradient(90deg,var(--accent),var(--cyan))'}"
+              style="width:{h.rate}%; background: {globalTaskRateFillBg(h.rate)}"
             />
           </div>
         </div>
@@ -245,6 +246,9 @@
     border-radius: 5px 5px 2px 2px;
     min-height: 4px;
     transition: height 0.4s;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 0 14px rgba(251, 191, 36, 0.18);
   }
   .day {
     font-size: 9px;
@@ -276,6 +280,7 @@
   .fill {
     height: 100%;
     border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
   .loading,
@@ -312,6 +317,11 @@
   .row-member.me {
     border-color: var(--accent)99;
     box-shadow: 0 0 10px var(--accent)44;
+  }
+  /* 1er + toi : garder l’anneau « or », pas le style « moi » qui écrase .top */
+  .row-member.top.me {
+    border-color: color-mix(in srgb, var(--gold) 70%, #f59e0b 30%);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 50%, transparent);
   }
   .medal {
     font-size: 14px;

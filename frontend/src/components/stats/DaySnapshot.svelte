@@ -7,22 +7,29 @@
   
   const dispatch = createEventDispatcher()
   
+  const moodN = (m) => {
+    const n = Number(m)
+    return Number.isFinite(n) ? n : NaN
+  }
+
   // Emoji humeur selon valeur
   const moodEmoji = (m) => {
-    if (!m) return '😐'
-    if (m <= 2) return '😔'
-    if (m <= 4) return '😕'
-    if (m <= 6) return '😐'
-    if (m <= 8) return '🙂'
-    if (m === 9) return '😄'
+    const v = moodN(m)
+    if (!Number.isFinite(v) || v < 1) return '😐'
+    if (v <= 2) return '😔'
+    if (v <= 4) return '😕'
+    if (v <= 6) return '😐'
+    if (v <= 8) return '🙂'
+    if (v === 9) return '😄'
     return '🤩'
   }
   
   // Couleur humeur
   const moodColor = (m) => {
-    if (!m || m <= 3) return 'var(--red)'
-    if (m <= 5) return 'var(--gold)'
-    if (m <= 7) return 'var(--cyan)'
+    const v = moodN(m)
+    if (!Number.isFinite(v) || v < 1 || v <= 3) return 'var(--red)'
+    if (v <= 5) return 'var(--gold)'
+    if (v <= 7) return 'var(--cyan)'
     return 'var(--green)'
   }
   
@@ -52,17 +59,22 @@
         <div class="date-label">📅 {formatDate(day.date)}</div>
       </div>
       
-      <!-- Humeur -->
-      {#if day.mood}
+      <!-- Humeur + phrase check-in (moodReason) -->
+      {#if day.mood != null && day.mood !== '' && moodN(day.mood) >= 1}
         <div class="section">
           <div class="section-title">Humeur</div>
           <div class="mood-display">
             <span class="mood-emoji" style="color: {moodColor(day.mood)}">{moodEmoji(day.mood)}</span>
-            <span class="mood-value" style="color: {moodColor(day.mood)}">{day.mood}/10</span>
+            <span class="mood-value" style="color: {moodColor(day.mood)}">{moodN(day.mood)}/10</span>
           </div>
           {#if day.moodReason}
-            <div class="mood-reason">💭 "{day.moodReason}"</div>
+            <div class="mood-reason">💭 « {day.moodReason} »</div>
           {/if}
+        </div>
+      {:else if day.moodReason && String(day.moodReason).trim()}
+        <div class="section">
+          <div class="section-title">Phrase du check-in</div>
+          <div class="mood-reason alone">💭 « {day.moodReason} »</div>
         </div>
       {/if}
       
