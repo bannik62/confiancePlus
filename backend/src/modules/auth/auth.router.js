@@ -29,6 +29,10 @@ const clearSessionCookies = (res) => {
 
 // ── Compte autonome ────────────────────────────────────────────────────────────
 
+router.get('/register-status', (req, res) => {
+  res.json(service.getRegisterStatus())
+})
+
 router.post('/register', validate(registerSchema), async (req, res, next) => {
   try {
     const { user, token } = await service.register(req.body)

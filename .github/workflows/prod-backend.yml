@@ -1,0 +1,68 @@
+name: Deploy Prod Backend
+
+on:
+  push:
+    branches: [prod]
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: habitracks
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure backend dir exists
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
+          script: |
+            DEP="${{ secrets.DEPLOY_PATH }}"
+            sudo mkdir -p "$DEP/frontend" "$DEP/backend"
+            sudo chown -R "$(whoami):www-data" "$DEP"
+            sudo find "$DEP" -type d -exec chmod g+s {} \;
+            sudo chmod -R g+rwX "$DEP"
+
+      - name: Copy backend to VPS (scp)
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
+          source: "backend"
+          target: "${{ secrets.DEPLOY_PATH }}/backend"
+          strip_components: 1
+          tar_exec: /bin/tar
+          rm: false
+
+      - name: Copy docker-compose.prod.yml to VPS (scp)
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
+          source: "docker-compose.prod.yml"
+          target: "${{ secrets.DEPLOY_PATH }}"
+          tar_exec: /bin/tar
+          rm: false
+
+      - name: Rebuild and restart backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_HABITTRACKER }}
+          port: ${{ secrets.PORT }}
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d db
+            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod stop backend || true
+            sudo docker compose -f docker-compose.prod.yml rm -f backend || true
+            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod build backend
+            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps backend

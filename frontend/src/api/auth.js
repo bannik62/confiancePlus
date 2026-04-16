@@ -1,6 +1,7 @@
 import { api } from './client.js'
 
 export const authApi = {
+  getRegisterStatus: () => api.get('/auth/register-status'),
   register:  (data) => api.post('/auth/register',   data),
   login:     (data) => api.post('/auth/login',      data),
   logout:    ()     => api.post('/auth/logout'),

@@ -1,0 +1,47 @@
+# Production — à utiliser avec `.env.prod` sur le VPS (ne pas committer les secrets).
+# Exemple : docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Le backend est publié uniquement sur loopback pour Apache (ProxyPass vers 127.0.0.1:HOST_PORT_BACKEND).
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env.prod
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - habitracks_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - habitracks-internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env.prod
+    environment:
+      TRUST_PROXY: "1"
+    ports:
+      - "127.0.0.1:${HOST_PORT_BACKEND:-3008}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - habitracks-internal
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+
+networks:
+  habitracks-internal:
+    driver: bridge
+
+volumes:
+  habitracks_pgdata:
