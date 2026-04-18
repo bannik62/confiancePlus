@@ -1,3 +1,6 @@
+# Données Postgres : volume nommé `pgdata`. Ne pas utiliser `docker compose down -v`
+# si tu veux garder utilisateurs / habitudes — le `-v` supprime ce volume.
+
 services:
   db:
     image: postgres:16-alpine

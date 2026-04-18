@@ -174,3 +174,78 @@ export const listGroups = async () => {
     })),
   }
 }
+
+export const getDailyHabitTemplatesAdmin = async () => {
+  const templates = await db.dailyHabitTemplate.findMany({
+    orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+  })
+  return { templates }
+}
+
+/** Remplace ou met à jour les modèles (sync par id ; entrées absentes → désactivées). */
+export const replaceDailyHabitTemplates = async (actorId, body) => {
+  const templates = body.templates.filter((t) => String(t.title ?? '').trim())
+  if (!templates.length) throw { status: 400, message: 'Au moins une habitude avec un titre est requise.' }
+
+  const incomingIds = templates.map((t) => t.id).filter(Boolean)
+
+  await db.$transaction(async (tx) => {
+    if (incomingIds.length) {
+      await tx.dailyHabitTemplate.updateMany({
+        where: { id: { notIn: incomingIds } },
+        data: { isActive: false },
+      })
+    }
+
+    for (const [i, row] of templates.entries()) {
+      const data = {
+        title: row.title.trim(),
+        icon: row.icon.trim(),
+        xpTotal: row.xpTotal ?? 15,
+        sortOrder: row.sortOrder ?? i,
+        isActive: row.isActive !== false,
+      }
+      if (row.id) {
+        await tx.dailyHabitTemplate.update({
+          where: { id: row.id },
+          data,
+        })
+      } else {
+        await tx.dailyHabitTemplate.create({ data })
+      }
+    }
+  })
+
+  const count = await db.dailyHabitTemplate.count({ where: { isActive: true } })
+  await logAudit(actorId, 'DAILY_HABIT_TEMPLATES_REPLACE', null, { activeCount: count })
+  return getDailyHabitTemplatesAdmin()
+}
+
+export const seedDailyHabitTemplatesFromDefaults = async () => {
+  const defaults = [
+    { title: '15 minutes de marche', icon: '🚶', xpTotal: 15, sortOrder: 0 },
+    { title: 'Boire un grand verre d’eau', icon: '💧', xpTotal: 15, sortOrder: 1 },
+    { title: '1 h sans réseaux sociaux', icon: '📵', xpTotal: 15, sortOrder: 2 },
+    { title: '5 minutes de respiration', icon: '🧘', xpTotal: 15, sortOrder: 3 },
+    { title: 'Noter 3 gratitudes', icon: '📝', xpTotal: 15, sortOrder: 4 },
+    { title: 'Un repas équilibré', icon: '🥗', xpTotal: 15, sortOrder: 5 },
+    { title: 'Se coucher à l’heure prévue', icon: '😴', xpTotal: 15, sortOrder: 6 },
+    { title: '10 minutes de rangement', icon: '🧹', xpTotal: 15, sortOrder: 7 },
+    { title: '10 minutes de lumière naturelle', icon: '☀️', xpTotal: 15, sortOrder: 8 },
+    { title: 'Lire 20 pages', icon: '📖', xpTotal: 15, sortOrder: 9 },
+  ]
+
+  const active = await db.dailyHabitTemplate.count({ where: { isActive: true } })
+  if (active > 0) return { ok: true, skipped: true, message: 'Templates déjà présents' }
+
+  const total = await db.dailyHabitTemplate.count()
+  if (total === 0) {
+    await db.dailyHabitTemplate.createMany({ data: defaults })
+    return { ok: true, seeded: defaults.length }
+  }
+
+  /* Lignes en base mais toutes inactives → l’API daily-offer renvoie no_templates */
+  await db.dailyHabitTemplate.updateMany({ data: { isActive: true } })
+  const n = await db.dailyHabitTemplate.count({ where: { isActive: true } })
+  return { ok: true, seeded: n, reactivated: true }
+}

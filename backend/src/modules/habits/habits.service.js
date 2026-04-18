@@ -67,8 +67,24 @@ export const createHabit = async (userId, data) => {
 
 export const updateHabit = async (habitId, userId, data) => {
   await forbidEducatorHabitMutations(userId)
-  await assertOwner(habitId, userId)
+  const habit = await assertOwner(habitId, userId)
   const { name, icon, order, weekdaysMask } = data
+
+  if (habit.origin === 'DAILY_OFFER') {
+    if (name !== undefined || icon !== undefined || order !== undefined)
+      throw {
+        status: 400,
+        message:
+          'Cette habitude « du jour » ne peut pas être renommée ni modifiée sur l’icône. Choisis uniquement les jours de la semaine.',
+      }
+    if (weekdaysMask === undefined)
+      throw { status: 400, message: 'Indique au moins les jours (weekdaysMask).' }
+    return db.habit.update({
+      where: { id: habitId },
+      data: { weekdaysMask: normalizeWeekdaysMask(weekdaysMask) },
+    })
+  }
+
   const patch = {}
   if (name !== undefined) patch.name = name
   if (icon !== undefined) patch.icon = icon
@@ -79,7 +95,12 @@ export const updateHabit = async (habitId, userId, data) => {
 
 export const deleteHabit = async (habitId, userId) => {
   await forbidEducatorHabitMutations(userId)
-  await assertOwner(habitId, userId)
+  const habit = await assertOwner(habitId, userId)
+  if (habit.origin === 'DAILY_OFFER')
+    throw {
+      status: 403,
+      message: 'Les habitudes « du jour » ne peuvent pas être supprimées.',
+    }
   return db.habit.update({ where: { id: habitId }, data: { isActive: false } })
 }
 

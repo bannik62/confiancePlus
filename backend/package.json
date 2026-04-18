@@ -3,18 +3,19 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "prisma generate && node --watch-path=src --watch src/server.js",
+    "dev": "prisma generate && node --watch src/server.js",
     "start": "node src/server.js",
-    "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
-    "db:migrate:deploy": "dotenv -e ../.env -- prisma migrate deploy",
-    "db:push": "dotenv -e ../.env -- prisma db push",
-    "db:seed": "dotenv -e ../.env -- prisma db seed",
-    "db:studio": "dotenv -e ../.env -- prisma studio"
+    "db:migrate": "node scripts/prisma-with-env.mjs migrate dev",
+    "db:migrate:deploy": "node scripts/prisma-with-env.mjs migrate deploy",
+    "db:push": "node scripts/prisma-with-env.mjs db push",
+    "db:seed": "node scripts/prisma-with-env.mjs db seed",
+    "db:studio": "node scripts/prisma-with-env.mjs studio"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@prisma/client": "^5.14.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
@@ -25,7 +26,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "dotenv-cli": "^8.0.0",
     "prisma": "^5.14.0"
   }
 }
