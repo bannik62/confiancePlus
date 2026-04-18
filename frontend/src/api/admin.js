@@ -20,4 +20,6 @@ export const adminApi = {
   groups: () => api.get('/admin/groups'),
   getDayMessages: () => api.get('/admin/day-messages'),
   putDayMessages: (body) => api.put('/admin/day-messages', body),
+  getDailyHabitTemplates: () => api.get('/admin/daily-habit-templates'),
+  putDailyHabitTemplates: (body) => api.put('/admin/daily-habit-templates', body),
 }

@@ -9,10 +9,12 @@
   } from '../../lib/habitWeekdays.js'
   import Card from '../ui/Card.svelte'
 
-  /** @type {{ id: string, name: string, icon: string, weekdaysMask?: number }} */
+  /** @type {{ id: string, name: string, icon: string, weekdaysMask?: number, origin?: string }} */
   export let habit
 
   const dispatch = createEventDispatcher()
+
+  $: isDailyOffer = habit?.origin === 'DAILY_OFFER'
 
   let icon = ''
   let name = ''
@@ -42,7 +44,9 @@
   $: validName = name.trim().length > 0 && name.length <= 60
   $: hasOneDay = dayChecks.some(Boolean)
   $: allDaysSelected = dayChecks.every(Boolean)
-  $: canSubmit = validIcon && validName && hasOneDay && !saving
+  $: canSubmit = isDailyOffer
+    ? hasOneDay && !saving
+    : validIcon && validName && hasOneDay && !saving
 
   const toggleDay = (i) => {
     dayChecks = dayChecks.map((c, j) => (j === i ? !c : c))
@@ -60,11 +64,15 @@
     error = ''
     try {
       const weekdaysMask = hasOneDay ? maskFromChecks(dayChecks) : ALL_WEEKDAYS_MASK
-      await habitsApi.update(habit.id, {
-        name: name.trim(),
-        icon: icon.trim(),
-        weekdaysMask,
-      })
+      if (isDailyOffer) {
+        await habitsApi.update(habit.id, { weekdaysMask })
+      } else {
+        await habitsApi.update(habit.id, {
+          name: name.trim(),
+          icon: icon.trim(),
+          weekdaysMask,
+        })
+      }
       dispatch('saved')
     } catch (e) {
       error = e.message || 'Erreur lors de la modification'
@@ -84,43 +92,59 @@
     <button type="button" class="close-btn" on:click={() => dispatch('close')}>✕</button>
 
     <div class="header">
-      <div class="title">✏️ Modifier l’habitude</div>
+      <div class="title">{isDailyOffer ? '📌 Habitude du jour' : '✏️ Modifier l’habitude'}</div>
+      {#if isDailyOffer}
+        <p class="intro-hint">
+          Le nom et l’icône viennent de la proposition du jour — tu ne peux pas les changer. Choisis les
+          <strong>jours</strong> où cette habitude s’applique, comme pour tes autres habitudes.
+        </p>
+      {/if}
     </div>
 
     <form on:submit|preventDefault={handleSubmit}>
-      <div class="field">
-        <label for="edit-icon">Icône (emoji)</label>
-        <input
-          id="edit-icon"
-          type="text"
-          bind:value={icon}
-          placeholder="🏃"
-          maxlength="8"
-          class:error={icon.length > 0 && !validIcon}
-          on:keydown={handleKeydown}
-        />
-        {#if icon.length > 0 && !validIcon}
-          <div class="field-error">Emoji invalide</div>
-        {/if}
-        <div class="emoji-suggestions">
-          {#each suggestedEmojis as em}
-            <button type="button" class="emoji-btn" on:click={() => (icon = em)}>{em}</button>
-          {/each}
+      {#if isDailyOffer}
+        <div class="field readonly-block">
+          <span class="label-row">Habitude</span>
+          <div class="readonly-habit">
+            <span class="readonly-ico" aria-hidden="true">{habit.icon}</span>
+            <span class="readonly-name">{habit.name}</span>
+          </div>
         </div>
-      </div>
+      {:else}
+        <div class="field">
+          <label for="edit-icon">Icône (emoji)</label>
+          <input
+            id="edit-icon"
+            type="text"
+            bind:value={icon}
+            placeholder="🏃"
+            maxlength="8"
+            class:error={icon.length > 0 && !validIcon}
+            on:keydown={handleKeydown}
+          />
+          {#if icon.length > 0 && !validIcon}
+            <div class="field-error">Emoji invalide</div>
+          {/if}
+          <div class="emoji-suggestions">
+            {#each suggestedEmojis as em}
+              <button type="button" class="emoji-btn" on:click={() => (icon = em)}>{em}</button>
+            {/each}
+          </div>
+        </div>
 
-      <div class="field">
-        <label for="edit-name">Nom</label>
-        <input
-          id="edit-name"
-          type="text"
-          bind:value={name}
-          maxlength="60"
-          class:error={name.length > 60}
-          on:keydown={handleKeydown}
-        />
-        <div class="char-count">{name.length}/60</div>
-      </div>
+        <div class="field">
+          <label for="edit-name">Nom</label>
+          <input
+            id="edit-name"
+            type="text"
+            bind:value={name}
+            maxlength="60"
+            class:error={name.length > 60}
+            on:keydown={handleKeydown}
+          />
+          <div class="char-count">{name.length}/60</div>
+        </div>
+      {/if}
 
       <div class="field">
         <span class="label-row">Jours prévus</span>
@@ -197,6 +221,35 @@
   }
   .header {
     margin-bottom: 18px;
+  }
+  .intro-hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted);
+    font-family: 'Exo 2', sans-serif;
+  }
+  .readonly-block {
+    margin-bottom: 14px;
+  }
+  .readonly-habit {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .readonly-ico {
+    font-size: 28px;
+    line-height: 1;
+  }
+  .readonly-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
   }
   .title {
     font-size: 18px;

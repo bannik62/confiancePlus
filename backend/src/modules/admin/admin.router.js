@@ -2,7 +2,11 @@ import { Router } from 'express'
 import { requireAuth } from '../../middlewares/requireAuth.js'
 import { requireAdmin } from '../../middlewares/requireAdmin.js'
 import { validate } from '../../middlewares/validate.js'
-import { dayMessagesReplaceSchema, userSuspensionSchema } from './admin.schema.js'
+import {
+  dayMessagesReplaceSchema,
+  userSuspensionSchema,
+  dailyHabitTemplatesReplaceSchema,
+} from './admin.schema.js'
 import * as service from './admin.service.js'
 
 const router = Router()
@@ -68,5 +72,25 @@ router.put('/day-messages', validate(dayMessagesReplaceSchema), async (req, res,
     next(e)
   }
 })
+
+router.get('/daily-habit-templates', async (req, res, next) => {
+  try {
+    res.json(await service.getDailyHabitTemplatesAdmin())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put(
+  '/daily-habit-templates',
+  validate(dailyHabitTemplatesReplaceSchema),
+  async (req, res, next) => {
+    try {
+      res.json(await service.replaceDailyHabitTemplates(req.user.id, req.body))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 export default router

@@ -6,8 +6,11 @@ import {
   updateHabitSchema,
   toggleSchema,
   listHabitsQuerySchema,
+  dailyOfferQuerySchema,
+  dailyOfferBodySchema,
 } from './habits.schema.js'
 import * as service from './habits.service.js'
+import * as dailyOffer from './dailyOffer.service.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -18,6 +21,43 @@ router.get(
   async (req, res, next) => {
     try {
       res.json(await service.getHabits(req.user.id, req.query.date))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.get(
+  '/daily-offer',
+  validate(dailyOfferQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      res.json(await dailyOffer.getOrCreateDailyOffer(req.user.id, req.query.date))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/daily-offer/dismiss',
+  validate(dailyOfferBodySchema),
+  async (req, res, next) => {
+    try {
+      res.json(await dailyOffer.dismissDailyOffer(req.user.id, req.body.date))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/daily-offer/accept',
+  validate(dailyOfferBodySchema),
+  async (req, res, next) => {
+    try {
+      const out = await dailyOffer.acceptDailyOffer(req.user.id, req.body.date)
+      res.status(out.alreadyAccepted ? 200 : 201).json(out)
     } catch (e) {
       next(e)
     }

@@ -22,12 +22,18 @@
   let groups = []
   let auditLoading = true
 
+  let dailyTemplates = []
+  let dailyErr = ''
+  let dailyOk = ''
+  let dailyLoading = true
+
   const auditActionLabel = (code) =>
     ({
       USER_DELETE: 'Suppression compte',
       USER_SUSPEND: 'Suspension compte',
       USER_UNSUSPEND: 'Réactivation compte',
       DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
+      DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -73,13 +79,61 @@
     }
   }
 
+  const loadDailyTemplates = async () => {
+    dailyErr = ''
+    try {
+      const r = await adminApi.getDailyHabitTemplates()
+      dailyTemplates = (r.templates ?? []).map((t) => ({ ...t }))
+    } catch (e) {
+      dailyErr = e.message || 'Erreur chargement pool daily'
+      dailyTemplates = []
+    }
+  }
+
+  const saveDailyTemplates = async () => {
+    dailyErr = ''
+    dailyOk = ''
+    dailyLoading = true
+    try {
+      await adminApi.putDailyHabitTemplates({
+        templates: dailyTemplates.map((t, i) => ({
+          id: t.id,
+          title: String(t.title ?? '').trim(),
+          icon: String(t.icon ?? '').trim(),
+          xpTotal: Number(t.xpTotal) || 15,
+          sortOrder: t.sortOrder ?? i,
+          isActive: t.isActive !== false,
+        })),
+      })
+      dailyOk = 'Pool « habitude du jour » enregistré.'
+      await loadDailyTemplates()
+      await loadAudit()
+    } catch (e) {
+      dailyErr = e.message || 'Erreur enregistrement'
+    } finally {
+      dailyLoading = false
+    }
+  }
+
+  const addDailyTemplateRow = () => {
+    dailyTemplates = [
+      ...dailyTemplates,
+      { title: '', icon: '📝', xpTotal: 15, sortOrder: dailyTemplates.length, isActive: true },
+    ]
+  }
+
+  const removeDailyTemplateRow = (idx) => {
+    dailyTemplates = dailyTemplates.filter((_, i) => i !== idx)
+  }
+
   onMount(async () => {
     loading = true
     auditLoading = true
-    await Promise.all([loadUsers(), loadMessages(), loadAudit(), loadGroups()])
+    await Promise.all([loadUsers(), loadMessages(), loadDailyTemplates(), loadAudit(), loadGroups()])
     loading = false
     auditLoading = false
     msgLoading = false
+    dailyLoading = false
   })
 
   const nextPage = async () => {
@@ -215,6 +269,45 @@
             <span class="gmeta">{g.type} · {g.memberCount} membre(s) · code {g.inviteCode}</span>
           </div>
         {/each}
+      </div>
+    {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">HABITUDE DU JOUR — pool (tirage aléatoire, pas 2× le même modèle en 7 jours)</div>
+    {#if dailyErr}<p class="err">{dailyErr}</p>{/if}
+    {#if dailyOk}<p class="ok">{dailyOk}</p>{/if}
+    {#if dailyLoading && !dailyTemplates.length}
+      <p class="muted" style="margin-top:8px">Chargement…</p>
+    {:else}
+      <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+        Emoji + titre + XP totale (ex. 15 = +10 habituel +5 bonus). Les entrées retirées de la liste sont désactivées côté serveur.
+      </p>
+      <div class="daily-grid">
+        {#each dailyTemplates as t, idx}
+          <div class="daily-row">
+            <input class="daily-ico" bind:value={t.icon} maxlength="16" aria-label="Icône" placeholder="🙂" />
+            <input class="daily-title" bind:value={t.title} maxlength="120" placeholder="Intitulé" />
+            <input
+              class="daily-xp"
+              type="number"
+              min="5"
+              max="100"
+              bind:value={t.xpTotal}
+              aria-label="XP totale"
+            />
+            <label class="daily-act"
+              ><input type="checkbox" bind:checked={t.isActive} /> actif</label
+            >
+            <button type="button" class="btn-del" on:click={() => removeDailyTemplateRow(idx)}>Retirer</button>
+          </div>
+        {/each}
+      </div>
+      <div class="daily-actions">
+        <button type="button" class="btn-secondary" on:click={addDailyTemplateRow}>+ Ligne</button>
+        <button type="button" class="btn-save" disabled={dailyLoading} on:click={saveDailyTemplates}>
+          {dailyLoading ? 'Enregistrement…' : 'Enregistrer le pool'}
+        </button>
       </div>
     {/if}
   </Card>
@@ -524,5 +617,78 @@
   .btn-save:disabled {
     opacity: 0.55;
     cursor: wait;
+  }
+  .daily-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .daily-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .daily-ico {
+    width: 3rem;
+    text-align: center;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1.1rem;
+  }
+  .daily-title {
+    flex: 1 1 160px;
+    min-width: 120px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .daily-xp {
+    width: 4rem;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .daily-act {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .daily-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .btn-secondary {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .btn-secondary:hover {
+    border-color: var(--accent);
   }
 </style>

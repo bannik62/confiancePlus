@@ -30,6 +30,8 @@ model User {
   dailyLogs   DailyLog[]
   memberships GroupMember[]
 
+  dailyHabitOffers DailyHabitOffer[]
+
   appointmentsAssigned     Appointment[]           @relation("AppointmentAssignee")
   appointmentsCreated      Appointment[]           @relation("AppointmentCreator")
   appointmentCompletions   AppointmentCompletion[]
@@ -102,6 +104,45 @@ model GroupMember {
 enum HabitOrigin {
   DEFAULT // ex. pack seed à la création du compte (même droits qu’USER après coup)
   USER    // créée par l’utilisateur
+  DAILY_OFFER // proposée par l’admin (pools « habitude du jour »)
+}
+
+// Modèles proposés comme « habitude du jour » (éditables admin)
+model DailyHabitTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  icon      String
+  /// XP total attribuée (ex. 10 base + 5 bonus = 15)
+  xpTotal   Int      @default(15)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  offers DailyHabitOffer[]
+}
+
+enum DailyOfferStatus {
+  PENDING
+  DISMISSED
+  ACCEPTED
+}
+
+/// Une ligne par utilisateur et par jour civil — proposition unique / jour
+model DailyHabitOffer {
+  id         String           @id @default(cuid())
+  userId     String
+  offerDate  DateTime         @db.Date
+  templateId String
+  status     DailyOfferStatus @default(PENDING)
+  habitId    String?          @unique
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template DailyHabitTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  habit    Habit?             @relation(fields: [habitId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, offerDate])
+  @@index([userId, offerDate])
+  @@index([templateId])
 }
 
 model Habit {
@@ -118,7 +159,8 @@ model Habit {
   createdAt DateTime    @default(now())
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs HabitLog[]
+  logs              HabitLog[]
+  dailyOfferCreated DailyHabitOffer?
 
   @@index([userId])
 }

@@ -7,6 +7,9 @@
    *    on ouvre l’app (Home) avec le « Message du jour » (phrases JSON selon l’humeur).
    * 3. Sinon → écran CheckIn (humeur + suite). Après validation, on repasse à l’app.
    *
+   * L’offre « habitude du jour » (DailyOfferModal) est indépendante : elle se déclenche
+   * dès sessionReady (même si CheckIn est encore affiché), pour ne pas dépendre du passage par Home.
+   *
    * Le bootstrap utilise loadTodayResilient ; client.js n’émet pas session:expired sur
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
    */
@@ -20,6 +23,9 @@
   import { resetDayMessageCache, setRemoteDayMessages } from './lib/dayMessage.js'
   import { loadDayMessagesPublic } from './api/content.js'
   import { hasMoodForToday } from './lib/checkinState.js'
+  import { habitsApi } from './api/habits.js'
+  import { loadHabits } from './stores/habits.js'
+  import DailyOfferModal from './components/habits/DailyOfferModal.svelte'
 
   import Login   from './views/Login.svelte'
   import CheckIn from './views/CheckIn.svelte'
@@ -56,9 +62,54 @@
   let sessionReady  = false
   /** Dernière session bootstrapée : userId + compteur authStore.session (chaque login incrémente) */
   let bootKey       = null
+  /** Évite de rappeler l’API en boucle ; une nouvelle clé = nouveau login / session */
+  let dailyOfferBootKeyDone = null
+
+  let showDailyOffer = false
+  let dailyOfferTemplate = null
+  let dailyOfferLoading = false
+
+  async function tryDailyOffer() {
+    if (get(isAppAdmin)) return
+    if (showDailyOffer && dailyOfferTemplate) return
+    try {
+      const r = await habitsApi.getDailyOffer()
+      if (r.eligible && r.offer?.status === 'PENDING' && r.offer.template) {
+        dailyOfferTemplate = r.offer.template
+        showDailyOffer = true
+      }
+    } catch {
+      /* ignore — retry possible depuis onCheckinDone */
+    }
+  }
+
+  async function handleDailyDismiss() {
+    dailyOfferLoading = true
+    try {
+      await habitsApi.dismissDailyOffer()
+      showDailyOffer = false
+      dailyOfferTemplate = null
+    } finally {
+      dailyOfferLoading = false
+    }
+  }
+
+  async function handleDailyAccept() {
+    dailyOfferLoading = true
+    try {
+      await habitsApi.acceptDailyOffer()
+      await loadHabits()
+      showDailyOffer = false
+      dailyOfferTemplate = null
+    } finally {
+      dailyOfferLoading = false
+    }
+  }
 
   async function bootstrapSession() {
     sessionReady = false
+    showDailyOffer = false
+    dailyOfferTemplate = null
     try {
       await tick()
       await new Promise((r) => setTimeout(r, 50))
@@ -96,8 +147,11 @@
       resetProfile()
       resetGroupState()
       bootKey = null
+      dailyOfferBootKeyDone = null
       sessionReady = false
       checkinDone = false
+      showDailyOffer = false
+      dailyOfferTemplate = null
       resetDayMessageCache()
     }
 
@@ -120,11 +174,22 @@
 
   $: if (!$authStore.user) {
     bootKey        = null
+    dailyOfferBootKeyDone = null
     sessionReady   = false
     checkinDone    = false
+    showDailyOffer = false
+    dailyOfferTemplate = null
     resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
+  }
+
+  /** Après sessionReady : l’UI peut monter le modal ; l’éligibilité vient du backend (pas le store éducateur). */
+  $: if (sessionReady && bootKey && $authStore.user?.id && !$isAppAdmin) {
+    if (dailyOfferBootKeyDone !== bootKey) {
+      dailyOfferBootKeyDone = bootKey
+      queueMicrotask(() => void tryDailyOffer())
+    }
   }
 
   const onCheckinDone = async () => {
@@ -136,6 +201,7 @@
     } catch {
       /* saveDailyLog a déjà mis à jour le store ; ne pas écraser si le GET échoue */
     }
+    void tryDailyOffer()
   }
 
 </script>
@@ -156,19 +222,29 @@
 {:else if !sessionReady}
   <div class="splash">Chargement…</div>
 
-{:else if !checkinDone}
-  <CheckIn on:done={onCheckinDone} />
-
 {:else}
-  <Topbar />
+  {#if showDailyOffer && dailyOfferTemplate}
+    <DailyOfferModal
+      template={dailyOfferTemplate}
+      loading={dailyOfferLoading}
+      onDismiss={handleDailyDismiss}
+      onAccept={handleDailyAccept}
+    />
+  {/if}
 
-  <main>
-    <AuthGuard>
-      <svelte:component this={VIEWS[$tab]} />
-    </AuthGuard>
-  </main>
+  {#if !checkinDone}
+    <CheckIn on:done={onCheckinDone} />
+  {:else}
+    <Topbar />
 
-  <BottomNav TABS={bottomTabs} />
+    <main>
+      <AuthGuard>
+        <svelte:component this={VIEWS[$tab]} />
+      </AuthGuard>
+    </main>
+
+    <BottomNav TABS={bottomTabs} />
+  {/if}
 {/if}
 
 <style>

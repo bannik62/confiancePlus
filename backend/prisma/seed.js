@@ -1,7 +1,10 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import { DEFAULT_HABITS } from '../src/core/defaultHabitsData.js'
-import { seedMotivationalPhrasesFromRepoJson } from '../src/modules/admin/admin.service.js'
+import {
+  seedMotivationalPhrasesFromRepoJson,
+  seedDailyHabitTemplatesFromDefaults,
+} from '../src/modules/admin/admin.service.js'
 
 const db   = new PrismaClient()
 const SALT = 12
@@ -111,6 +114,10 @@ async function main() {
   const phrasesRes = await seedMotivationalPhrasesFromRepoJson()
   if (phrasesRes.ok) console.log('  ✅ Phrases du jour → import JSON → BDD')
   else console.log('  ⚠️  Phrases du jour —', phrasesRes.message)
+
+  const dailyRes = await seedDailyHabitTemplatesFromDefaults()
+  if (dailyRes.ok && !dailyRes.skipped) console.log(`  ✅ Habitudes du jour (pool) → ${dailyRes.seeded} modèles`)
+  else if (dailyRes.skipped) console.log('  ⏭️  Habitudes du jour — pool déjà présent')
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('  Comptes de démo disponibles :')
