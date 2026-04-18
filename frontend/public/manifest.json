@@ -1,0 +1,30 @@
+{
+  "name": "Confiance+",
+  "short_name": "Confiance+",
+  "description": "Tracker d'habitudes quotidiennes",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07071a",
+  "theme_color": "#07071a",
+  "orientation": "portrait",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -2,38 +2,36 @@
   import { onMount }  from 'svelte'
   import { statsApi } from '../api/stats.js'
   import { authStore, clearAuth } from '../stores/auth.js'
-  import {
-    pwaDeferredPrompt,
-    isStandalone,
-    isIosLike,
-    triggerInstallPrompt,
-  } from '../stores/pwaInstall.js'
+  import { isStandalone, isIosLike, isAndroid } from '../lib/pwaUi.js'
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
 
   let profile = null
   let standalone = false
-  let installLoading = false
+  /** Aide pas à pas (comme vitalinfo : pas de capture de beforeinstallprompt). */
+  let showManualInstall = false
 
   onMount(async () => {
     standalone = isStandalone()
     profile = await statsApi.getMyProfile()
   })
 
-  $: canInstall = $pwaDeferredPrompt != null
-  $: showIosHint = !standalone && isIosLike() && !canInstall
+  function openInstallHelp() {
+    showManualInstall = true
+  }
 
-  async function onInstallClick() {
-    if (!canInstall) return
-    installLoading = true
-    try {
-      await triggerInstallPrompt()
-    } finally {
-      installLoading = false
-    }
+  function closeManualInstall() {
+    showManualInstall = false
+  }
+
+  function onKeydown(e) {
+    if (!showManualInstall || e.key !== 'Escape') return
+    closeManualInstall()
   }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="view">
   {#if profile}
@@ -64,22 +62,13 @@
     {:else}
       <Card style="margin-bottom:12px">
         <div class="micro muted">INSTALLER L’APP</div>
-        {#if canInstall}
-          <p class="pwa-lead">Ajoute Confiance+ sur ton appareil pour un accès plus rapide.</p>
-          <button type="button" class="install-btn" disabled={installLoading} on:click={onInstallClick}>
-            {installLoading ? 'Ouverture…' : '📲 Installer l’application'}
-          </button>
-        {:else if showIosHint}
-          <p class="pwa-hint">
-            Sur <strong>iPhone / iPad</strong> : touche <strong>Partager</strong> puis
-            <strong>Sur l’écran d’accueil</strong>.
-          </p>
-        {:else}
-          <p class="pwa-hint muted">
-            Utilise le menu du navigateur <strong>(⋮)</strong> puis <strong>Installer l’application</strong> ou
-            <strong>Ajouter à l’écran d’accueil</strong> (selon le navigateur).
-          </p>
-        {/if}
+        <p class="pwa-lead">
+          Le navigateur peut proposer l’installation dans la barre d’adresse ou le menu <strong>(⋮)</strong>.
+        </p>
+        <button type="button" class="install-btn" on:click={openInstallHelp}>
+          📲 Voir comment installer
+        </button>
+        <p class="pwa-sub muted">Guide selon ton appareil (iPhone, Android, ordinateur).</p>
       </Card>
     {/if}
 
@@ -88,6 +77,36 @@
     <div class="loading">Chargement…</div>
   {/if}
 </div>
+
+{#if showManualInstall}
+  <div class="install-overlay" role="presentation" on:click={closeManualInstall}></div>
+  <div class="install-modal" role="dialog" aria-labelledby="install-manual-title" aria-modal="true">
+    <h2 id="install-manual-title" class="install-modal-title">Installer Confiance+</h2>
+    {#if isIosLike()}
+      <ol class="install-steps">
+        <li>Touche le bouton <strong>Partager</strong> en bas de Safari.</li>
+        <li>Fais défiler et choisis <strong>Sur l’écran d’accueil</strong>.</li>
+        <li>Valide avec <strong>Ajouter</strong>.</li>
+      </ol>
+    {:else if isAndroid()}
+      <ol class="install-steps">
+        <li>Ouvre le menu du navigateur <strong>(⋮)</strong> en haut à droite.</li>
+        <li>Choisis <strong>Installer l’application</strong>, <strong>Ajouter à l’écran d’accueil</strong> ou <strong>Ajouter la page d’accueil</strong> (libellé selon Chrome / Brave).</li>
+        <li>Valide l’installation.</li>
+      </ol>
+    {:else}
+      <ol class="install-steps">
+        <li>Ouvre le menu du navigateur <strong>(⋮)</strong> ou <strong>(⋯)</strong>.</li>
+        <li>Cherche <strong>Installer Confiance+</strong>, <strong>Installer l’application</strong> ou <strong>Créer un raccourci…</strong></li>
+        <li>Sous <strong>Brave</strong> ou <strong>Chrome</strong>, l’entrée peut s’appeler « Application » ou « Raccourci ».</li>
+      </ol>
+    {/if}
+    <p class="install-note muted">
+      Certains navigateurs (dont Brave) ne montrent pas toujours l’invite automatique : l’installation reste possible depuis ce menu.
+    </p>
+    <button type="button" class="install-modal-close" on:click={closeManualInstall}>OK</button>
+  </div>
+{/if}
 
 <style>
   .view   { display: flex; flex-direction: column; gap: 0; }
@@ -103,7 +122,6 @@
 
   .pwa-ok   { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
   .pwa-lead { margin: 8px 0 12px; font-size: 14px; line-height: 1.45; color: var(--text); }
-  .pwa-hint { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
   .install-btn {
     width: 100%;
     margin-top: 4px;
@@ -118,12 +136,73 @@
     letter-spacing: 0.5px;
     cursor: pointer;
   }
-  .install-btn:hover:not(:disabled) {
+  .install-btn:hover {
     border-color: var(--accent);
     box-shadow: 0 0 16px var(--accent)44;
   }
-  .install-btn:disabled {
-    opacity: 0.7;
-    cursor: wait;
+  .pwa-sub {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .install-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+  }
+  .install-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
+    width: min(92vw, 400px);
+    max-height: min(85vh, 520px);
+    overflow: auto;
+    padding: 20px;
+    border-radius: 18px;
+    background: var(--surface-modal);
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .install-modal-title {
+    margin: 0 0 14px;
+    font-size: 18px;
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--text);
+  }
+  .install-steps {
+    margin: 0 0 12px;
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .install-steps li {
+    margin-bottom: 8px;
+  }
+  .install-note {
+    font-size: 12px;
+    line-height: 1.45;
+    margin: 0 0 16px;
+  }
+  .install-modal-close {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--accent)44;
+    background: var(--surface-modal);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: pointer;
+  }
+  .install-modal-close:hover {
+    border-color: var(--accent);
   }
 </style>

@@ -147,6 +147,12 @@
   }
 
   onMount(async () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+        console.error('Service Worker:', err)
+      })
+    }
+
     await checkSession()
     loading = false
 

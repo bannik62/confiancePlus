@@ -1,8 +1,8 @@
-Les icônes PWA sont dans frontend/public/icons/ (Vite copie public/ → racine du site) :
+Les icônes PWA sont dans frontend/public/icons/ (copiées telles quelles dans dist/) :
   - icon-192.png  (192×192)
   - icon-512.png  (512×512)
-  - ../favicon.png  (onglet navigateur, dérivé du 192)
+  - ../favicon.png  (onglet navigateur)
 
-Référence manifest : vite.config.js → manifest.icons
+Manifest statique : frontend/public/manifest.json (comme vitalinfo — plus généré par Vite).
 
-Générer / ajuster maskable : https://maskable.app
+Service worker : frontend/public/service-worker.js — enregistré depuis App.svelte.
