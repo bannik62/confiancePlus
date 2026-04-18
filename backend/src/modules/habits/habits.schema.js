@@ -15,14 +15,17 @@ export const createHabitSchema = z.object({
   icon:  iconSchema,
   xp:    z.number().int().min(10).max(10).default(10),
   order: z.number().int().default(0),
+  /** 1–127 : bits lun→dim ; défaut 127 = tous les jours */
+  weekdaysMask: z.number().int().min(1).max(127).optional(),
 })
 
-/** PATCH : uniquement champs éditables (pas xp/origin via API) */
+/** PATCH : champs éditables (xp / origin inchangés via API) */
 export const updateHabitSchema = z
   .object({
     name:  z.string().min(1).max(60).optional(),
     icon:  iconSchema.optional(),
     order: z.number().int().optional(),
+    weekdaysMask: z.number().int().min(1).max(127).optional(),
   })
   .strict()
 

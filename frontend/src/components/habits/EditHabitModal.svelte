@@ -1,31 +1,56 @@
 <script>
   import { createEventDispatcher } from 'svelte'
   import { habitsApi } from '../../api/habits.js'
+  import {
+    maskFromChecks,
+    checksFromMask,
+    WEEKDAY_SHORT,
+    ALL_WEEKDAYS_MASK,
+  } from '../../lib/habitWeekdays.js'
   import Card from '../ui/Card.svelte'
 
-  /** @type {{ id: string, name: string, icon: string }} */
+  /** @type {{ id: string, name: string, icon: string, weekdaysMask?: number }} */
   export let habit
 
   const dispatch = createEventDispatcher()
 
   let icon = ''
   let name = ''
+  let dayChecks = [true, true, true, true, true, true, true]
   let saving = false
   let error = ''
+  /** Évite de réinjecter habit.name à chaque update du store / prop (sinon l’input est figé ou se réinitialise). */
+  let syncedHabitId = null
 
   const isValidEmoji = (str) => {
     if (!str || str.trim().length === 0) return false
     return /\p{Emoji}/u.test(str.trim())
   }
 
-  $: if (habit) {
-    icon = habit.icon ?? ''
-    name = habit.name ?? ''
+  $: if (habit?.id) {
+    if (syncedHabitId !== habit.id) {
+      syncedHabitId = habit.id
+      icon = habit.icon ?? ''
+      name = habit.name ?? ''
+      dayChecks = checksFromMask(habit.weekdaysMask ?? ALL_WEEKDAYS_MASK)
+    }
+  } else {
+    syncedHabitId = null
   }
 
   $: validIcon = isValidEmoji(icon)
   $: validName = name.trim().length > 0 && name.length <= 60
-  $: canSubmit = validIcon && validName && !saving
+  $: hasOneDay = dayChecks.some(Boolean)
+  $: allDaysSelected = dayChecks.every(Boolean)
+  $: canSubmit = validIcon && validName && hasOneDay && !saving
+
+  const toggleDay = (i) => {
+    dayChecks = dayChecks.map((c, j) => (j === i ? !c : c))
+  }
+
+  const selectAllDays = () => {
+    dayChecks = [true, true, true, true, true, true, true]
+  }
 
   const suggestedEmojis = ['🏃', '💧', '📖', '🎨', '🧘', '🍎', '💤', '🎯', '💪', '🌱']
 
@@ -34,7 +59,12 @@
     saving = true
     error = ''
     try {
-      await habitsApi.update(habit.id, { name: name.trim(), icon: icon.trim() })
+      const weekdaysMask = hasOneDay ? maskFromChecks(dayChecks) : ALL_WEEKDAYS_MASK
+      await habitsApi.update(habit.id, {
+        name: name.trim(),
+        icon: icon.trim(),
+        weekdaysMask,
+      })
       dispatch('saved')
     } catch (e) {
       error = e.message || 'Erreur lors de la modification'
@@ -90,6 +120,33 @@
           on:keydown={handleKeydown}
         />
         <div class="char-count">{name.length}/60</div>
+      </div>
+
+      <div class="field">
+        <span class="label-row">Jours prévus</span>
+        <div class="day-grid" role="group" aria-label="Jours de la semaine">
+          {#each WEEKDAY_SHORT as label, i}
+            <button
+              type="button"
+              class="day-chip"
+              class:on={dayChecks[i]}
+              on:click={() => toggleDay(i)}
+            >{label}</button>
+          {/each}
+        </div>
+        <label class="all-days">
+          <input
+            type="checkbox"
+            checked={allDaysSelected}
+            on:change={(e) => {
+              if (e.currentTarget.checked) selectAllDays()
+            }}
+          />
+          Tous les jours
+        </label>
+        {#if !hasOneDay}
+          <div class="field-error">Coche au moins un jour</div>
+        {/if}
       </div>
 
       {#if error}
@@ -248,5 +305,57 @@
   .submit-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .label-row {
+    display: block;
+    font-size: 11px;
+    color: var(--text-label);
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .day-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .day-chip {
+    min-width: 40px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border-btn);
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .day-chip.on {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .all-days {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-transform: none;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .all-days input {
+    width: auto;
+    accent-color: var(--accent);
   }
 </style>

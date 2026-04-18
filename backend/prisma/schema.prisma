@@ -29,6 +29,10 @@ model User {
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
   memberships GroupMember[]
+
+  appointmentsAssigned     Appointment[]           @relation("AppointmentAssignee")
+  appointmentsCreated      Appointment[]           @relation("AppointmentCreator")
+  appointmentCompletions   AppointmentCompletion[]
 }
 
 // Phrases « message du jour » (Home) — éditables depuis le back-office admin
@@ -74,7 +78,8 @@ model Group {
   inviteCode String    @unique @default(cuid())
   createdAt  DateTime  @default(now())
 
-  members GroupMember[]
+  members      GroupMember[]
+  appointments Appointment[]
 }
 
 model GroupMember {
@@ -95,8 +100,8 @@ model GroupMember {
 // ── HABITS ─────────────────────────────────────────────────────────────────────
 
 enum HabitOrigin {
-  DEFAULT // pack seed / inscription
-  USER    // créée par l’utilisateur (modifiable / supprimable)
+  DEFAULT // ex. pack seed à la création du compte (même droits qu’USER après coup)
+  USER    // créée par l’utilisateur
 }
 
 model Habit {
@@ -108,6 +113,8 @@ model Habit {
   order     Int         @default(0)
   origin    HabitOrigin @default(DEFAULT)
   isActive  Boolean     @default(true)
+  /// Bits 0–6 = lun→dim ; 127 = tous les jours
+  weekdaysMask Int      @default(127)
   createdAt DateTime    @default(now())
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -147,4 +154,44 @@ model DailyLog {
 
   @@unique([userId, date])
   @@index([userId])
+}
+
+// ── RENDEZ-VOUS (agenda) — assignés à un user ; l’éducateur peut en créer pour un membre ASSO
+model Appointment {
+  id              String   @id @default(cuid())
+  userId          String
+  createdByUserId String
+  groupId         String?
+  title           String
+  notes           String?
+  date            DateTime @db.Date
+  // Heure du RDV (24h), ex. "09:30"
+  timeHm          String   @default("09:00") @db.VarChar(5)
+  xpReward        Int      @default(30)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignee    User @relation("AppointmentAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User @relation("AppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  group       Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  completions AppointmentCompletion[]
+
+  @@index([userId, date])
+  @@index([createdByUserId])
+  @@index([groupId])
+}
+
+model AppointmentCompletion {
+  id              String   @id @default(cuid())
+  appointmentId   String
+  userId          String
+  date            DateTime @db.Date
+  xpEarned        Int
+  createdAt       DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, date])
+  @@index([userId, date])
 }

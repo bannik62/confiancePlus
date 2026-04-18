@@ -15,6 +15,7 @@ import statsRouter    from './modules/stats/stats.router.js'
 import educatorRouter from './modules/educator/educator.router.js'
 import contentRouter  from './modules/content/content.router.js'
 import adminRouter    from './modules/admin/admin.router.js'
+import appointmentsRouter from './modules/appointments/appointments.router.js'
 
 const app = express()
 
@@ -41,6 +42,7 @@ app.use('/api/checkin', csrfProtect, checkinRouter)
 app.use('/api/group',   csrfProtect, groupRouter)
 app.use('/api/stats',    statsRouter)   // stats = GET uniquement, csrfProtect les ignore déjà
 app.use('/api/educator', csrfProtect, educatorRouter)
+app.use('/api/appointments', csrfProtect, appointmentsRouter)
 app.use('/api/admin', csrfProtect, adminRouter)
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
