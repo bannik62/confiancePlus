@@ -35,20 +35,23 @@
   import Groupe  from './views/Groupe.svelte'
   import Stats   from './views/Stats.svelte'
   import Profil  from './views/Profil.svelte'
+  import Agenda  from './views/Agenda.svelte'
   import Admin   from './views/Admin.svelte'
   import Topbar    from './components/modules/Topbar.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
 
-  const VIEWS = { home: Home, groupe: Groupe, stats: Stats, profil: Profil }
+  const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil }
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
+    { key: 'agenda', ico: '📅', label: 'Agenda'       },
     { key: 'groupe', ico: '👥', label: 'Groupe'       },
     { key: 'stats',  ico: '📊', label: 'Stats'        },
     { key: 'profil', ico: '⚙️', label: 'Profil'       },
   ]
   const TABS_EDUCATOR = [
     { key: 'home',   ico: '📋', label: 'Suivi'      },
+    { key: 'agenda', ico: '📅', label: 'Agenda'     },
     { key: 'groupe', ico: '👥', label: 'Groupe'     },
     { key: 'stats',  ico: '📊', label: 'Stats'      },
     { key: 'profil', ico: '⚙️', label: 'Profil'     },

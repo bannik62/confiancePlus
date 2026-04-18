@@ -1,5 +1,6 @@
 import { db } from '../../core/db.js'
-import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
+import { isHabitDueOnYmd, ALL_WEEKDAYS_MASK } from '../../lib/habitWeekdays.js'
+import { levelFromXP, xpProgress, titleForLevel, computeStreak } from '../../core/xpEngine.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
@@ -47,21 +48,26 @@ export const getMyStats = async (userId, { clientToday } = {}) => {
     include: { logs: { where: { date: { gte: from } } } },
   })
 
-  // Taux par jour
+  // Taux par jour (uniquement habitudes « dues » ce jour-là)
   const byDay = days.map((day) => {
-    const total = habits.length
+    const due = habits.filter((h) => isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, day))
+    const total = due.length
     if (!total) return { date: day, rate: 0 }
-    const done = habits.filter((h) => h.logs.some((l) => l.date.toISOString().slice(0, 10) === day)).length
+    const done = due.filter((h) => h.logs.some((l) => l.date.toISOString().slice(0, 10) === day)).length
     return { date: day, rate: Math.round((done / total) * 100) }
   })
 
-  // Taux par habitude
-  const byHabit = habits.map((h) => ({
-    id:   h.id,
-    name: h.name,
-    icon: h.icon,
-    rate: Math.round((h.logs.length / 7) * 100),
-  }))
+  // Taux par habitude : % des jours de la fenêtre où l’habitude était due et cochée
+  const byHabit = habits.map((h) => {
+    const mask = h.weekdaysMask ?? ALL_WEEKDAYS_MASK
+    const dueDays = days.filter((d) => isHabitDueOnYmd(mask, d))
+    const dueCount = dueDays.length
+    const doneCount = dueDays.filter((d) =>
+      h.logs.some((l) => l.date.toISOString().slice(0, 10) === d),
+    ).length
+    const rate = dueCount > 0 ? Math.round((doneCount / dueCount) * 100) : 0
+    return { id: h.id, name: h.name, icon: h.icon, rate }
+  })
 
   return { byDay, byHabit }
 }
@@ -97,12 +103,30 @@ export const getGlobalLeaderboard = async () => {
     },
   })
 
+  const userIds = users.map((u) => u.id)
+  const apptRows =
+    userIds.length === 0
+      ? []
+      : await db.appointmentCompletion.findMany({
+          where: { userId: { in: userIds } },
+          select: { userId: true, date: true, xpEarned: true },
+        })
+  const apptByUser = {}
+  for (const c of apptRows) {
+    if (!apptByUser[c.userId]) apptByUser[c.userId] = { xp: 0, dates: [] }
+    apptByUser[c.userId].xp += c.xpEarned
+    apptByUser[c.userId].dates.push(c.date.toISOString().slice(0, 10))
+  }
+
   return users
     .map((user) => {
-      const totalXP = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
+      const habitXP = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
+      const extra = apptByUser[user.id] || { xp: 0, dates: [] }
+      const totalXP = habitXP + extra.xp
       const level   = levelFromXP(totalXP)
       const title   = titleForLevel(level)
-      const dates   = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
+      const habitDates = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
+      const dates   = [...new Set([...habitDates, ...extra.dates])]
       const streak  = computeStreak(dates)
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
@@ -162,10 +186,18 @@ export const getMyProfile = async (userId) => {
 
   const dailyLogs = await db.dailyLog.findMany({ where: { userId } })
 
-  const totalXP  = logs.reduce((sum, l) => sum + l.habit.xp, 0)
+  const apptDone = await db.appointmentCompletion.findMany({
+    where: { userId },
+    select: { date: true, xpEarned: true },
+  })
+  const habitXP = logs.reduce((sum, l) => sum + l.habit.xp, 0)
+  const apptXP = apptDone.reduce((s, c) => s + c.xpEarned, 0)
+  const totalXP = habitXP + apptXP
   const progress = xpProgress(totalXP)
   const title    = titleForLevel(progress.level)
-  const dates    = [...new Set(logs.map((l) => l.date.toISOString().slice(0, 10)))]
+  const habitDates = [...new Set(logs.map((l) => l.date.toISOString().slice(0, 10)))]
+  const apptDates = apptDone.map((c) => c.date.toISOString().slice(0, 10))
+  const dates    = [...new Set([...habitDates, ...apptDates])]
   const streak   = computeStreak(dates)
 
   return { ...user, totalXP, ...progress, title, streak }
@@ -203,7 +235,15 @@ export const getCalendarYear = async (userId, year) => {
   // Récupérer toutes les habitudes de l'user pour calculer le total actif par jour
   const allHabits = await db.habit.findMany({
     where: { userId },
-    select: { id: true, name: true, icon: true, xp: true, createdAt: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      icon: true,
+      xp: true,
+      createdAt: true,
+      isActive: true,
+      weekdaysMask: true,
+    },
   })
 
   // Indexer dailyLogs par date pour accès rapide
@@ -223,7 +263,11 @@ export const getCalendarYear = async (userId, year) => {
     // Habitudes actives à cette date (créées avant ou le jour même)
     const activeHabits = allHabits.filter((h) => {
       const createdDate = new Date(h.createdAt).toISOString().slice(0, 10)
-      return createdDate <= dateStr && h.isActive
+      return (
+        createdDate <= dateStr &&
+        h.isActive &&
+        isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, dateStr)
+      )
     })
     
     const habitsDone  = dayLogs.length
@@ -285,9 +329,10 @@ export const getInsights = async (userId, daysCount = 30) => {
     },
   })
 
-  // Récupérer habitudes actives pour calculer les taux
+  // Récupérer habitudes actives pour calculer les taux (masque jours)
   const habits = await db.habit.findMany({
     where: { userId, isActive: true },
+    select: { id: true, weekdaysMask: true },
   })
 
   if (habits.length === 0 || dailyLogs.length === 0) {
@@ -306,8 +351,12 @@ export const getInsights = async (userId, daysCount = 30) => {
   // Calculer % réussite par jour
   const dates = [...new Set(habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
   dates.forEach((date) => {
-    const dayLogs = habitLogs.filter(l => l.date.toISOString().slice(0, 10) === date)
-    const habitRate = Math.round((dayLogs.length / habits.length) * 100)
+    const dayLogs = habitLogs.filter((l) => l.date.toISOString().slice(0, 10) === date)
+    const dueCount = habits.filter((h) =>
+      isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, date),
+    ).length
+    const habitRate =
+      dueCount > 0 ? Math.round((dayLogs.length / dueCount) * 100) : 0
     dayStats[date] = { habitRate, mood: null, sleep: null }
   })
 

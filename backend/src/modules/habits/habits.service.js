@@ -1,4 +1,9 @@
 import { db } from '../../core/db.js'
+import {
+  ALL_WEEKDAYS_MASK,
+  isHabitDueOnYmd,
+  normalizeWeekdaysMask,
+} from '../../lib/habitWeekdays.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 
@@ -15,12 +20,6 @@ const forbidEducatorHabitMutations = async (userId) => {
     }
 }
 
-/** Jour civil UTC « serveur » (YYYY-MM-DD → midi UTC, même convention que check-in) */
-const utcCalendarDate = () => {
-  const ymd = new Date().toISOString().slice(0, 10)
-  return dateFromYMD(ymd)
-}
-
 /** YYYY-MM-DD → Date à midi UTC (@db.Date, aligné check-in) */
 const dateFromYMD = (ymd) => {
   const [y, m, d] = ymd.split('-').map(Number)
@@ -30,17 +29,29 @@ const dateFromYMD = (ymd) => {
 /** @param {string} [dateStr] — YYYY-MM-DD côté client ; sinon jour UTC serveur */
 export const getHabits = async (userId, dateStr) => {
   if (await userIsAssociationOwner(userId) || (await userIsAppAdmin(userId))) return []
-  const day =
-    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateFromYMD(dateStr) : utcCalendarDate()
-  return db.habit.findMany({
+  const ymd =
+    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : new Date().toISOString().slice(0, 10)
+  const day = dateFromYMD(ymd)
+  const rows = await db.habit.findMany({
     where: { userId, isActive: true },
     orderBy: { order: 'asc' },
     include: { logs: { where: { date: day } } },
+  })
+  return rows.map((h) => {
+    const weekdaysMask = h.weekdaysMask ?? ALL_WEEKDAYS_MASK
+    return {
+      ...h,
+      weekdaysMask,
+      isDue: isHabitDueOnYmd(weekdaysMask, ymd),
+    }
   })
 }
 
 export const createHabit = async (userId, data) => {
   await forbidEducatorHabitMutations(userId)
+  const weekdaysMask = normalizeWeekdaysMask(data.weekdaysMask)
   return db.habit.create({
     data: {
       name: data.name,
@@ -48,6 +59,7 @@ export const createHabit = async (userId, data) => {
       order: data.order ?? 0,
       xp: 10,
       origin: 'USER',
+      weekdaysMask,
       userId,
     },
   })
@@ -55,30 +67,35 @@ export const createHabit = async (userId, data) => {
 
 export const updateHabit = async (habitId, userId, data) => {
   await forbidEducatorHabitMutations(userId)
-  const habit = await assertOwner(habitId, userId)
-  if (habit.origin !== 'USER')
-    throw { status: 403, message: 'Seules les habitudes personnelles peuvent être modifiées' }
-  const { name, icon, order } = data
+  await assertOwner(habitId, userId)
+  const { name, icon, order, weekdaysMask } = data
   const patch = {}
   if (name !== undefined) patch.name = name
   if (icon !== undefined) patch.icon = icon
   if (order !== undefined) patch.order = order
+  if (weekdaysMask !== undefined) patch.weekdaysMask = normalizeWeekdaysMask(weekdaysMask)
   return db.habit.update({ where: { id: habitId }, data: patch })
 }
 
 export const deleteHabit = async (habitId, userId) => {
   await forbidEducatorHabitMutations(userId)
-  const habit = await assertOwner(habitId, userId)
-  if (habit.origin !== 'USER')
-    throw { status: 403, message: 'Seules les habitudes personnelles peuvent être supprimées' }
+  await assertOwner(habitId, userId)
   return db.habit.update({ where: { id: habitId }, data: { isActive: false } })
 }
 
 export const toggleHabit = async (habitId, userId, dateStr) => {
   await forbidEducatorHabitMutations(userId)
-  await assertOwner(habitId, userId)
-  const date =
-    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateFromYMD(dateStr) : utcCalendarDate()
+  const habit = await assertOwner(habitId, userId)
+  const ymd =
+    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : new Date().toISOString().slice(0, 10)
+  if (!isHabitDueOnYmd(habit.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd))
+    throw {
+      status: 400,
+      message: "Cette habitude n'est pas prévue ce jour-là.",
+    }
+  const date = dateFromYMD(ymd)
 
   const existing = await db.habitLog.findUnique({
     where: { habitId_date: { habitId, date } },

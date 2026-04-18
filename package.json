@@ -11,6 +11,7 @@
     "install:all":  "npm install --prefix frontend && npm install --prefix backend",
 
     "db:migrate":   "docker compose exec -T backend npx prisma migrate deploy",
+    "db:migrate:deploy": "docker compose exec -T backend npx prisma migrate deploy",
     "db:migrate:dev": "docker compose exec -T backend npx prisma migrate dev",
     "db:push":      "docker compose exec backend npx prisma db push",
     "db:seed":      "docker compose exec backend npx prisma db seed",

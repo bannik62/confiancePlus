@@ -6,9 +6,16 @@
     "dev": "prisma generate && node --watch-path=src --watch src/server.js",
     "start": "node src/server.js",
     "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
+<<<<<<< HEAD
     "db:push": "dotenv -e ../.env -- prisma db push",
     "db:seed": "dotenv -e ../.env -- prisma db seed",
     "db:studio": "dotenv -e ../.env -- prisma studio"
+=======
+    "db:migrate:deploy": "dotenv -e ../.env -- prisma migrate deploy",
+    "db:push":    "dotenv -e ../.env -- prisma db push",
+    "db:seed":    "dotenv -e ../.env -- prisma db seed",
+    "db:studio":  "dotenv -e ../.env -- prisma studio"
+>>>>>>> main
   },
   "prisma": {
     "seed": "node prisma/seed.js"

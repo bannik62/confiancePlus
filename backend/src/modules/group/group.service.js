@@ -81,12 +81,30 @@ export const getLeaderboard = async (groupId) => {
       ? members.filter((m) => m.role !== 'OWNER')
       : members
 
+  const userIds = ranked.map(({ user }) => user.id)
+  const apptRows =
+    userIds.length === 0
+      ? []
+      : await db.appointmentCompletion.findMany({
+          where: { userId: { in: userIds } },
+          select: { userId: true, date: true, xpEarned: true },
+        })
+  const apptByUser = {}
+  for (const c of apptRows) {
+    if (!apptByUser[c.userId]) apptByUser[c.userId] = { xp: 0, dates: [] }
+    apptByUser[c.userId].xp += c.xpEarned
+    apptByUser[c.userId].dates.push(c.date.toISOString().slice(0, 10))
+  }
+
   return ranked
     .map(({ user }) => {
-      const totalXP  = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
+      const habitXP = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
+      const extra = apptByUser[user.id] || { xp: 0, dates: [] }
+      const totalXP = habitXP + extra.xp
       const level    = levelFromXP(totalXP)
       const title    = titleForLevel(level)
-      const dates    = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
+      const habitDates = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
+      const dates    = [...new Set([...habitDates, ...extra.dates])]
       const streak   = computeStreak(dates)
       return { id: user.id, username: user.username, avatar: user.avatar, totalXP, level, title, streak }
     })
