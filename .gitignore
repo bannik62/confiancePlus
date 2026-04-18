@@ -5,3 +5,4 @@ dist/
 *.pyc
 .DS_Store
 fait-Ou-aFaire.md
+repomix-output.*
