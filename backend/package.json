@@ -3,22 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-<<<<<<< HEAD
-    "dev":        "prisma generate && node --watch src/server.js",
-    "start":      "node src/server.js",
+    "dev": "prisma generate && node --watch src/server.js",
+    "start": "node src/server.js",
     "db:migrate": "node scripts/prisma-with-env.mjs migrate dev",
     "db:migrate:deploy": "node scripts/prisma-with-env.mjs migrate deploy",
-    "db:push":    "node scripts/prisma-with-env.mjs db push",
-    "db:seed":    "node scripts/prisma-with-env.mjs db seed",
-    "db:studio":  "node scripts/prisma-with-env.mjs studio"
-=======
-    "dev": "prisma generate && node --watch-path=src --watch src/server.js",
-    "start": "node src/server.js",
-    "db:migrate": "dotenv -e ../.env -- prisma migrate dev",
-    "db:push": "dotenv -e ../.env -- prisma db push",
-    "db:seed": "dotenv -e ../.env -- prisma db seed",
-    "db:studio": "dotenv -e ../.env -- prisma studio"
->>>>>>> 917241aee5648f164b4fc2da5234f939601d36fa
+    "db:push": "node scripts/prisma-with-env.mjs db push",
+    "db:seed": "node scripts/prisma-with-env.mjs db seed",
+    "db:studio": "node scripts/prisma-with-env.mjs studio"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
