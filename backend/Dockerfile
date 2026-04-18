@@ -15,4 +15,5 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# Surchargé en dev par docker-compose (`command: npm run dev`).
+CMD ["npm", "run", "start"]

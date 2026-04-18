@@ -1,6 +1,6 @@
-<!-- Palette alignée sur frontend/src/styles/theme.css — CONFIANCE+ -->
+<!-- Palette alignée sur frontend/src/styles/theme.css — HabiTracks -->
 <p align="center">
-  <img alt="CONFIANCE+" src="https://img.shields.io/badge/CONFIANCE%2B-habitudes_%E2%80%A2_groupes_%E2%80%A2_XP-7c3aed?style=for-the-badge&labelColor=07071a&color=7c3aed" />
+  <img alt="HabiTracks" src="https://img.shields.io/badge/HabiTracks-habitudes_%E2%80%A2_groupes_%E2%80%A2_XP-7c3aed?style=for-the-badge&labelColor=07071a&color=7c3aed" />
 </p>
 
 <p align="center">
@@ -17,15 +17,22 @@
 
 ## Aperçu
 
-| Rôle | Couleur thème | Usage dans l’app |
-|------|---------------|-------------------|
-| Fond | `#07071a` | `--bg` |
-| Surface | `#0e0e2a` | cartes, panneaux |
-| Accent | `#7c3aed` | actions, CTA |
-| Or | `#f59e0b` | XP, bonus |
-| Cyan | `#06b6d4` | message du jour, sommeil |
+| Rôle | Couleur | Variable |
+|------|---------|----------|
+| Fond principal | `#07071a` | `--bg` |
+| Surface (cartes) | `#0e0e2a` | `--surface` |
+| Surface modale | `#0f0f2a` | `--surface-modal` |
+| Overlay (modales) | `#000000cc` | `--overlay` |
+| Bordure | `#1e1b4b` | `--border` |
+| Texte | `#e2e8f0` | `--text` |
+| Texte secondaire | `#64748b` | `--muted` |
+| Accent (violet) | `#7c3aed` | `--accent` |
+| Or (XP / niveau) | `#f59e0b` | `--gold` |
+| Cyan | `#06b6d4` | `--cyan` |
+| Vert (succès) | `#10b981` | `--green` |
+| Rouge (alerte) | `#ef4444` | `--red` |
 
-Les couleurs vivent dans **`frontend/src/styles/theme.css`** (une seule source de vérité pour le CSS).
+**Dégradés & détails** (topbar, barre XP, boutons accent, stats « lever de soleil » à 5 paliers, etc.) : voir **`frontend/src/styles/theme.css`** — une seule source de vérité pour le CSS (`--grad-*`, `--stat-global-*`, `--topbar-*`, …).
 
 ---
 

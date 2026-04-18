@@ -14,6 +14,7 @@ Ce dossier regroupe les **trois niveaux Merise** appliqués au domaine métier d
 
 | Fichier | Contenu |
 |---------|---------|
+| [**api.drawio**](./api.drawio) | **Vue d’ensemble** vues Svelte ↔ préfixes `/api/*` (routes principales, non exhaustif) |
 | [**modele-donnees.drawio**](./modele-donnees.drawio) | **Diagrammes Draw.io** — 3 onglets en bas : **MCD**, **MLD**, **MPD** (schéma visuel éditable) |
 | [01-MCD.md](./01-MCD.md) | Texte + Mermaid (optionnel) |
 | [02-MLD.md](./02-MLD.md) | Tables, clés, schéma relationnel |

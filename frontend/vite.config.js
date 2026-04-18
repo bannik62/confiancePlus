@@ -11,8 +11,8 @@ export default defineConfig({
 
       // ── Manifest ──────────────────────────────────────────────────────────
       manifest: {
-        name:             'Confiance+',
-        short_name:       'Confiance+',
+        name:             'HabiTracks',
+        short_name:       'HabiTracks',
         description:      'Tracker d\'habitudes quotidiennes',
         theme_color:      '#07071a',
         background_color: '#07071a',

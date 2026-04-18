@@ -28,6 +28,14 @@
   import DailyOfferModal from './components/habits/DailyOfferModal.svelte'
 
   import Login   from './views/Login.svelte'
+  import Landing from './views/Landing.svelte'
+
+  /** `/` = marketing ; `/login` etc. = même index.html (Apache FallbackResource) → Login */
+  function isMarketingHome() {
+    if (typeof window === 'undefined') return false
+    const p = (window.location.pathname || '/').replace(/\/+$/, '') || '/'
+    return p === '/'
+  }
   import CheckIn from './views/CheckIn.svelte'
   import Home    from './views/Home.svelte'
   import Groupe  from './views/Groupe.svelte'
@@ -208,6 +216,9 @@
 
 {#if loading}
   <div class="splash">Chargement…</div>
+
+{:else if !$authStore.user && isMarketingHome()}
+  <Landing />
 
 {:else if !$authStore.user}
   <Login />
