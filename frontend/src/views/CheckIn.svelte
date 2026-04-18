@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte'
+  import { fly } from 'svelte/transition'
   import { saveDailyLog } from '../stores/checkin.js'
 
   const dispatch = createEventDispatcher()
@@ -62,7 +63,7 @@
     <textarea bind:value={reason} placeholder="Ex : j'ai mal dormi, grosse journée..."></textarea>
 
     <div class="actions">
-      <button class="back" on:click={() => step = 1}>← RETOUR</button>
+      <button class="back" on:click={() => { hovered = 0; step = 1 }}>← RETOUR</button>
       <button class="cta" on:click={submit}>C'EST PARTI ⚡</button>
     </div>
   {/if}
