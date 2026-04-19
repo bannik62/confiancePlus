@@ -1,5 +1,8 @@
 const BASE = '/api'
 
+/** Délai max avant abandon de la requête (évite UI bloquée si le backend ne répond pas). */
+const FETCH_TIMEOUT_MS = 15000
+
 // Lit le csrfToken depuis le cookie (non-httpOnly, accessible au JS)
 const getCsrfToken = () => {
   const match = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]+)/)
@@ -33,12 +36,25 @@ const request = async (method, path, body) => {
     if (csrf) headers['X-CSRF-Token'] = csrf
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    credentials: 'include',   // envoie le cookie httpOnly automatiquement
-    headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  let res
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      credentials: 'include',   // envoie le cookie httpOnly automatiquement
+      headers,
+      signal: controller.signal,
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError')
+      throw { status: 408, message: 'Délai dépassé — vérifie ta connexion et réessaie.' }
+    throw e
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (res.ok)
     return res.status === 204 ? null : res.json()
