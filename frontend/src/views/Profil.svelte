@@ -9,6 +9,7 @@
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
+  import { autocompleteSignIn, autocompleteSignUp } from '../lib/htmlInputTokens.js'
 
   let profile = null
   let standalone = false
@@ -245,7 +246,7 @@
           id="profil-email-pw"
           class="acct-input"
           type="password"
-          autocomplete="current-password"
+          autocomplete={autocompleteSignIn}
           bind:value={emailCurrentPw}
           disabled={emailBusy}
         />
@@ -263,7 +264,7 @@
           id="profil-pw-current"
           class="acct-input"
           type="password"
-          autocomplete="current-password"
+          autocomplete={autocompleteSignIn}
           bind:value={pwCurrent}
           disabled={pwBusy}
         />
@@ -272,7 +273,7 @@
           id="profil-pw-new"
           class="acct-input"
           type="password"
-          autocomplete="new-password"
+          autocomplete={autocompleteSignUp}
           bind:value={pwNew}
           disabled={pwBusy}
         />
@@ -281,7 +282,7 @@
           id="profil-pw-confirm"
           class="acct-input"
           type="password"
-          autocomplete="new-password"
+          autocomplete={autocompleteSignUp}
           bind:value={pwConfirm}
           disabled={pwBusy}
         />
