@@ -20,6 +20,7 @@
   } from '../stores/group.js'
   import EducatorMemberFollowupModal from '../components/educator/EducatorMemberFollowupModal.svelte'
   import { tab } from '../stores/tab.js'
+  import { mergeUser } from '../stores/auth.js'
   import { appointmentsApi } from '../api/appointments.js'
   import { loadProfile } from '../stores/profile.js'
 
@@ -192,12 +193,17 @@
       }
       const list = get(habits)
       const d = localDateString()
+      let lastCristaux
       for (const h of list) {
         if (!isHabitDueToday(h)) continue
         const want = !!habitDraft[h.id]
         const base = !!habitBaseline[h.id]
-        if (want !== base) await habitsApi.toggle(h.id, d)
+        if (want !== base) {
+          const r = await habitsApi.toggle(h.id, d)
+          if (r && typeof r.cristaux === 'number') lastCristaux = r.cristaux
+        }
       }
+      if (lastCristaux !== undefined) mergeUser({ cristaux: lastCristaux })
       await loadHabits()
       dayBundleLocked = true
       sessionStorage.setItem(dayLockStorageKey(), '1')

@@ -28,6 +28,12 @@
   let codeStep     = 'enter-code'
   let pendingUser  = null   // réponse /check-code (username, avatar, emailHint, ok)
 
+  /** Affichage clair du mot de passe (toggle œil) */
+  let showLoginPw = false
+  let showRegisterPw = false
+  let showActivatePw = false
+  let showActivatePwConfirm = false
+
   // Contexte d'inscription : 'solo' | 'create' | 'join'
   let registerContext = REGISTER_CONTEXT.SOLO
 
@@ -77,6 +83,10 @@
     pendingUser = null
     activateModel = new UserActivate()
     profileModel = new UserCompleteProfile()
+    showLoginPw = false
+    showRegisterPw = false
+    showActivatePw = false
+    showActivatePwConfirm = false
     if (t === 'register') await refreshRegisterStatus()
   }
 
@@ -257,16 +267,36 @@
           {#if loginModel.errors.email}<span class="field-error">{loginModel.errors.email}</span>{/if}
         </label>
 
-        <label>
-          Mot de passe
-          <input
-            type="password"
-            bind:value={loginModel.password}
-            on:input={() => { loginModel.password = loginModel.password; loginModel = loginModel }}
-            placeholder="••••••••"
-          />
+        <div class="field-col">
+          <label for="login-password">Mot de passe</label>
+          <div class="password-wrap">
+            <input
+              id="login-password"
+              type={showLoginPw ? 'text' : 'password'}
+              value={loginModel.password}
+              on:input={(e) => {
+                loginModel.password = e.currentTarget.value
+                loginModel = loginModel
+              }}
+              placeholder="••••••••"
+              autocomplete="current-password"
+            />
+            <button
+              type="button"
+              class="toggle-pw"
+              aria-label={showLoginPw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-pressed={showLoginPw}
+              on:click={() => (showLoginPw = !showLoginPw)}
+            >
+              {#if showLoginPw}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {/if}
+            </button>
+          </div>
           {#if loginModel.errors.password}<span class="field-error">{loginModel.errors.password}</span>{/if}
-        </label>
+        </div>
 
         <button type="submit" class="btn-primary" disabled={loading}>
           {loading ? 'Connexion…' : 'Se connecter'}
@@ -322,13 +352,36 @@
           {#if registerModel.errors.username}<span class="field-error">{registerModel.errors.username}</span>{/if}
         </label>
 
-        <label>
-          Mot de passe
-          <input type="password" bind:value={registerModel.password}
-            on:input={() => { registerModel.password = registerModel.password; registerModel = registerModel }}
-            placeholder="••••••••" />
+        <div class="field-col">
+          <label for="register-password">Mot de passe</label>
+          <div class="password-wrap">
+            <input
+              id="register-password"
+              type={showRegisterPw ? 'text' : 'password'}
+              value={registerModel.password}
+              on:input={(e) => {
+                registerModel.password = e.currentTarget.value
+                registerModel = registerModel
+              }}
+              placeholder="••••••••"
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="toggle-pw"
+              aria-label={showRegisterPw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-pressed={showRegisterPw}
+              on:click={() => (showRegisterPw = !showRegisterPw)}
+            >
+              {#if showRegisterPw}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {/if}
+            </button>
+          </div>
           {#if registerModel.errors.password}<span class="field-error">{registerModel.errors.password}</span>{/if}
-        </label>
+        </div>
 
         <!-- Avatar : grille + saisie libre -->
         <div class="avatar-field">
@@ -475,20 +528,66 @@
             {#if profileModel.errors.avatar}<span class="field-error">{profileModel.errors.avatar}</span>{/if}
           </div>
 
-          <label>
-            Mot de passe
-            <input type="password" bind:value={profileModel.password}
-              on:input={() => { profileModel.password = profileModel.password; profileModel = profileModel }}
-              placeholder="••••••••" autocomplete="new-password" />
+          <div class="field-col">
+            <label for="activate-password">Mot de passe</label>
+            <div class="password-wrap">
+              <input
+                id="activate-password"
+                type={showActivatePw ? 'text' : 'password'}
+                value={profileModel.password}
+                on:input={(e) => {
+                  profileModel.password = e.currentTarget.value
+                  profileModel = profileModel
+                }}
+                placeholder="••••••••"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="toggle-pw"
+                aria-label={showActivatePw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                aria-pressed={showActivatePw}
+                on:click={() => (showActivatePw = !showActivatePw)}
+              >
+                {#if showActivatePw}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                {/if}
+              </button>
+            </div>
             {#if profileModel.errors.password}<span class="field-error">{profileModel.errors.password}</span>{/if}
-          </label>
-          <label>
-            Confirmer
-            <input type="password" bind:value={profileModel.passwordConfirm}
-              on:input={() => { profileModel.passwordConfirm = profileModel.passwordConfirm; profileModel = profileModel }}
-              placeholder="••••••••" autocomplete="new-password" />
+          </div>
+          <div class="field-col">
+            <label for="activate-password-confirm">Confirmer</label>
+            <div class="password-wrap">
+              <input
+                id="activate-password-confirm"
+                type={showActivatePwConfirm ? 'text' : 'password'}
+                value={profileModel.passwordConfirm}
+                on:input={(e) => {
+                  profileModel.passwordConfirm = e.currentTarget.value
+                  profileModel = profileModel
+                }}
+                placeholder="••••••••"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="toggle-pw"
+                aria-label={showActivatePwConfirm ? 'Masquer la confirmation' : 'Afficher la confirmation'}
+                aria-pressed={showActivatePwConfirm}
+                on:click={() => (showActivatePwConfirm = !showActivatePwConfirm)}
+              >
+                {#if showActivatePwConfirm}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                {/if}
+              </button>
+            </div>
             {#if profileModel.errors.passwordConfirm}<span class="field-error">{profileModel.errors.passwordConfirm}</span>{/if}
-          </label>
+          </div>
           <button type="submit" class="btn-primary" disabled={loading}>
             {loading ? 'Activation…' : 'Activer mon compte'}
           </button>
@@ -569,6 +668,15 @@
     font-size: .85rem;
     color: var(--text-label);
   }
+  .field-col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .field-col > label {
+    font-size: .85rem;
+    color: var(--text-label);
+  }
   input, select {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -580,6 +688,39 @@
     transition: border-color .2s;
   }
   input:focus, select:focus { border-color: var(--accent); }
+
+  .password-wrap {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+  .password-wrap input {
+    width: 100%;
+    padding-right: 44px;
+  }
+  .toggle-pw {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+  .toggle-pw:hover {
+    color: var(--text);
+    background: var(--surface);
+  }
 
   .code-input {
     text-transform: uppercase;
