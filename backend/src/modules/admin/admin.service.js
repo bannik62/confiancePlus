@@ -2,6 +2,11 @@ import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '../../core/db.js'
+import {
+  getPushSettingsAdmin,
+  setDefaultReminderHour as setDefaultReminderHourSvc,
+  sendTestGiftNotification,
+} from '../push/push.service.js'
 
 const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
 
@@ -248,4 +253,18 @@ export const seedDailyHabitTemplatesFromDefaults = async () => {
   await db.dailyHabitTemplate.updateMany({ data: { isActive: true } })
   const n = await db.dailyHabitTemplate.count({ where: { isActive: true } })
   return { ok: true, seeded: n, reactivated: true }
+}
+
+export const getPushSettings = () => getPushSettingsAdmin()
+
+export const putPushSettings = async (actorId, body) => {
+  const r = await setDefaultReminderHourSvc(body.defaultReminderHour)
+  await logAudit(actorId, 'PUSH_SETTINGS_UPDATE', null, r)
+  return getPushSettingsAdmin()
+}
+
+export const sendPushTestGift = async (actorId) => {
+  const out = await sendTestGiftNotification(actorId)
+  await logAudit(actorId, 'PUSH_TEST_GIFT', actorId, null)
+  return out
 }

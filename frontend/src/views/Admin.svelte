@@ -27,6 +27,12 @@
   let dailyOk = ''
   let dailyLoading = true
 
+  let pushHour = 14
+  let pushErr = ''
+  let pushOk = ''
+  let pushSaveBusy = false
+  let pushTestBusy = false
+
   const auditActionLabel = (code) =>
     ({
       USER_DELETE: 'Suppression compte',
@@ -34,6 +40,8 @@
       USER_UNSUSPEND: 'Réactivation compte',
       DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
       DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
+      PUSH_SETTINGS_UPDATE: 'Notifications — heure rappel par défaut',
+      PUSH_TEST_GIFT: 'Notifications — test « cadeau »',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -129,7 +137,14 @@
   onMount(async () => {
     loading = true
     auditLoading = true
-    await Promise.all([loadUsers(), loadMessages(), loadDailyTemplates(), loadAudit(), loadGroups()])
+    await Promise.all([
+      loadUsers(),
+      loadMessages(),
+      loadDailyTemplates(),
+      loadAudit(),
+      loadGroups(),
+      loadPushSettings(),
+    ])
     loading = false
     auditLoading = false
     msgLoading = false
@@ -198,6 +213,47 @@
       err = e.message || 'Action impossible'
     }
   }
+
+  const loadPushSettings = async () => {
+    pushErr = ''
+    try {
+      const r = await adminApi.getPushSettings()
+      pushHour = r.defaultReminderHour ?? 14
+    } catch (e) {
+      pushErr = e.message || 'Chargement réglages push impossible'
+    }
+  }
+
+  const savePushSettings = async () => {
+    pushErr = ''
+    pushOk = ''
+    pushSaveBusy = true
+    try {
+      const h = Math.min(23, Math.max(0, parseInt(String(pushHour), 10)))
+      await adminApi.putPushSettings({ defaultReminderHour: h })
+      pushOk = 'Heure de rappel par défaut enregistrée.'
+      await loadAudit()
+    } catch (e) {
+      pushErr = e.message || 'Enregistrement impossible'
+    } finally {
+      pushSaveBusy = false
+    }
+  }
+
+  const sendPushTest = async () => {
+    pushErr = ''
+    pushOk = ''
+    pushTestBusy = true
+    try {
+      await adminApi.postPushTest()
+      pushOk = 'Notification test envoyée (message « cadeau ») — vérifie cet appareil si les rappels y sont activés.'
+      await loadAudit()
+    } catch (e) {
+      pushErr = e.message || 'Envoi test impossible'
+    } finally {
+      pushTestBusy = false
+    }
+  }
 </script>
 
 <div class="admin">
@@ -255,6 +311,28 @@
         <button type="button" disabled={(page + 1) * limit >= total} on:click={nextPage}>Suivant</button>
       </div>
     {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">NOTIFICATIONS PUSH</div>
+    {#if pushErr}<p class="err">{pushErr}</p>{/if}
+    {#if pushOk}<p class="ok">{pushOk}</p>{/if}
+    <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+      Heure locale (fuseau Europe/Paris par défaut côté utilisateur) du rappel « habitudes du jour ». Les utilisateurs
+      sans abonnement push ou déjà à jour ne reçoivent rien.
+    </p>
+    <div class="push-row" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+      <label>
+        Heure par défaut (0–23)
+        <input type="number" min="0" max="23" bind:value={pushHour} style="width:4rem;margin-left:6px" />
+      </label>
+      <button type="button" class="btn-save" disabled={pushSaveBusy} on:click={savePushSettings}>
+        {pushSaveBusy ? '…' : 'Enregistrer'}
+      </button>
+    </div>
+    <button type="button" class="btn-secondary" disabled={pushTestBusy} on:click={sendPushTest}>
+      {pushTestBusy ? '…' : 'Envoyer une notif test (« Vous aviez un cadeau »)'}
+    </button>
   </Card>
 
   <Card style="margin-bottom:14px">

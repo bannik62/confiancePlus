@@ -14,6 +14,10 @@ export const userSuspensionSchema = z.object({
   suspended: z.boolean(),
 })
 
+export const pushSettingsSchema = z.object({
+  defaultReminderHour: z.coerce.number().int().min(0).max(23),
+})
+
 export const dailyHabitTemplatesReplaceSchema = z.object({
   templates: z
     .array(

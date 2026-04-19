@@ -16,6 +16,7 @@ import educatorRouter from './modules/educator/educator.router.js'
 import contentRouter  from './modules/content/content.router.js'
 import adminRouter    from './modules/admin/admin.router.js'
 import appointmentsRouter from './modules/appointments/appointments.router.js'
+import pushRouter     from './modules/push/push.router.js'
 
 const app = express()
 
@@ -44,6 +45,7 @@ app.use('/api/stats',    statsRouter)   // stats = GET uniquement, csrfProtect l
 app.use('/api/educator', csrfProtect, educatorRouter)
 app.use('/api/appointments', csrfProtect, appointmentsRouter)
 app.use('/api/admin', csrfProtect, adminRouter)
+app.use('/api/push', csrfProtect, pushRouter)
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 

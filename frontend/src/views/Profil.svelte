@@ -1,7 +1,9 @@
 <script>
   import { onMount }  from 'svelte'
   import { statsApi } from '../api/stats.js'
-  import { authStore, clearAuth } from '../stores/auth.js'
+  import { authStore, clearAuth, isAppAdmin } from '../stores/auth.js'
+  import { pushApi } from '../api/push.js'
+  import { createPushSubscriptionJson } from '../lib/pushSubscribe.js'
   import { isStandalone, isIosLike, isAndroid, detectBrave } from '../lib/pwaUi.js'
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
@@ -14,11 +16,72 @@
   /** Aide pas à pas (comme vitalinfo : pas de capture de beforeinstallprompt). */
   let showManualInstall = false
 
+  let pushBusy = false
+  let pushErr = ''
+  let pushOk = ''
+  let pushEnabled = false
+
+  const refreshPushState = async () => {
+    if (typeof window === 'undefined' || !('PushManager' in window)) return
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      pushEnabled = !!sub
+    } catch {
+      pushEnabled = false
+    }
+  }
+
   onMount(async () => {
     standalone = isStandalone()
     isBraveBrowser = await detectBrave()
     profile = await statsApi.getMyProfile()
+    await refreshPushState()
   })
+
+  const enablePush = async () => {
+    pushErr = ''
+    pushOk = ''
+    pushBusy = true
+    try {
+      const { publicKey } = await pushApi.getVapidPublic()
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') {
+        pushErr = 'Permission de notification refusée.'
+        return
+      }
+      const json = await createPushSubscriptionJson(publicKey)
+      await pushApi.subscribe(json)
+      pushOk = 'Rappels du jour activés sur cet appareil.'
+      await refreshPushState()
+    } catch (e) {
+      pushErr = e.message || 'Activation impossible (VAPID ou navigateur).'
+    } finally {
+      pushBusy = false
+    }
+  }
+
+  const disablePush = async () => {
+    pushErr = ''
+    pushOk = ''
+    pushBusy = true
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await pushApi.unsubscribe({ endpoint: sub.endpoint })
+        await sub.unsubscribe()
+      } else {
+        await pushApi.unsubscribe({})
+      }
+      pushOk = 'Rappels désactivés.'
+      await refreshPushState()
+    } catch (e) {
+      pushErr = e.message || 'Erreur lors de la désactivation.'
+    } finally {
+      pushBusy = false
+    }
+  }
 
   function openInstallHelp() {
     showManualInstall = true
@@ -56,6 +119,27 @@
       <div class="micro muted">XP TOTAL</div>
       <div class="total-xp">{profile.totalXP.toLocaleString()} XP</div>
     </Card>
+
+    {#if !$isAppAdmin && typeof Notification !== 'undefined'}
+      <Card style="margin-bottom:12px">
+        <div class="micro muted">NOTIFICATIONS</div>
+        <p class="pwa-lead" style="margin:8px 0">
+          Rappel vers l’heure définie par l’équipe (défaut 14 h, fuseau Europe/Paris) si des habitudes du jour ne sont
+          pas encore cochées.
+        </p>
+        {#if pushErr}<p class="err" style="color:var(--red);font-size:0.9rem">{pushErr}</p>{/if}
+        {#if pushOk}<p class="ok" style="color:var(--green);font-size:0.9rem">{pushOk}</p>{/if}
+        {#if pushEnabled}
+          <button type="button" class="logout" disabled={pushBusy} on:click={disablePush}>
+            {pushBusy ? '…' : 'Désactiver les rappels sur cet appareil'}
+          </button>
+        {:else}
+          <button type="button" class="install-btn" disabled={pushBusy} on:click={enablePush}>
+            {pushBusy ? '…' : 'Activer les rappels (navigateur)'}
+          </button>
+        {/if}
+      </Card>
+    {/if}
 
     {#if standalone}
       <Card style="margin-bottom:12px">

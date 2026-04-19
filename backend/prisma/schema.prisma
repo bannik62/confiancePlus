@@ -22,6 +22,14 @@ model User {
   isAdmin        Boolean  @default(false)
   isSuspended    Boolean  @default(false) // blocage connexion + API (hors déconnexion)
   lastLoginAt    DateTime? // dernière session (login / register / activation)
+  /// Fuseau IANA pour rappels (ex. Europe/Paris)
+  ianaTimezone                 String  @default("Europe/Paris")
+  /// Heure locale du rappel habitudes (0–23) ; null = défaut global admin
+  pushReminderHour             Int?
+  pushNotificationsEnabled     Boolean @default(false)
+  /// Dernier jour (YMD local) où un rappel habitudes a été envoyé (anti-doublon)
+  lastPushReminderSentYmd      String?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -35,6 +43,28 @@ model User {
   appointmentsAssigned     Appointment[]           @relation("AppointmentAssignee")
   appointmentsCreated      Appointment[]           @relation("AppointmentCreator")
   appointmentCompletions   AppointmentCompletion[]
+
+  pushSubscriptions PushSubscription[]
+}
+
+/// Clé-valeur (réglages globaux admin, ex. heure de rappel par défaut)
+model AppSetting {
+  key   String @id
+  value String
+}
+
+/// Abonnements Web Push (navigateur)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Phrases « message du jour » (Home) — éditables depuis le back-office admin
