@@ -1,6 +1,6 @@
 {
   "name": "habit-tracker-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "prisma generate && node --watch src/server.js",
