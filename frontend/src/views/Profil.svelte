@@ -175,7 +175,7 @@
 {#if showManualInstall}
   <div class="install-overlay" role="presentation" on:click={closeManualInstall}></div>
   <div class="install-modal" role="dialog" aria-labelledby="install-manual-title" aria-modal="true">
-    <h2 id="install-manual-title" class="install-modal-title">Installer Confiance+</h2>
+    <h2 id="install-manual-title" class="install-modal-title">Installer HabiTracks</h2>
     {#if isIosLike()}
       <ol class="install-steps">
         <li>Touche le bouton <strong>Partager</strong> en bas de Safari.</li>
@@ -195,7 +195,7 @@
           <strong>réduit</strong> ou <strong>désactivé</strong> pour ce site (confiance au domaine).
         </li>
         <li><strong>Recharge</strong> la page (F5).</li>
-        <li>Menu <strong>(⋮)</strong> → cherche <strong>Installer l’application</strong>, <strong>Installer Confiance+</strong> ou <strong>Créer un raccourci…</strong></li>
+        <li>Menu <strong>(⋮)</strong> → cherche <strong>Installer l’application</strong>, <strong>Installer HabiTracks</strong> ou <strong>Créer un raccourci…</strong></li>
       </ol>
       <p class="install-note muted">
         Brave privilégie la confidentialité : sans assouplir les Shields, le service worker / l’invite PWA peuvent rester invisibles alors que Firefox se comporte différemment.
@@ -203,7 +203,7 @@
     {:else}
       <ol class="install-steps">
         <li>Ouvre le menu du navigateur <strong>(⋮)</strong> ou <strong>(⋯)</strong>.</li>
-        <li>Cherche <strong>Installer Confiance+</strong>, <strong>Installer l’application</strong> ou <strong>Créer un raccourci…</strong></li>
+        <li>Cherche <strong>Installer HabiTracks</strong>, <strong>Installer l’application</strong> ou <strong>Créer un raccourci…</strong></li>
         <li>L’entrée peut s’appeler « Application » ou « Raccourci » selon le navigateur.</li>
       </ol>
     {/if}

@@ -1,8 +1,6 @@
-Les icônes PWA sont dans frontend/public/icons/ (copiées telles quelles dans dist/) :
-  - icon-192.png  (192×192)
-  - icon-512.png  (512×512)
-  - ../favicon.png  (onglet navigateur)
+Icônes PWA : voir frontend/public/icons/ (icon-192.png, icon-512.png) — copiées telles quelles dans dist/ via Vite public/.
+favicon.png : frontend/public/favicon.png (onglet + fallback).
 
-Manifest statique : frontend/public/manifest.json (comme vitalinfo — plus généré par Vite).
+Captures « install UI » Chrome : frontend/public/screenshots/ (desktop.png wide, mobile.png).
 
-Service worker : frontend/public/service-worker.js — enregistré depuis App.svelte.
+Manifest : frontend/public/manifest.json
