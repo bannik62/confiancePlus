@@ -289,6 +289,11 @@
                 {#if u.isAdmin}<span class="tag">admin</span>{/if}
                 {#if u.isPending}<span class="tag pending">pending</span>{/if}
                 {#if u.isSuspended}<span class="tag susp">suspendu</span>{/if}
+                {#if (u.pushSubscriptionCount ?? 0) > 0}
+                  <span class="tag push" title="Web Push enregistré pour ce compte">
+                    abonné aux notifications{#if u.pushSubscriptionCount > 1} ({u.pushSubscriptionCount} appareils){/if}
+                  </span>
+                {/if}
               </div>
               <div class="dates">
                 <span>Créé : {new Date(u.createdAt).toLocaleString('fr-FR')}</span>
@@ -544,6 +549,10 @@
   .tag.susp {
     background: #f59e0b22;
     color: #fbbf24;
+  }
+  .tag.push {
+    background: var(--green)22;
+    color: var(--green);
   }
   .cell.actions {
     display: flex;

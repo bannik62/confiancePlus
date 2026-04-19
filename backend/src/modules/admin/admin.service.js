@@ -83,7 +83,7 @@ export const replaceDayMessages = async (actorId, body) => {
 export const listUsers = async ({ page = 0, limit = 30 }) => {
   const p = Math.max(0, parseInt(String(page), 10) || 0)
   const l = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 30))
-  const [users, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     db.user.findMany({
       skip: p * l,
       take: l,
@@ -98,10 +98,15 @@ export const listUsers = async ({ page = 0, limit = 30 }) => {
         createdAt: true,
         lastLoginAt: true,
         avatar: true,
+        _count: { select: { pushSubscriptions: true } },
       },
     }),
     db.user.count(),
   ])
+  const users = rows.map(({ _count, ...u }) => ({
+    ...u,
+    pushSubscriptionCount: _count.pushSubscriptions,
+  }))
   return { users, total, page: p, limit: l }
 }
 
