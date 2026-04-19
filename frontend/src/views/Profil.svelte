@@ -1,7 +1,7 @@
 <script>
   import { onMount }  from 'svelte'
   import { statsApi } from '../api/stats.js'
-  import { authStore, clearAuth, isAppAdmin } from '../stores/auth.js'
+  import { authStore, clearAuth } from '../stores/auth.js'
   import { pushApi } from '../api/push.js'
   import { createPushSubscriptionJson } from '../lib/pushSubscribe.js'
   import { isStandalone, isIosLike, isAndroid, detectBrave } from '../lib/pwaUi.js'
@@ -20,6 +20,8 @@
   let pushErr = ''
   let pushOk = ''
   let pushEnabled = false
+  /** @type {NotificationPermission | 'unsupported'} */
+  let notifPerm = 'default'
 
   const refreshPushState = async () => {
     if (typeof window === 'undefined' || !('PushManager' in window)) return
@@ -32,9 +34,15 @@
     }
   }
 
+  const syncNotifPerm = () => {
+    if (typeof Notification === 'undefined') notifPerm = 'unsupported'
+    else notifPerm = Notification.permission
+  }
+
   onMount(async () => {
     standalone = isStandalone()
     isBraveBrowser = await detectBrave()
+    syncNotifPerm()
     profile = await statsApi.getMyProfile()
     await refreshPushState()
   })
@@ -45,11 +53,26 @@
     pushBusy = true
     try {
       const { publicKey } = await pushApi.getVapidPublic()
-      const perm = await Notification.requestPermission()
-      if (perm !== 'granted') {
-        pushErr = 'Permission de notification refusée.'
+
+      let perm = Notification.permission
+      if (perm === 'denied') {
+        pushErr =
+          'Les notifications sont bloquées pour ce site. Ouvre les paramètres du navigateur : icône à gauche de l’URL (cadenas ou « i ») → paramètres du site → Notifications → Autoriser, puis recharge la page et réessaie. Si tu avais déjà refusé, le navigateur ne redemande pas : il faut débloquer à la main.'
+        syncNotifPerm()
         return
       }
+      if (perm === 'default') {
+        perm = await Notification.requestPermission()
+      }
+      syncNotifPerm()
+      if (perm !== 'granted') {
+        pushErr =
+          perm === 'denied'
+            ? 'Permission refusée. Débloque les notifications pour ce domaine dans les paramètres du site (voir message ci-dessus après rechargement).'
+            : 'Permission de notification non accordée.'
+        return
+      }
+
       const json = await createPushSubscriptionJson(publicKey)
       await pushApi.subscribe(json)
       pushOk = 'Rappels du jour activés sur cet appareil.'
@@ -120,14 +143,21 @@
       <div class="total-xp">{profile.totalXP.toLocaleString()} XP</div>
     </Card>
 
-    {#if !$isAppAdmin && typeof Notification !== 'undefined'}
+    {#if typeof Notification !== 'undefined'}
       <Card style="margin-bottom:12px">
         <div class="micro muted">NOTIFICATIONS</div>
         <p class="pwa-lead" style="margin:8px 0">
           Rappel vers l’heure définie par l’équipe (défaut 14 h, fuseau Europe/Paris) si des habitudes du jour ne sont
-          pas encore cochées.
+          pas encore cochées. Sur <strong>iPhone</strong>, le push Web nécessite souvent l’app ajoutée à l’écran d’accueil
+          (Safari → Partager → sur l’écran d’accueil).
         </p>
-        {#if pushErr}<p class="err" style="color:var(--red);font-size:0.9rem">{pushErr}</p>{/if}
+        {#if notifPerm === 'denied'}
+          <p class="pwa-lead" style="color:var(--gold);font-size:0.88rem;margin:6px 0">
+            État : notifications <strong>bloquées</strong> pour ce site. Utilise les paramètres du navigateur pour les
+            autoriser, puis recharge la page.
+          </p>
+        {/if}
+        {#if pushErr}<p class="err" style="color:var(--red);font-size:0.9rem;white-space:pre-wrap">{pushErr}</p>{/if}
         {#if pushOk}<p class="ok" style="color:var(--green);font-size:0.9rem">{pushOk}</p>{/if}
         {#if pushEnabled}
           <button type="button" class="logout" disabled={pushBusy} on:click={disablePush}>
@@ -135,7 +165,7 @@
           </button>
         {:else}
           <button type="button" class="install-btn" disabled={pushBusy} on:click={enablePush}>
-            {pushBusy ? '…' : 'Activer les rappels (navigateur)'}
+            {pushBusy ? '…' : notifPerm === 'denied' ? 'Voir comment débloquer (cliquer)' : 'Activer les rappels (navigateur)'}
           </button>
         {/if}
       </Card>
