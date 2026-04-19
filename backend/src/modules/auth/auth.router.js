@@ -1,8 +1,16 @@
 import { Router } from 'express'
 import { validate }    from '../../middlewares/validate.js'
 import { requireAuth } from '../../middlewares/requireAuth.js'
+import { csrfProtect } from '../../middlewares/csrfProtect.js'
 import { generateCsrfToken, CSRF_COOKIE_OPTIONS } from '../../core/csrf.js'
-import { registerSchema, loginSchema, checkCodeSchema, activateSchema } from './auth.schema.js'
+import {
+  registerSchema,
+  loginSchema,
+  checkCodeSchema,
+  activateSchema,
+  changeEmailSchema,
+  changePasswordSchema,
+} from './auth.schema.js'
 import * as service from './auth.service.js'
 
 const router = Router()
@@ -81,5 +89,33 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try { res.json(await service.me(req.user.id)) }
   catch (e) { next(e) }
 })
+
+router.patch(
+  '/me/email',
+  csrfProtect,
+  requireAuth,
+  validate(changeEmailSchema),
+  async (req, res, next) => {
+    try {
+      res.json(await service.changeEmail(req.user.id, req.body))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.patch(
+  '/me/password',
+  csrfProtect,
+  requireAuth,
+  validate(changePasswordSchema),
+  async (req, res, next) => {
+    try {
+      res.json(await service.changePassword(req.user.id, req.body))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 export default router

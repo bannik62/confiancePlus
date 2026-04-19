@@ -255,3 +255,69 @@ export const me = async (userId) => {
   })
   return user
 }
+
+const assertCurrentPassword = async (userId, currentPassword) => {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  })
+  if (!user?.passwordHash)
+    throw {
+      status: 400,
+      message:
+        'Aucun mot de passe défini pour ce compte — impossible de le modifier ici.',
+    }
+  const valid = await verifyPassword(currentPassword, user.passwordHash)
+  if (!valid)
+    throw { status: 403, message: 'Mot de passe actuel incorrect' }
+}
+
+/** @param {{ currentPassword: string, email: string, confirmEmail: string }} body */
+export const changeEmail = async (userId, body) => {
+  const norm = body.email
+  await assertCurrentPassword(userId, body.currentPassword)
+
+  const existing = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  })
+  if (existing?.email === norm) return me(userId)
+
+  const taken = await db.user.findFirst({
+    where: { email: norm, id: { not: userId } },
+    select: { id: true },
+  })
+  if (taken) throw { status: 409, message: 'Cette adresse e-mail est déjà utilisée' }
+
+  await db.user.update({ where: { id: userId }, data: { email: norm } })
+  return me(userId)
+}
+
+/** @param {{ currentPassword: string, newPassword: string, confirmNewPassword: string }} body */
+export const changePassword = async (userId, body) => {
+  const { newPassword } = body
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  })
+  if (!user?.passwordHash)
+    throw {
+      status: 400,
+      message:
+        'Aucun mot de passe défini pour ce compte — impossible de le modifier ici.',
+    }
+  const valid = await verifyPassword(body.currentPassword, user.passwordHash)
+  if (!valid) throw { status: 403, message: 'Mot de passe actuel incorrect' }
+
+  if (await verifyPassword(newPassword, user.passwordHash))
+    throw {
+      status: 400,
+      message: 'Le nouveau mot de passe doit être différent de l’actuel.',
+    }
+
+  await db.user.update({
+    where: { id: userId },
+    data: { passwordHash: await hashPassword(newPassword) },
+  })
+  return { ok: true }
+}
