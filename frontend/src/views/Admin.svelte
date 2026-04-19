@@ -34,6 +34,18 @@
   let pushTestBusy = false
   let pushTestMessage = ''
 
+  /** E-mail (Gmail serveur) */
+  let emailMode = 'all'
+  let emailUserId = ''
+  let emailSubject = ''
+  let emailBody = ''
+  let emailErr = ''
+  let emailOk = ''
+  let emailBusy = false
+  let emailSaveBusy = false
+  let emailRecipients = []
+  let emailRecipLoading = true
+
   const auditActionLabel = (code) =>
     ({
       USER_DELETE: 'Suppression compte',
@@ -43,6 +55,8 @@
       DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
       PUSH_SETTINGS_UPDATE: 'Notifications — heure rappel par défaut',
       PUSH_TEST_GIFT: 'Notifications — test push (message admin)',
+      ADMIN_EMAIL_DEFAULTS_SAVE: 'E-mail — modèle par défaut (titre + corps)',
+      ADMIN_EMAIL_SEND: 'E-mail — envoi (tous ou un utilisateur)',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -145,6 +159,8 @@
       loadAudit(),
       loadGroups(),
       loadPushSettings(),
+      loadEmailDefaults(),
+      loadEmailRecipients(),
     ])
     loading = false
     auditLoading = false
@@ -238,6 +254,88 @@
       pushErr = e.message || 'Enregistrement impossible'
     } finally {
       pushSaveBusy = false
+    }
+  }
+
+  const loadEmailDefaults = async () => {
+    emailErr = ''
+    try {
+      const d = await adminApi.getEmailDefaults()
+      emailSubject = d.subject ?? ''
+      emailBody = d.body ?? ''
+    } catch (e) {
+      emailErr = e.message || 'Chargement modèle e-mail impossible'
+    }
+  }
+
+  const loadEmailRecipients = async () => {
+    try {
+      const r = await adminApi.getEmailRecipients()
+      emailRecipients = r.users ?? []
+    } catch {
+      emailRecipients = []
+    } finally {
+      emailRecipLoading = false
+    }
+  }
+
+  const saveEmailDefaults = async () => {
+    emailErr = ''
+    emailOk = ''
+    emailSaveBusy = true
+    try {
+      await adminApi.putEmailDefaults({
+        subject: String(emailSubject ?? ''),
+        body: String(emailBody ?? ''),
+      })
+      emailOk = 'Modèle enregistré (titre + corps par défaut).'
+      await loadAudit()
+    } catch (e) {
+      emailErr = e.message || 'Enregistrement impossible'
+    } finally {
+      emailSaveBusy = false
+    }
+  }
+
+  const sendAdminEmail = async () => {
+    emailErr = ''
+    emailOk = ''
+    const subj = String(emailSubject ?? '').trim()
+    const bod = String(emailBody ?? '').trim()
+    if (!subj || !bod) {
+      emailErr = 'Renseigne un titre et un corps de message.'
+      return
+    }
+    if (emailMode === 'one' && !emailUserId) {
+      emailErr = 'Choisis un utilisateur dans la liste.'
+      return
+    }
+    const confirmMsg =
+      emailMode === 'all'
+        ? 'Envoyer cet e-mail à tous les comptes ayant une adresse e-mail (non suspendus) ?'
+        : 'Envoyer cet e-mail à cet utilisateur ?'
+    if (!confirm(confirmMsg)) return
+
+    emailBusy = true
+    try {
+      const r = await adminApi.postEmailSend({
+        mode: emailMode,
+        ...(emailMode === 'one' ? { userId: emailUserId } : {}),
+        subject: subj,
+        body: bod,
+      })
+      const sent = r?.sent ?? 0
+      const total = r?.total ?? sent
+      const failed = Array.isArray(r?.failed) ? r.failed : []
+      emailOk =
+        failed.length === 0
+          ? `Envoyé : ${sent} / ${total}.`
+          : `Envoyé : ${sent} / ${total}. Échecs : ${failed.length} (voir journal).`
+      await loadAudit()
+    } catch (e) {
+      emailErr = e.message || 'Envoi impossible'
+    } finally {
+      emailBusy = false
     }
   }
 
@@ -364,6 +462,59 @@
         </button>
       </div>
       <p class="muted push-test-hint">Max. 200 caractères — envoyé à tous les appareils abonnés.</p>
+    </div>
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">E-MAIL (Gmail — serveur)</div>
+    {#if emailErr}<p class="err">{emailErr}</p>{/if}
+    {#if emailOk}<p class="ok">{emailOk}</p>{/if}
+    <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+      Même configuration que sur le VPS : <code>GMAIL_USER</code> + <code>GMAIL_APP_PASSWORD</code>. Tu peux
+      enregistrer un <strong>modèle</strong> (titre + corps) puis envoyer à <strong>tout le monde</strong> (comptes avec
+      e-mail, non suspendus) ou à <strong>un seul</strong> utilisateur. Placeholders :
+      <code>{'{{username}}'}</code> et <code>{'{{email}}'}</code>.
+    </p>
+    <div class="email-mode" style="margin-bottom:10px">
+      <label class="email-radio"
+        ><input type="radio" name="emode" value="all" bind:group={emailMode} /> Tous (avec e-mail)</label
+      >
+      <label class="email-radio"
+        ><input type="radio" name="emode" value="one" bind:group={emailMode} /> Un utilisateur</label
+      >
+    </div>
+    {#if emailMode === 'one'}
+      <div style="margin-bottom:10px">
+        {#if emailRecipLoading}
+          <p class="muted">Chargement des destinataires…</p>
+        {:else}
+          <label>
+            Destinataire
+            <select class="email-select" bind:value={emailUserId}>
+              <option value="">— Choisir —</option>
+              {#each emailRecipients as r}
+                <option value={r.id}>{r.username} · {r.email}</option>
+              {/each}
+            </select>
+          </label>
+        {/if}
+      </div>
+    {/if}
+    <label class="email-lbl">
+      <span>Titre (objet)</span>
+      <input type="text" class="email-subj" maxlength="500" bind:value={emailSubject} placeholder="[Confiance+] …" />
+    </label>
+    <label class="email-lbl">
+      <span>Corps du message</span>
+      <textarea class="email-body" rows="8" bind:value={emailBody} spellcheck="true"></textarea>
+    </label>
+    <div class="email-actions" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
+      <button type="button" class="btn-secondary" disabled={emailSaveBusy} on:click={saveEmailDefaults}>
+        {emailSaveBusy ? '…' : 'Enregistrer le modèle'}
+      </button>
+      <button type="button" class="btn-save" disabled={emailBusy} on:click={sendAdminEmail}>
+        {emailBusy ? 'Envoi…' : 'Envoyer'}
+      </button>
     </div>
   </Card>
 
@@ -838,5 +989,58 @@
   }
   .btn-secondary:hover {
     border-color: var(--accent);
+  }
+  .email-mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .email-radio {
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .email-lbl {
+    display: block;
+    margin-bottom: 10px;
+  }
+  .email-lbl span {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .email-subj {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
+  }
+  .email-body {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .email-select {
+    display: block;
+    margin-top: 4px;
+    width: 100%;
+    max-width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    box-sizing: border-box;
   }
 </style>

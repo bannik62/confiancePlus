@@ -7,6 +7,7 @@ import {
   setDefaultReminderHour as setDefaultReminderHourSvc,
   sendTestGiftNotification,
 } from '../push/push.service.js'
+import { sendMail, isMailConfigured } from '../../core/emailService.js'
 
 const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
 
@@ -274,4 +275,136 @@ export const sendPushTestGift = async (actorId, { message }) => {
     messagePreview: String(message).slice(0, 120),
   })
   return out
+}
+
+const EMAIL_DEFAULT_SUBJECT_KEY = 'admin_email_default_subject'
+const EMAIL_DEFAULT_BODY_KEY = 'admin_email_default_body'
+
+const applyTemplate = (template, user) =>
+  String(template)
+    .replace(/\{\{username\}\}/g, user.username ?? '')
+    .replace(/\{\{email\}\}/g, user.email ?? '')
+
+const escapeHtml = (s) =>
+  String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+const bodyToHtml = (text) => escapeHtml(text).replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+
+export const getAdminEmailDefaults = async () => {
+  const [subRow, bodyRow] = await Promise.all([
+    db.appSetting.findUnique({ where: { key: EMAIL_DEFAULT_SUBJECT_KEY } }),
+    db.appSetting.findUnique({ where: { key: EMAIL_DEFAULT_BODY_KEY } }),
+  ])
+  return {
+    subject: subRow?.value ?? '',
+    body: bodyRow?.value ?? '',
+  }
+}
+
+export const putAdminEmailDefaults = async (actorId, { subject, body }) => {
+  await db.$transaction([
+    db.appSetting.upsert({
+      where: { key: EMAIL_DEFAULT_SUBJECT_KEY },
+      create: { key: EMAIL_DEFAULT_SUBJECT_KEY, value: subject ?? '' },
+      update: { value: subject ?? '' },
+    }),
+    db.appSetting.upsert({
+      where: { key: EMAIL_DEFAULT_BODY_KEY },
+      create: { key: EMAIL_DEFAULT_BODY_KEY, value: body ?? '' },
+      update: { value: body ?? '' },
+    }),
+  ])
+  await logAudit(actorId, 'ADMIN_EMAIL_DEFAULTS_SAVE', null, {
+    subjectLen: String(subject ?? '').length,
+    bodyLen: String(body ?? '').length,
+  })
+  return getAdminEmailDefaults()
+}
+
+/** Liste pour le sélecteur « un utilisateur » (e-mail renseigné, non suspendu). */
+export const listEmailRecipientOptions = async () => {
+  const users = await db.user.findMany({
+    where: {
+      email: { not: null },
+      isSuspended: false,
+    },
+    select: { id: true, username: true, email: true },
+    orderBy: { username: 'asc' },
+    take: 2000,
+  })
+  return {
+    users: users.filter((u) => u.email && String(u.email).trim().length > 0),
+  }
+}
+
+export const sendAdminEmail = async (actorId, { mode, userId, subject, body }) => {
+  if (!isMailConfigured()) {
+    throw {
+      status: 503,
+      message:
+        "Envoi d'e-mail impossible : configure GMAIL_USER et GMAIL_APP_PASSWORD sur le serveur.",
+    }
+  }
+
+  let recipients = []
+  if (mode === 'one') {
+    const u = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, email: true, isSuspended: true },
+    })
+    if (!u) throw { status: 404, message: 'Utilisateur introuvable' }
+    if (u.isSuspended) throw { status: 400, message: 'Compte suspendu : envoi annulé.' }
+    if (!u.email?.trim()) throw { status: 400, message: 'Cet utilisateur n’a pas d’adresse e-mail.' }
+    recipients = [u]
+  } else {
+    const rows = await db.user.findMany({
+      where: {
+        email: { not: null },
+        isSuspended: false,
+      },
+      select: { id: true, username: true, email: true },
+    })
+    recipients = rows.filter((r) => r.email && String(r.email).trim().length > 0)
+  }
+
+  if (!recipients.length) {
+    throw { status: 400, message: 'Aucun destinataire avec une adresse e-mail.' }
+  }
+
+  let sent = 0
+  const failed = []
+  for (const u of recipients) {
+    const subj = applyTemplate(subject, u)
+    const txt = applyTemplate(body, u)
+    try {
+      await sendMail({
+        to: u.email,
+        subject: subj,
+        text: txt,
+        html: bodyToHtml(txt),
+      })
+      sent += 1
+    } catch (e) {
+      failed.push({ userId: u.id, username: u.username, message: String(e?.message ?? e) })
+    }
+  }
+
+  await logAudit(actorId, 'ADMIN_EMAIL_SEND', null, {
+    mode,
+    sent,
+    total: recipients.length,
+    failed: failed.length,
+    subjectPreview: String(subject).slice(0, 120),
+  })
+
+  return {
+    ok: true,
+    sent,
+    total: recipients.length,
+    failed,
+  }
 }

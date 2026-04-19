@@ -216,6 +216,10 @@ export const update = async (requesterId, appointmentId, data) => {
   if (!hasCompleted) {
     if (data.date != null) patch.date = dateFromYMD(data.date)
     if (data.timeHm != null) patch.timeHm = data.timeHm
+    if (data.date != null || data.timeHm != null) {
+      patch.emailReminderDayBeforeSentAt = null
+      patch.emailReminderHourBeforeSentAt = null
+    }
   } else if (data.date != null || data.timeHm != null) {
     throw {
       status: 400,

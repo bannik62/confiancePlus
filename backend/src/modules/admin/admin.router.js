@@ -8,6 +8,8 @@ import {
   dailyHabitTemplatesReplaceSchema,
   pushSettingsSchema,
   pushTestSchema,
+  adminEmailSendSchema,
+  adminEmailDefaultsSchema,
 } from './admin.schema.js'
 import * as service from './admin.service.js'
 
@@ -114,6 +116,38 @@ router.put('/push-settings', validate(pushSettingsSchema), async (req, res, next
 router.post('/push/test', validate(pushTestSchema), async (req, res, next) => {
   try {
     res.json(await service.sendPushTestGift(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/email/defaults', async (req, res, next) => {
+  try {
+    res.json(await service.getAdminEmailDefaults())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/email/defaults', validate(adminEmailDefaultsSchema), async (req, res, next) => {
+  try {
+    res.json(await service.putAdminEmailDefaults(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/email/recipients', async (req, res, next) => {
+  try {
+    res.json(await service.listEmailRecipientOptions())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/email/send', validate(adminEmailSendSchema), async (req, res, next) => {
+  try {
+    res.json(await service.sendAdminEmail(req.user.id, req.body))
   } catch (e) {
     next(e)
   }
