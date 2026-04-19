@@ -25,6 +25,11 @@ const envSchema = z.object({
       if (typeof s !== 'string' || !s.trim()) return true
       return !/^(0|false|no|off)$/i.test(s.trim())
     }),
+  /** Gmail (même schéma que zerok-billing) — rappels RDV. Absent = pas d’e-mail. */
+  GMAIL_USER: z.string().default(''),
+  GMAIL_APP_PASSWORD: z.string().default(''),
+  /** Heure locale assignée (0–23) pour l’e-mail le jour avant le RDV. */
+  APPOINTMENT_REMINDER_DAY_BEFORE_HOUR: z.coerce.number().min(0).max(23).default(18),
 })
 
 const parsed = envSchema.safeParse(process.env)

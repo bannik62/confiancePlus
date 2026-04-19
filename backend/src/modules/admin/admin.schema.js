@@ -38,3 +38,19 @@ export const dailyHabitTemplatesReplaceSchema = z.object({
     .min(1)
     .max(200),
 })
+
+export const adminEmailSendSchema = z
+  .object({
+    mode: z.enum(['all', 'one']),
+    userId: z.string().optional(),
+    subject: z.string().trim().min(1).max(500),
+    body: z.string().trim().min(1).max(50000),
+  })
+  .refine((d) => d.mode !== 'one' || (d.userId && d.userId.length > 0), {
+    message: 'Choisis un utilisateur pour l’envoi ciblé.',
+  })
+
+export const adminEmailDefaultsSchema = z.object({
+  subject: z.string().max(500),
+  body: z.string().max(50000),
+})

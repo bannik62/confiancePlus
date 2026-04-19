@@ -15,7 +15,7 @@
    */
   import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
-  import { authStore, checkSession, clearAuth, isAppAdmin } from './stores/auth.js'
+  import { authStore, checkSession, clearAuth, isAppAdmin, mergeUser } from './stores/auth.js'
   import { tab }      from './stores/tab.js'
   import { loadToday, loadTodayResilient, resetDailyLog } from './stores/checkin.js'
   import { loadProfile, resetProfile } from './stores/profile.js'
@@ -105,7 +105,8 @@
   async function handleDailyAccept() {
     dailyOfferLoading = true
     try {
-      await habitsApi.acceptDailyOffer()
+      const r = await habitsApi.acceptDailyOffer()
+      if (r && typeof r.cristaux === 'number') mergeUser({ cristaux: r.cristaux })
       await loadHabits()
       showDailyOffer = false
       dailyOfferTemplate = null

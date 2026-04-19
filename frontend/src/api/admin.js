@@ -26,4 +26,10 @@ export const adminApi = {
   putPushSettings: (body) => api.put('/admin/push-settings', body),
   /** @param {{ message: string }} body */
   postPushTest: (body) => api.post('/admin/push/test', body),
+
+  getEmailDefaults: () => api.get('/admin/email/defaults'),
+  putEmailDefaults: (body) => api.put('/admin/email/defaults', body),
+  getEmailRecipients: () => api.get('/admin/email/recipients'),
+  /** @param {{ mode: 'all' | 'one', userId?: string, subject: string, body: string }} body */
+  postEmailSend: (body) => api.post('/admin/email/send', body),
 }

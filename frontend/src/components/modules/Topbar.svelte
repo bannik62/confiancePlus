@@ -18,6 +18,7 @@
       {#if $profileStore.title}
         <Tag color="var(--cyan)">{$profileStore.title.icon}</Tag>
       {/if}
+      <span class="cristaux" title="Cristaux">💎 {$authStore.user?.cristaux ?? 0}</span>
       <span class="streak">🔥 {$profileStore.streak}</span>
       <button class="avatar" on:click={() => tab.set('profil')}>
         {$authStore.user?.avatar ?? '🦊'}
@@ -56,6 +57,7 @@
   }
   .right { text-align: right; min-width: 160px; }
   .tags  { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 5px; }
+  .cristaux { font-size: 12px; color: var(--cyan); font-weight: 700; }
   .streak { font-size: 12px; color: var(--gold); }
   .avatar {
     width: 34px; height: 34px;

@@ -251,6 +251,10 @@ model Appointment {
   xpReward        Int      @default(30)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  /// E-mail « la veille » déjà envoyé (anti-doublon)
+  emailReminderDayBeforeSentAt   DateTime?
+  /// E-mail « 1 h avant » déjà envoyé (anti-doublon)
+  emailReminderHourBeforeSentAt  DateTime?
 
   assignee    User @relation("AppointmentAssignee", fields: [userId], references: [id], onDelete: Cascade)
   createdBy   User @relation("AppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)

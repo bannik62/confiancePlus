@@ -43,6 +43,15 @@ export const checkSession = async () => {
 // Appelé après login/register — le csrfToken est déjà dans le cookie posé par le backend
 export const setAuth = ({ user }) => bump(user)
 
+/** Fusionne des champs sur l’utilisateur courant (ex. solde cristaux après toggle / offre du jour). */
+export const mergeUser = (patch) => {
+  authStore.update((s) =>
+    s.user && patch && typeof patch === 'object'
+      ? { ...s, user: { ...s.user, ...patch } }
+      : s,
+  )
+}
+
 // Déconnexion — demande au backend de supprimer JWT + csrfToken cookies
 export const clearAuth = async () => {
   await authApi.logout().catch(() => {})
