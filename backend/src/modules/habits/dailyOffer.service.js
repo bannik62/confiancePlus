@@ -161,7 +161,28 @@ export const acceptDailyOffer = async (userId, clientYmd) => {
     const habit = await db.habit.findUnique({
       where: { id: offer.habitId },
     })
-    return { ok: true, habit, alreadyAccepted: true }
+    const u = await db.user.findUnique({
+      where: { id: userId },
+      select: { cristaux: true },
+    })
+    return {
+      ok: true,
+      habit,
+      alreadyAccepted: true,
+      cristaux: u?.cristaux ?? 0,
+      grantedOffre: false,
+    }
+  }
+
+  const logsToday = await db.habitLog.count({
+    where: { userId, date: day },
+  })
+  if (logsToday === 0) {
+    throw {
+      status: 400,
+      message:
+        'Coche au moins une habitude aujourd’hui avant d’accepter l’offre du jour.',
+    }
   }
 
   const maxRow = await db.habit.aggregate({
@@ -170,22 +191,57 @@ export const acceptDailyOffer = async (userId, clientYmd) => {
   })
   const nextOrder = (maxRow._max.order ?? 0) + 1
 
-  const habit = await db.habit.create({
-    data: {
-      userId,
-      name: offer.template.title,
-      icon: offer.template.icon,
-      xp: offer.template.xpTotal,
-      origin: 'DAILY_OFFER',
-      weekdaysMask: 127,
-      order: nextOrder,
-    },
+  const grantOffre = !offer.cristauxGranted
+
+  const { habit, cristaux } = await db.$transaction(async (tx) => {
+    const h = await tx.habit.create({
+      data: {
+        userId,
+        name: offer.template.title,
+        icon: offer.template.icon,
+        xp: offer.template.xpTotal,
+        origin: 'DAILY_OFFER',
+        weekdaysMask: 127,
+        order: nextOrder,
+      },
+    })
+
+    let balance
+    if (grantOffre) {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { cristaux: { increment: 1 } },
+        select: { cristaux: true },
+      })
+      balance = u.cristaux
+      await tx.dailyHabitOffer.update({
+        where: { id: offer.id },
+        data: {
+          status: 'ACCEPTED',
+          habitId: h.id,
+          cristauxGranted: true,
+        },
+      })
+    } else {
+      await tx.dailyHabitOffer.update({
+        where: { id: offer.id },
+        data: { status: 'ACCEPTED', habitId: h.id },
+      })
+      const u = await tx.user.findUnique({
+        where: { id: userId },
+        select: { cristaux: true },
+      })
+      balance = u?.cristaux ?? 0
+    }
+
+    return { habit: h, cristaux: balance }
   })
 
-  await db.dailyHabitOffer.update({
-    where: { id: offer.id },
-    data: { status: 'ACCEPTED', habitId: habit.id },
-  })
-
-  return { ok: true, habit, alreadyAccepted: false }
+  return {
+    ok: true,
+    habit,
+    alreadyAccepted: false,
+    cristaux,
+    grantedOffre: grantOffre,
+  }
 }

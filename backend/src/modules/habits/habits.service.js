@@ -6,6 +6,7 @@ import {
 } from '../../lib/habitWeekdays.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
+import * as cristaux from '../cristaux/cristaux.service.js'
 
 const forbidEducatorHabitMutations = async (userId) => {
   if (await userIsAssociationOwner(userId))
@@ -124,11 +125,24 @@ export const toggleHabit = async (habitId, userId, dateStr) => {
 
   if (existing) {
     await db.habitLog.delete({ where: { id: existing.id } })
-    return { checked: false }
+    const u = await db.user.findUnique({
+      where: { id: userId },
+      select: { cristaux: true },
+    })
+    return {
+      checked: false,
+      cristaux: u?.cristaux ?? 0,
+      grantedJourneeParfaite: false,
+    }
   }
 
   await db.habitLog.create({ data: { habitId, userId, date } })
-  return { checked: true }
+  const jp = await cristaux.tryGrantJourneeParfaite(userId, ymd)
+  return {
+    checked: true,
+    cristaux: jp.cristaux,
+    grantedJourneeParfaite: jp.grantedJourneeParfaite,
+  }
 }
 
 /** @returns {Promise<import('@prisma/client').Habit>} */

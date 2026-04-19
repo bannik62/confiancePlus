@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword, signToken } from '../../core/auth.js'
 import { createDefaultHabitsForUser } from '../../core/defaultHabits.js'
 import { normalizeEmail, maskEmailHint } from '../../core/emailUtil.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
+import * as cristaux from '../cristaux/cristaux.service.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,11 +71,13 @@ export const register = async ({ email, username, password, avatar, group, invit
     })
   }
 
-  const withLogin = await db.user.update({
+  await db.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
   })
-  return { user: safeUser(withLogin), token: signToken(tokenPayload(withLogin)) }
+  await cristaux.tryGrantConnexionQuotidienne(user.id)
+  const out = await db.user.findUnique({ where: { id: user.id } })
+  return { user: safeUser(out), token: signToken(tokenPayload(out)) }
 }
 
 // ── Login (compte autonome) ───────────────────────────────────────────────────
@@ -157,9 +160,12 @@ export const login = async ({ email, password, loginMode, inviteCode }) => {
   )
     await createDefaultHabitsForUser(refreshed.id)
 
+  await cristaux.tryGrantConnexionQuotidienne(refreshed.id)
+  const out = await db.user.findUnique({ where: { id: refreshed.id } })
+
   return {
-    user:             safeUser(refreshed),
-    token:            signToken(tokenPayload(refreshed)),
+    user:             safeUser(out),
+    token:            signToken(tokenPayload(out)),
     ...(matchedGroupId ? { matchedGroupId } : {}),
   }
 }
@@ -222,12 +228,16 @@ export const activate = async ({ code, email, password, username, avatar }) => {
   const habitCount = await db.habit.count({ where: { userId: updated.id, isActive: true } })
   if (habitCount === 0) await createDefaultHabitsForUser(updated.id)
 
-  return { user: safeUser(updated), token: signToken(tokenPayload(updated)) }
+  await cristaux.tryGrantConnexionQuotidienne(updated.id)
+  const out = await db.user.findUnique({ where: { id: updated.id } })
+
+  return { user: safeUser(out), token: signToken(tokenPayload(out)) }
 }
 
 // ── Me ────────────────────────────────────────────────────────────────────────
 
 export const me = async (userId) => {
+  await cristaux.tryGrantConnexionQuotidienne(userId)
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
@@ -240,6 +250,7 @@ export const me = async (userId) => {
       isSuspended: true,
       createdAt: true,
       lastLoginAt: true,
+      cristaux: true,
     },
   })
   return user

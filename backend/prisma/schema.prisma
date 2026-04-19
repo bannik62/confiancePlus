@@ -30,6 +30,13 @@ model User {
   /// Dernier jour (YMD local) où un rappel habitudes a été envoyé (anti-doublon)
   lastPushReminderSentYmd      String?
 
+  /// Monnaie virtuelle « cristaux »
+  cristaux                        Int     @default(0)
+  /// Dernier jour civil local où un cristal « connexion » a été attribué (anti-doublon)
+  lastCristalConnexionYmd         String?
+  /// Dernier jour civil local où le bonus « journée parfaite » a été attribué
+  lastCristalJourneeParfaiteYmd   String?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -165,6 +172,8 @@ model DailyHabitOffer {
   templateId String
   status     DailyOfferStatus @default(PENDING)
   habitId    String?          @unique
+  /// Cristal offre du jour déjà crédité (anti-doublon)
+  cristauxGranted Boolean @default(false)
 
   user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   template DailyHabitTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
