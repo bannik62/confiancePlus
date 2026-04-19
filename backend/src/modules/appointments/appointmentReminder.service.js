@@ -2,6 +2,11 @@ import { DateTime } from 'luxon'
 import { db } from '../../core/db.js'
 import { config } from '../../core/config.js'
 import { sendMail, isMailConfigured } from '../../core/emailService.js'
+import {
+  buildBrandedHtml,
+  emailBodyP,
+  escapeHtml,
+} from '../../core/emailBrandedTemplate.js'
 
 /** YYYY-MM-DD → Date midi UTC (@db.Date) */
 const dateFromYMD = (ymd) => {
@@ -101,10 +106,22 @@ Agenda : ${agendaUrl}
 
 À demain,
 L’équipe Confiance+`
-        const html = `<p>Bonjour ${escapeHtml(u.username)},</p>
-<p><strong>Rappel</strong> : rendez-vous <strong>demain</strong> le <strong>${escapeHtml(apptYmd)}</strong> à <strong>${escapeHtml(appt.timeHm)}</strong>.</p>
-${appt.notes ? `<p>Notes : ${escapeHtml(appt.notes)}</p>` : ''}
-<p><a href="${escapeHtml(agendaUrl)}">Ouvrir l’agenda</a></p>`
+        const innerHtml = [
+          emailBodyP(`Bonjour ${escapeHtml(u.username)},`),
+          emailBodyP(
+            `<strong>Rappel</strong> : rendez-vous <strong>demain</strong> le <strong>${escapeHtml(apptYmd)}</strong> à <strong>${escapeHtml(appt.timeHm)}</strong>.`,
+          ),
+          appt.notes ? emailBodyP(`Notes : ${escapeHtml(appt.notes)}`) : '',
+        ]
+          .filter(Boolean)
+          .join('')
+        const html = buildBrandedHtml({
+          heading: `Demain : ${title}`,
+          innerHtml,
+          ctaUrl: agendaUrl,
+          ctaLabel: 'Ouvrir l’agenda',
+          preheader: `Rappel RDV demain à ${appt.timeHm}`,
+        })
 
         try {
           await sendMail({ to: u.email, subject: subj, text, html })
@@ -132,10 +149,22 @@ Agenda : ${agendaUrl}
 
 À tout de suite,
 L’équipe Confiance+`
-        const html = `<p>Bonjour ${escapeHtml(u.username)},</p>
-<p>Ton rendez-vous <strong>${escapeHtml(title)}</strong> commence dans <strong>environ 1 h</strong> (${escapeHtml(appt.timeHm)}).</p>
-${appt.notes ? `<p>Notes : ${escapeHtml(appt.notes)}</p>` : ''}
-<p><a href="${escapeHtml(agendaUrl)}">Ouvrir l’agenda</a></p>`
+        const innerHtml = [
+          emailBodyP(`Bonjour ${escapeHtml(u.username)},`),
+          emailBodyP(
+            `Ton rendez-vous <strong>${escapeHtml(title)}</strong> commence dans <strong>environ 1 h</strong> (${escapeHtml(appt.timeHm)}).`,
+          ),
+          appt.notes ? emailBodyP(`Notes : ${escapeHtml(appt.notes)}`) : '',
+        ]
+          .filter(Boolean)
+          .join('')
+        const html = buildBrandedHtml({
+          heading: `Dans 1 h : ${title}`,
+          innerHtml,
+          ctaUrl: agendaUrl,
+          ctaLabel: 'Ouvrir l’agenda',
+          preheader: `RDV dans environ 1 h — ${appt.timeHm}`,
+        })
 
         try {
           await sendMail({ to: u.email, subject: subj, text, html })
@@ -152,12 +181,4 @@ ${appt.notes ? `<p>Notes : ${escapeHtml(appt.notes)}</p>` : ''}
   }
 
   return { dayBefore, hourBefore, skipped: false }
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
