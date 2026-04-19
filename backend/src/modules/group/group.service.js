@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import { db } from '../../core/db.js'
 import { normalizeEmail } from '../../core/emailUtil.js'
 import { levelFromXP, titleForLevel, computeStreak } from '../../core/xpEngine.js'
-import { totalGameXpAndStreakDates } from '../../core/xpAggregate.js'
+import { totalGameXpAndStreakDates, aggregationWindowDateWhere } from '../../core/xpAggregate.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
@@ -65,6 +65,7 @@ export const joinGroup = async (userId, { inviteCode }) => {
 
 export const getLeaderboard = async (groupId, { clientToday } = {}) => {
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  const dateWhere = aggregationWindowDateWhere(anchor)
 
   const group = await db.group.findUnique({
     where: { id: groupId },
@@ -80,6 +81,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
             select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
           },
           habitLogs: {
+            where: { date: dateWhere },
             select: {
               date: true,
               habitId: true,
@@ -87,6 +89,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
             },
           },
           dailyLogs: {
+            where: { date: dateWhere },
             select: { date: true, mood: true, journal: true, sleepQuality: true },
           },
         },
@@ -104,7 +107,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
     userIds.length === 0
       ? []
       : await db.appointmentCompletion.findMany({
-          where: { userId: { in: userIds } },
+          where: { userId: { in: userIds }, date: dateWhere },
           select: { userId: true, date: true, xpEarned: true },
         })
   const apptByUser = {}

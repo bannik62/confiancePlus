@@ -3,14 +3,47 @@ import { isHabitDueOnYmd, ALL_WEEKDAYS_MASK } from '../lib/habitWeekdays.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
+/** Fenêtre glissante pour XP + streak (perf) — mois calendaires via setUTCMonth */
+export const AGGREGATION_HISTORY_MONTHS = 5
+
 export const ymdFromDbDate = (d) => {
   if (!d) return ''
   return d.toISOString().slice(0, 10)
 }
 
+/** Midi UTC aligné sur les @db.Date du schéma */
+export const dateFromYmdUtcNoon = (ymd) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
+}
+
 /**
- * XP total jeu = Σ computeDayXP (jours avec activité, ≤ anchorYmd) + Σ xpEarned RDV.
- * Retourne aussi les dates pour le streak (habitudes + RDV).
+ * Borne basse YMD : N mois avant anchor (même jour quand possible).
+ */
+export const aggregationMinYmd = (anchorYmd, months = AGGREGATION_HISTORY_MONTHS) => {
+  const [y, m, d] = anchorYmd.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
+  dt.setUTCMonth(dt.getUTCMonth() - months)
+  return dt.toISOString().slice(0, 10)
+}
+
+/**
+ * Filtre Prisma sur `date` (@db.Date) : [minYmd, anchorYmd] inclus.
+ */
+export const aggregationWindowDateWhere = (anchorYmd) => {
+  const minYmd = aggregationMinYmd(anchorYmd)
+  return {
+    gte: dateFromYmdUtcNoon(minYmd),
+    lte: dateFromYmdUtcNoon(anchorYmd),
+  }
+}
+
+/**
+ * XP total jeu = Σ computeDayXP (jours avec activité dans la fenêtre, ≤ anchorYmd)
+ * + Σ xpEarned RDV dans la fenêtre.
+ *
+ * Streak : jours où au moins une habitude a été cochée (pas les seuls RDV ni seul check-in).
+ * Données limitées à la même fenêtre glissante (cohérent avec le tri / perf).
  */
 export function totalGameXpAndStreakDates({
   habits,
@@ -24,18 +57,27 @@ export function totalGameXpAndStreakDates({
       ? anchorYmd
       : new Date().toISOString().slice(0, 10)
 
-  const apptXP = appointmentCompletions.reduce((s, c) => s + c.xpEarned, 0)
-  const apptDates = appointmentCompletions.map((c) => ymdFromDbDate(c.date))
+  const minYmd = aggregationMinYmd(anchor)
+
+  const inWindow = (ymd) => ymd >= minYmd && ymd <= anchor
+
+  const habitLogsF = habitLogs.filter((l) => inWindow(ymdFromDbDate(l.date)))
+  const dailyLogsF = dailyLogs.filter((d) => inWindow(ymdFromDbDate(d.date)))
+  const appointmentCompletionsF = appointmentCompletions.filter((c) =>
+    inWindow(ymdFromDbDate(c.date)),
+  )
+
+  const apptXP = appointmentCompletionsF.reduce((s, c) => s + c.xpEarned, 0)
 
   const ymdSet = new Set()
-  for (const l of habitLogs) ymdSet.add(ymdFromDbDate(l.date))
-  for (const d of dailyLogs) ymdSet.add(ymdFromDbDate(d.date))
+  for (const l of habitLogsF) ymdSet.add(ymdFromDbDate(l.date))
+  for (const d of dailyLogsF) ymdSet.add(ymdFromDbDate(d.date))
 
   const sortedYmds = [...ymdSet].filter((y) => y <= anchor).sort()
 
   let habitDailySum = 0
   for (const ymd of sortedYmds) {
-    const dayLogs = habitLogs.filter((l) => ymdFromDbDate(l.date) === ymd)
+    const dayLogs = habitLogsF.filter((l) => ymdFromDbDate(l.date) === ymd)
     const activeHabits = habits.filter((h) => {
       const createdDate = ymdFromDbDate(h.createdAt)
       return (
@@ -49,7 +91,7 @@ export function totalGameXpAndStreakDates({
       activeHabits.length > 0 && activeHabits.every((h) => doneIds.has(h.id))
 
     const habitsPayload = dayLogs.map((l) => ({ xp: l.habit.xp }))
-    const dl = dailyLogs.find((d) => ymdFromDbDate(d.date) === ymd)
+    const dl = dailyLogsF.find((d) => ymdFromDbDate(d.date) === ymd)
     const moodN = dl?.mood != null ? Number(dl.mood) : NaN
     const hasCheckin = Number.isFinite(moodN) && moodN >= 1 && moodN <= 10
     const hasJournal = !!(dl?.journal && String(dl.journal).trim().length > 0)
@@ -64,8 +106,8 @@ export function totalGameXpAndStreakDates({
     })
   }
 
-  const habitDates = [...new Set(habitLogs.map((l) => ymdFromDbDate(l.date)))]
-  const streakDates = [...new Set([...habitDates, ...apptDates])]
+  const habitDates = [...new Set(habitLogsF.map((l) => ymdFromDbDate(l.date)))]
+  const streakDates = habitDates.filter((y) => y <= anchor)
 
   return {
     totalXP: habitDailySum + apptXP,

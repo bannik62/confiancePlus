@@ -1,7 +1,7 @@
 import { db } from '../../core/db.js'
 import { isHabitDueOnYmd, ALL_WEEKDAYS_MASK } from '../../lib/habitWeekdays.js'
 import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
-import { totalGameXpAndStreakDates } from '../../core/xpAggregate.js'
+import { totalGameXpAndStreakDates, aggregationWindowDateWhere } from '../../core/xpAggregate.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
@@ -89,6 +89,7 @@ const leaderboardExcludedUserIds = async () => {
 
 export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  const dateWhere = aggregationWindowDateWhere(anchor)
 
   const excludeIds = await leaderboardExcludedUserIds()
   const users = await db.user.findMany({
@@ -103,6 +104,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
       },
       habitLogs: {
+        where: { date: dateWhere },
         select: {
           date: true,
           habitId: true,
@@ -110,6 +112,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         },
       },
       dailyLogs: {
+        where: { date: dateWhere },
         select: { date: true, mood: true, journal: true, sleepQuality: true },
       },
       memberships: {
@@ -123,7 +126,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
     userIds.length === 0
       ? []
       : await db.appointmentCompletion.findMany({
-          where: { userId: { in: userIds } },
+          where: { userId: { in: userIds }, date: dateWhere },
           select: { userId: true, date: true, xpEarned: true },
         })
   const apptByUser = {}
@@ -192,6 +195,7 @@ export const getMyProfile = async (userId, { clientToday } = {}) => {
     throw { status: 403, message: 'Compte administrateur : pas de profil joueur.' }
 
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  const dateWhere = aggregationWindowDateWhere(anchor)
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
@@ -204,14 +208,14 @@ export const getMyProfile = async (userId, { clientToday } = {}) => {
   })
 
   const logs = await db.habitLog.findMany({
-    where: { userId },
+    where: { userId, date: dateWhere },
     include: { habit: { select: { xp: true } } },
   })
 
-  const dailyLogs = await db.dailyLog.findMany({ where: { userId } })
+  const dailyLogs = await db.dailyLog.findMany({ where: { userId, date: dateWhere } })
 
   const apptDone = await db.appointmentCompletion.findMany({
-    where: { userId },
+    where: { userId, date: dateWhere },
     select: { date: true, xpEarned: true },
   })
 
