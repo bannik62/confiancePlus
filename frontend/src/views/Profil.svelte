@@ -2,18 +2,21 @@
   import { onMount }  from 'svelte'
   import { statsApi } from '../api/stats.js'
   import { authStore, clearAuth } from '../stores/auth.js'
-  import { isStandalone, isIosLike, isAndroid } from '../lib/pwaUi.js'
+  import { isStandalone, isIosLike, isAndroid, detectBrave } from '../lib/pwaUi.js'
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
 
   let profile = null
   let standalone = false
+  /** Brave : souvent pas d’invite PWA tant que les Shields sont agressifs. */
+  let isBraveBrowser = false
   /** Aide pas à pas (comme vitalinfo : pas de capture de beforeinstallprompt). */
   let showManualInstall = false
 
   onMount(async () => {
     standalone = isStandalone()
+    isBraveBrowser = await detectBrave()
     profile = await statsApi.getMyProfile()
   })
 
@@ -63,7 +66,14 @@
       <Card style="margin-bottom:12px">
         <div class="micro muted">INSTALLER L’APP</div>
         <p class="pwa-lead">
-          Le navigateur peut proposer l’installation dans la barre d’adresse ou le menu <strong>(⋮)</strong>.
+          {#if isBraveBrowser}
+            Sous <strong>Brave</strong>, l’invite d’installation peut être absente tant que les
+            <strong>Shields</strong> (icône lion) sont actifs pour ce site. Passe-les en
+            <strong>réduit</strong> ou <strong>désactivés</strong> pour ce domaine, recharge la page, puis menu
+            <strong>(⋮)</strong> → <strong>Installer l’application</strong> (ou équivalent).
+          {:else}
+            Le navigateur peut proposer l’installation dans la barre d’adresse ou le menu <strong>(⋮)</strong>.
+          {/if}
         </p>
         <button type="button" class="install-btn" on:click={openInstallHelp}>
           📲 Voir comment installer
@@ -94,16 +104,30 @@
         <li>Choisis <strong>Installer l’application</strong>, <strong>Ajouter à l’écran d’accueil</strong> ou <strong>Ajouter la page d’accueil</strong> (libellé selon Chrome / Brave).</li>
         <li>Valide l’installation.</li>
       </ol>
+    {:else if isBraveBrowser}
+      <ol class="install-steps">
+        <li>
+          Clique sur l’icône <strong>lion</strong> (Shields) à droite de la barre d’adresse et passe les protections en
+          <strong>réduit</strong> ou <strong>désactivé</strong> pour ce site (confiance au domaine).
+        </li>
+        <li><strong>Recharge</strong> la page (F5).</li>
+        <li>Menu <strong>(⋮)</strong> → cherche <strong>Installer l’application</strong>, <strong>Installer Confiance+</strong> ou <strong>Créer un raccourci…</strong></li>
+      </ol>
+      <p class="install-note muted">
+        Brave privilégie la confidentialité : sans assouplir les Shields, le service worker / l’invite PWA peuvent rester invisibles alors que Firefox se comporte différemment.
+      </p>
     {:else}
       <ol class="install-steps">
         <li>Ouvre le menu du navigateur <strong>(⋮)</strong> ou <strong>(⋯)</strong>.</li>
         <li>Cherche <strong>Installer Confiance+</strong>, <strong>Installer l’application</strong> ou <strong>Créer un raccourci…</strong></li>
-        <li>Sous <strong>Brave</strong> ou <strong>Chrome</strong>, l’entrée peut s’appeler « Application » ou « Raccourci ».</li>
+        <li>L’entrée peut s’appeler « Application » ou « Raccourci » selon le navigateur.</li>
       </ol>
     {/if}
-    <p class="install-note muted">
-      Certains navigateurs (dont Brave) ne montrent pas toujours l’invite automatique : l’installation reste possible depuis ce menu.
-    </p>
+    {#if !isBraveBrowser || isIosLike() || isAndroid()}
+      <p class="install-note muted">
+        Certains navigateurs ne montrent pas l’invite automatique : l’installation reste souvent possible depuis le menu <strong>(⋮)</strong>.
+      </p>
+    {/if}
     <button type="button" class="install-modal-close" on:click={closeManualInstall}>OK</button>
   </div>
 {/if}

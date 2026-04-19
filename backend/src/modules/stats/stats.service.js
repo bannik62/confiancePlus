@@ -1,6 +1,7 @@
 import { db } from '../../core/db.js'
 import { isHabitDueOnYmd, ALL_WEEKDAYS_MASK } from '../../lib/habitWeekdays.js'
-import { levelFromXP, xpProgress, titleForLevel, computeStreak } from '../../core/xpEngine.js'
+import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
+import { totalGameXpAndStreakDates } from '../../core/xpAggregate.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
@@ -86,7 +87,9 @@ const leaderboardExcludedUserIds = async () => {
   return [...ids]
 }
 
-export const getGlobalLeaderboard = async () => {
+export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
+  const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+
   const excludeIds = await leaderboardExcludedUserIds()
   const users = await db.user.findMany({
     where: {
@@ -96,7 +99,19 @@ export const getGlobalLeaderboard = async () => {
     },
     select: {
       id: true, username: true, avatar: true,
-      habitLogs: { select: { date: true, habit: { select: { xp: true } } } },
+      habits: {
+        select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
+      },
+      habitLogs: {
+        select: {
+          date: true,
+          habitId: true,
+          habit: { select: { xp: true } },
+        },
+      },
+      dailyLogs: {
+        select: { date: true, mood: true, journal: true, sleepQuality: true },
+      },
       memberships: {
         select: { group: { select: { name: true } } },
       },
@@ -113,21 +128,23 @@ export const getGlobalLeaderboard = async () => {
         })
   const apptByUser = {}
   for (const c of apptRows) {
-    if (!apptByUser[c.userId]) apptByUser[c.userId] = { xp: 0, dates: [] }
-    apptByUser[c.userId].xp += c.xpEarned
-    apptByUser[c.userId].dates.push(c.date.toISOString().slice(0, 10))
+    if (!apptByUser[c.userId]) apptByUser[c.userId] = []
+    apptByUser[c.userId].push(c)
   }
 
   return users
     .map((user) => {
-      const habitXP = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
-      const extra = apptByUser[user.id] || { xp: 0, dates: [] }
-      const totalXP = habitXP + extra.xp
-      const level   = levelFromXP(totalXP)
-      const title   = titleForLevel(level)
-      const habitDates = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
-      const dates   = [...new Set([...habitDates, ...extra.dates])]
-      const streak  = computeStreak(dates)
+      const apptList = apptByUser[user.id] || []
+      const { totalXP, streakDates } = totalGameXpAndStreakDates({
+        habits: user.habits,
+        habitLogs: user.habitLogs,
+        dailyLogs: user.dailyLogs,
+        appointmentCompletions: apptList,
+        anchorYmd: anchor,
+      })
+      const level = levelFromXP(totalXP)
+      const title = titleForLevel(level)
+      const streak = computeStreak(streakDates, anchor)
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
       )
@@ -146,7 +163,7 @@ export const getGlobalLeaderboard = async () => {
 }
 
 /** Stats onglet éducateur : premier groupe ASSO dont il est OWNER + classement membres (sans lui). */
-export const getEducatorAssociationOverview = async (userId) => {
+export const getEducatorAssociationOverview = async (userId, { clientToday } = {}) => {
   if (!(await userIsAssociationOwner(userId)))
     throw { status: 403, message: 'Réservé aux comptes éducateur association' }
 
@@ -159,7 +176,7 @@ export const getEducatorAssociationOverview = async (userId) => {
 
   const groupId = membership.groupId
   const [leaderboard, memberCount] = await Promise.all([
-    getLeaderboard(groupId),
+    getLeaderboard(groupId, { clientToday }),
     db.groupMember.count({ where: { groupId } }),
   ])
 
@@ -170,13 +187,20 @@ export const getEducatorAssociationOverview = async (userId) => {
   }
 }
 
-export const getMyProfile = async (userId) => {
+export const getMyProfile = async (userId, { clientToday } = {}) => {
   if (await userIsAppAdmin(userId))
     throw { status: 403, message: 'Compte administrateur : pas de profil joueur.' }
+
+  const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: { id: true, username: true, avatar: true, createdAt: true },
+  })
+
+  const habits = await db.habit.findMany({
+    where: { userId },
+    select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
   })
 
   const logs = await db.habitLog.findMany({
@@ -190,15 +214,17 @@ export const getMyProfile = async (userId) => {
     where: { userId },
     select: { date: true, xpEarned: true },
   })
-  const habitXP = logs.reduce((sum, l) => sum + l.habit.xp, 0)
-  const apptXP = apptDone.reduce((s, c) => s + c.xpEarned, 0)
-  const totalXP = habitXP + apptXP
+
+  const { totalXP, streakDates } = totalGameXpAndStreakDates({
+    habits,
+    habitLogs: logs,
+    dailyLogs,
+    appointmentCompletions: apptDone,
+    anchorYmd: anchor,
+  })
   const progress = xpProgress(totalXP)
-  const title    = titleForLevel(progress.level)
-  const habitDates = [...new Set(logs.map((l) => l.date.toISOString().slice(0, 10)))]
-  const apptDates = apptDone.map((c) => c.date.toISOString().slice(0, 10))
-  const dates    = [...new Set([...habitDates, ...apptDates])]
-  const streak   = computeStreak(dates)
+  const title = titleForLevel(progress.level)
+  const streak = computeStreak(streakDates, anchor)
 
   return { ...user, totalXP, ...progress, title, streak }
 }
@@ -270,13 +296,28 @@ export const getCalendarYear = async (userId, year) => {
       )
     })
     
-    const habitsDone  = dayLogs.length
+    const doneIds = new Set(dayLogs.map((l) => l.habit.id))
+    const habitsDone  = doneIds.size
     const habitsTotal = activeHabits.length
     const habitRate   = habitsTotal > 0 ? Math.round((habitsDone / habitsTotal) * 100) : 0
-    const xp          = dayLogs.reduce((sum, l) => sum + l.habit.xp, 0)
-    
+
     // Daily log (mood, sommeil, journal)
     const dailyLog = dailyLogsMap[dateStr]
+
+    const allDone =
+      activeHabits.length > 0 && activeHabits.every((h) => doneIds.has(h.id))
+    const habitsPayload = dayLogs.map((l) => ({ xp: l.habit.xp }))
+    const moodN = dailyLog?.mood != null ? Number(dailyLog.mood) : NaN
+    const hasCheckin = Number.isFinite(moodN) && moodN >= 1 && moodN <= 10
+    const hasJournal = !!(dailyLog?.journal && String(dailyLog.journal).trim().length > 0)
+    const hasSleep = dailyLog?.sleepQuality != null && Number(dailyLog.sleepQuality) > 0
+    const xp = computeDayXP({
+      habits: habitsPayload,
+      allDone,
+      hasCheckin,
+      hasJournal,
+      hasSleep,
+    })
     
     // Liste détaillée des habitudes cochées ce jour
     const habits = dayLogs.map((l) => ({

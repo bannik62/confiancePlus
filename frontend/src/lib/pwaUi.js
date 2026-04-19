@@ -20,3 +20,20 @@ export function isIosLike() {
 export function isAndroid() {
   return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 }
+
+/**
+ * Brave annonce souvent l’absence d’invite PWA si les Shields bloquent trop de choses.
+ * L’UA peut ne pas contenir « Brave » — utiliser `navigator.brave.isBrave()` quand c’est dispo.
+ */
+export async function detectBrave() {
+  if (typeof navigator === 'undefined') return false
+  try {
+    const brave = /** @type {{ isBrave?: () => Promise<boolean> } | undefined} */ (navigator).brave
+    if (brave?.isBrave) {
+      return await brave.isBrave()
+    }
+  } catch {
+    /* ignore */
+  }
+  return /Brave/i.test(navigator.userAgent)
+}

@@ -2,6 +2,10 @@ import { randomBytes } from 'crypto'
 import { db } from '../../core/db.js'
 import { normalizeEmail } from '../../core/emailUtil.js'
 import { levelFromXP, titleForLevel, computeStreak } from '../../core/xpEngine.js'
+import { totalGameXpAndStreakDates } from '../../core/xpAggregate.js'
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
 import { userIsAppAdmin } from '../admin/adminScope.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
@@ -59,7 +63,9 @@ export const joinGroup = async (userId, { inviteCode }) => {
   return group
 }
 
-export const getLeaderboard = async (groupId) => {
+export const getLeaderboard = async (groupId, { clientToday } = {}) => {
+  const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+
   const group = await db.group.findUnique({
     where: { id: groupId },
     select: { type: true },
@@ -70,7 +76,19 @@ export const getLeaderboard = async (groupId) => {
       user: {
         select: {
           id: true, username: true, avatar: true,
-          habitLogs: { select: { date: true, habit: { select: { xp: true } } } },
+          habits: {
+            select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
+          },
+          habitLogs: {
+            select: {
+              date: true,
+              habitId: true,
+              habit: { select: { xp: true } },
+            },
+          },
+          dailyLogs: {
+            select: { date: true, mood: true, journal: true, sleepQuality: true },
+          },
         },
       },
     },
@@ -91,21 +109,23 @@ export const getLeaderboard = async (groupId) => {
         })
   const apptByUser = {}
   for (const c of apptRows) {
-    if (!apptByUser[c.userId]) apptByUser[c.userId] = { xp: 0, dates: [] }
-    apptByUser[c.userId].xp += c.xpEarned
-    apptByUser[c.userId].dates.push(c.date.toISOString().slice(0, 10))
+    if (!apptByUser[c.userId]) apptByUser[c.userId] = []
+    apptByUser[c.userId].push(c)
   }
 
   return ranked
     .map(({ user }) => {
-      const habitXP = user.habitLogs.reduce((sum, l) => sum + l.habit.xp, 0)
-      const extra = apptByUser[user.id] || { xp: 0, dates: [] }
-      const totalXP = habitXP + extra.xp
-      const level    = levelFromXP(totalXP)
-      const title    = titleForLevel(level)
-      const habitDates = [...new Set(user.habitLogs.map(l => l.date.toISOString().slice(0, 10)))]
-      const dates    = [...new Set([...habitDates, ...extra.dates])]
-      const streak   = computeStreak(dates)
+      const apptList = apptByUser[user.id] || []
+      const { totalXP, streakDates } = totalGameXpAndStreakDates({
+        habits: user.habits,
+        habitLogs: user.habitLogs,
+        dailyLogs: user.dailyLogs,
+        appointmentCompletions: apptList,
+        anchorYmd: anchor,
+      })
+      const level = levelFromXP(totalXP)
+      const title = titleForLevel(level)
+      const streak = computeStreak(streakDates, anchor)
       return { id: user.id, username: user.username, avatar: user.avatar, totalXP, level, title, streak }
     })
     .sort((a, b) => b.totalXP - a.totalXP)

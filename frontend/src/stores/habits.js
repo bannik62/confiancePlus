@@ -9,14 +9,3 @@ export const loadHabits = async () => {
   try   { habits.set(await habitsApi.getAll()) }
   finally { loading.set(false) }
 }
-
-export const toggleHabit = async (id) => {
-  const { checked } = await habitsApi.toggle(id)
-  habits.update((list) =>
-    list.map((h) =>
-      h.id === id
-        ? { ...h, logs: checked ? [{ date: new Date() }] : [] }
-        : h
-    )
-  )
-}
