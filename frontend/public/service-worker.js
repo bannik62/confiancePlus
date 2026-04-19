@@ -36,7 +36,8 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     data: { url: data.url || '/' },
     tag: data.tag || 'habitracks',
-    icon: '/favicon.png',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
   }
   event.waitUntil(self.registration.showNotification(title, options))
 })

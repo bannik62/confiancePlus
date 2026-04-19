@@ -96,12 +96,23 @@ export const sendPayloadToSubscription = async (row, payload) => {
   })
 }
 
-/** Notif test (admin) — message fixe pour valider Web Push */
-export const sendTestGiftNotification = async (userId) => {
+/**
+ * Notif test (admin) — message fixe pour valider Web Push.
+ * @param {string | null} [userId] Si défini : uniquement les appareils de cet utilisateur. Sinon : tous les abonnements en base (pour tester même si le tel est sur un autre compte que l’admin).
+ */
+export const sendTestGiftNotification = async (userId = null) => {
   if (!isPushConfigured()) throw { status: 503, message: 'Notifications push non configurées (VAPID)' }
-  const subs = await db.pushSubscription.findMany({ where: { userId } })
-  if (subs.length === 0)
-    throw { status: 400, message: 'Aucun abonnement push — active les notifications sur un appareil.' }
+  const subs = userId
+    ? await db.pushSubscription.findMany({ where: { userId } })
+    : await db.pushSubscription.findMany()
+  if (subs.length === 0) {
+    throw {
+      status: 400,
+      message: userId
+        ? 'Aucun abonnement push pour ce compte — active les notifications sur un appareil connecté avec ce même utilisateur.'
+        : 'Aucun abonnement push en base — un utilisateur doit activer les rappels depuis au moins un appareil.',
+    }
+  }
 
   const payload = {
     title: 'HabiTracks',
@@ -122,7 +133,7 @@ export const sendTestGiftNotification = async (userId) => {
   }
   if (errors.length === subs.length)
     throw { status: 502, message: `Échec envoi push (${errors.join(', ')})` }
-  return { ok: true, sent: subs.length - errors.length }
+  return { ok: true, sent: subs.length - errors.length, total: subs.length }
 }
 
 /** Boucle planifiée : rappel habitudes (1× / jour local, créneau horaire admin + fuseau user) */

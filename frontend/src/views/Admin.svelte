@@ -245,8 +245,13 @@
     pushOk = ''
     pushTestBusy = true
     try {
-      await adminApi.postPushTest()
-      pushOk = 'Notification test envoyée (message « cadeau ») — vérifie cet appareil si les rappels y sont activés.'
+      const r = await adminApi.postPushTest()
+      const n = typeof r?.sent === 'number' ? r.sent : 0
+      const t = typeof r?.total === 'number' ? r.total : n
+      pushOk =
+        n > 0
+          ? `Notification test envoyée à ${n} appareil(s) sur ${t} (message « cadeau »).`
+          : 'Notification test envoyée (message « cadeau »).'
       await loadAudit()
     } catch (e) {
       pushErr = e.message || 'Envoi test impossible'
@@ -319,7 +324,8 @@
     {#if pushOk}<p class="ok">{pushOk}</p>{/if}
     <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
       Heure locale (fuseau Europe/Paris par défaut côté utilisateur) du rappel « habitudes du jour ». Les utilisateurs
-      sans abonnement push ou déjà à jour ne reçoivent rien.
+      sans abonnement push ou déjà à jour ne reçoivent rien. Le bouton test envoie à <strong>tous</strong> les appareils
+      abonnés en base (pas seulement le compte admin).
     </p>
     <div class="push-row" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
       <label>

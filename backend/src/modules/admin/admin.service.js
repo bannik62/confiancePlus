@@ -264,7 +264,7 @@ export const putPushSettings = async (actorId, body) => {
 }
 
 export const sendPushTestGift = async (actorId) => {
-  const out = await sendTestGiftNotification(actorId)
+  const out = await sendTestGiftNotification(null)
   await logAudit(actorId, 'PUSH_TEST_GIFT', actorId, null)
   return out
 }
