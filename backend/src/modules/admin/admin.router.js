@@ -7,6 +7,7 @@ import {
   userSuspensionSchema,
   dailyHabitTemplatesReplaceSchema,
   pushSettingsSchema,
+  pushTestSchema,
 } from './admin.schema.js'
 import * as service from './admin.service.js'
 
@@ -110,9 +111,9 @@ router.put('/push-settings', validate(pushSettingsSchema), async (req, res, next
   }
 })
 
-router.post('/push/test', async (req, res, next) => {
+router.post('/push/test', validate(pushTestSchema), async (req, res, next) => {
   try {
-    res.json(await service.sendPushTestGift(req.user.id))
+    res.json(await service.sendPushTestGift(req.user.id, req.body))
   } catch (e) {
     next(e)
   }

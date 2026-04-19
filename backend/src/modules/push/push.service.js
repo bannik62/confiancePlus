@@ -97,10 +97,11 @@ export const sendPayloadToSubscription = async (row, payload) => {
 }
 
 /**
- * Notif test (admin) — message fixe pour valider Web Push.
- * @param {string | null} [userId] Si défini : uniquement les appareils de cet utilisateur. Sinon : tous les abonnements en base (pour tester même si le tel est sur un autre compte que l’admin).
+ * Notif test (admin) — corps personnalisable.
+ * @param {string | null} [userId] Si défini : uniquement les appareils de cet utilisateur. Sinon : tous les abonnements en base.
+ * @param {{ body?: string }} [opts] Corps du message (déjà validé côté route, max ~200 car.).
  */
-export const sendTestGiftNotification = async (userId = null) => {
+export const sendTestGiftNotification = async (userId = null, opts = {}) => {
   if (!isPushConfigured()) throw { status: 503, message: 'Notifications push non configurées (VAPID)' }
   const subs = userId
     ? await db.pushSubscription.findMany({ where: { userId } })
@@ -114,11 +115,12 @@ export const sendTestGiftNotification = async (userId = null) => {
     }
   }
 
+  const bodyText = typeof opts.body === 'string' && opts.body.trim() ? opts.body.trim() : 'Vous aviez un cadeau'
   const payload = {
     title: 'HabiTracks',
-    body: 'Vous aviez un cadeau',
+    body: bodyText,
     url: '/',
-    tag: 'test-gift',
+    tag: 'admin-push-test',
   }
   const errors = []
   for (const s of subs) {

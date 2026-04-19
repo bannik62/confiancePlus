@@ -32,6 +32,7 @@
   let pushOk = ''
   let pushSaveBusy = false
   let pushTestBusy = false
+  let pushTestMessage = ''
 
   const auditActionLabel = (code) =>
     ({
@@ -41,7 +42,7 @@
       DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
       DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
       PUSH_SETTINGS_UPDATE: 'Notifications — heure rappel par défaut',
-      PUSH_TEST_GIFT: 'Notifications — test « cadeau »',
+      PUSH_TEST_GIFT: 'Notifications — test push (message admin)',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -243,15 +244,20 @@
   const sendPushTest = async () => {
     pushErr = ''
     pushOk = ''
+    const msg = String(pushTestMessage ?? '').trim()
+    if (!msg) {
+      pushErr = 'Saisis un message pour la notification.'
+      return
+    }
     pushTestBusy = true
     try {
-      const r = await adminApi.postPushTest()
+      const r = await adminApi.postPushTest({ message: msg })
       const n = typeof r?.sent === 'number' ? r.sent : 0
       const t = typeof r?.total === 'number' ? r.total : n
       pushOk =
         n > 0
-          ? `Notification test envoyée à ${n} appareil(s) sur ${t} (message « cadeau »).`
-          : 'Notification test envoyée (message « cadeau »).'
+          ? `Notification envoyée à ${n} appareil(s) sur ${t}.`
+          : 'Notification envoyée.'
       await loadAudit()
     } catch (e) {
       pushErr = e.message || 'Envoi test impossible'
@@ -341,9 +347,24 @@
         {pushSaveBusy ? '…' : 'Enregistrer'}
       </button>
     </div>
-    <button type="button" class="btn-secondary" disabled={pushTestBusy} on:click={sendPushTest}>
-      {pushTestBusy ? '…' : 'Envoyer une notif test (« Vous aviez un cadeau »)'}
-    </button>
+    <div class="push-test-block">
+      <label class="push-test-label" for="push-test-msg">Message de la notification</label>
+      <div class="push-test-row">
+        <input
+          id="push-test-msg"
+          type="text"
+          class="push-test-input"
+          maxlength="200"
+          placeholder="Ex. Rappel : pense à valider tes habitudes !"
+          bind:value={pushTestMessage}
+          disabled={pushTestBusy}
+        />
+        <button type="button" class="btn-secondary" disabled={pushTestBusy} on:click={sendPushTest}>
+          {pushTestBusy ? '…' : 'Envoyer'}
+        </button>
+      </div>
+      <p class="muted push-test-hint">Max. 200 caractères — envoyé à tous les appareils abonnés.</p>
+    </div>
   </Card>
 
   <Card style="margin-bottom:14px">
@@ -770,6 +791,40 @@
     gap: 10px;
     align-items: center;
     margin-top: 10px;
+  }
+  .push-test-block {
+    margin-top: 14px;
+  }
+  .push-test-label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .push-test-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .push-test-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .push-test-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .push-test-hint {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
   }
   .btn-secondary {
     padding: 8px 14px;

@@ -268,8 +268,10 @@ export const putPushSettings = async (actorId, body) => {
   return getPushSettingsAdmin()
 }
 
-export const sendPushTestGift = async (actorId) => {
-  const out = await sendTestGiftNotification(null)
-  await logAudit(actorId, 'PUSH_TEST_GIFT', actorId, null)
+export const sendPushTestGift = async (actorId, { message }) => {
+  const out = await sendTestGiftNotification(null, { body: message })
+  await logAudit(actorId, 'PUSH_TEST_GIFT', actorId, {
+    messagePreview: String(message).slice(0, 120),
+  })
   return out
 }
