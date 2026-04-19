@@ -8,4 +8,6 @@ export const authApi = {
   me:        ()     => api.get('/auth/me'),
   checkCode: (data) => api.post('/auth/check-code', data),
   activate:  (data) => api.post('/auth/activate',   data),
+  changeEmail:    (data) => api.patch('/auth/me/email', data),
+  changePassword: (data) => api.patch('/auth/me/password', data),
 }

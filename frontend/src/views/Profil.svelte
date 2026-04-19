@@ -1,13 +1,15 @@
 <script>
   import { onMount }  from 'svelte'
   import { statsApi } from '../api/stats.js'
-  import { authStore, clearAuth } from '../stores/auth.js'
+  import { authStore, clearAuth, mergeUser } from '../stores/auth.js'
+  import { authApi } from '../api/auth.js'
   import { pushApi } from '../api/push.js'
   import { createPushSubscriptionJson } from '../lib/pushSubscribe.js'
   import { isStandalone, isIosLike, isAndroid, detectBrave } from '../lib/pwaUi.js'
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
+  import { autocompleteSignIn, autocompleteSignUp } from '../lib/htmlInputTokens.js'
 
   let profile = null
   let standalone = false
@@ -20,6 +22,20 @@
   let pushErr = ''
   let pushOk = ''
   let pushEnabled = false
+
+  let emailBusy = false
+  let emailErr = ''
+  let emailOk = ''
+  let emailNew = ''
+  let emailConfirm = ''
+  let emailCurrentPw = ''
+
+  let pwBusy = false
+  let pwErr = ''
+  let pwOk = ''
+  let pwCurrent = ''
+  let pwNew = ''
+  let pwConfirm = ''
   /** @type {NotificationPermission | 'unsupported'} */
   let notifPerm = 'default'
 
@@ -118,6 +134,62 @@
     if (!showManualInstall || e.key !== 'Escape') return
     closeManualInstall()
   }
+
+  const fieldErr = (errors, key) =>
+    errors && errors[key] && errors[key][0] ? errors[key][0] : ''
+
+  const submitEmail = async () => {
+    emailErr = ''
+    emailOk = ''
+    emailBusy = true
+    try {
+      const user = await authApi.changeEmail({
+        email: emailNew.trim(),
+        confirmEmail: emailConfirm.trim(),
+        currentPassword: emailCurrentPw,
+      })
+      mergeUser({ email: user.email })
+      emailOk = 'Adresse e-mail mise à jour.'
+      emailNew = ''
+      emailConfirm = ''
+      emailCurrentPw = ''
+    } catch (e) {
+      emailErr =
+        fieldErr(e.errors, 'email') ||
+        fieldErr(e.errors, 'confirmEmail') ||
+        fieldErr(e.errors, 'currentPassword') ||
+        e.message ||
+        'Erreur'
+    } finally {
+      emailBusy = false
+    }
+  }
+
+  const submitPassword = async () => {
+    pwErr = ''
+    pwOk = ''
+    pwBusy = true
+    try {
+      await authApi.changePassword({
+        currentPassword: pwCurrent,
+        newPassword: pwNew,
+        confirmNewPassword: pwConfirm,
+      })
+      pwOk = 'Mot de passe mis à jour.'
+      pwCurrent = ''
+      pwNew = ''
+      pwConfirm = ''
+    } catch (e) {
+      pwErr =
+        fieldErr(e.errors, 'newPassword') ||
+        fieldErr(e.errors, 'confirmNewPassword') ||
+        fieldErr(e.errors, 'currentPassword') ||
+        e.message ||
+        'Erreur'
+    } finally {
+      pwBusy = false
+    }
+  }
 </script>
 
 <svelte:window on:keydown={onKeydown} />
@@ -141,6 +213,85 @@
     <Card style="margin-bottom:12px">
       <div class="micro muted">XP TOTAL</div>
       <div class="total-xp">{profile.totalXP.toLocaleString()} XP</div>
+    </Card>
+
+    <Card style="margin-bottom:12px">
+      <div class="micro muted">COMPTE</div>
+      <p class="acct-hint">
+        E-mail de connexion : <strong>{$authStore.user?.email ?? '—'}</strong>
+      </p>
+
+      <div class="acct-block">
+        <div class="acct-sub">Changer l’e-mail</div>
+        <label class="acct-label" for="profil-email-new">Nouvelle adresse</label>
+        <input
+          id="profil-email-new"
+          class="acct-input"
+          type="email"
+          autocomplete="email"
+          bind:value={emailNew}
+          disabled={emailBusy}
+        />
+        <label class="acct-label" for="profil-email-confirm">Confirmer l’e-mail</label>
+        <input
+          id="profil-email-confirm"
+          class="acct-input"
+          type="email"
+          autocomplete="email"
+          bind:value={emailConfirm}
+          disabled={emailBusy}
+        />
+        <label class="acct-label" for="profil-email-pw">Mot de passe actuel</label>
+        <input
+          id="profil-email-pw"
+          class="acct-input"
+          type="password"
+          autocomplete={autocompleteSignIn}
+          bind:value={emailCurrentPw}
+          disabled={emailBusy}
+        />
+        {#if emailErr}<p class="acct-err">{emailErr}</p>{/if}
+        {#if emailOk}<p class="acct-ok">{emailOk}</p>{/if}
+        <button type="button" class="acct-btn" disabled={emailBusy} on:click={submitEmail}>
+          {emailBusy ? '…' : 'Enregistrer l’e-mail'}
+        </button>
+      </div>
+
+      <div class="acct-block acct-block--pwd">
+        <div class="acct-sub">Changer le mot de passe</div>
+        <label class="acct-label" for="profil-pw-current">Mot de passe actuel</label>
+        <input
+          id="profil-pw-current"
+          class="acct-input"
+          type="password"
+          autocomplete={autocompleteSignIn}
+          bind:value={pwCurrent}
+          disabled={pwBusy}
+        />
+        <label class="acct-label" for="profil-pw-new">Nouveau mot de passe</label>
+        <input
+          id="profil-pw-new"
+          class="acct-input"
+          type="password"
+          autocomplete={autocompleteSignUp}
+          bind:value={pwNew}
+          disabled={pwBusy}
+        />
+        <label class="acct-label" for="profil-pw-confirm">Confirmer le nouveau</label>
+        <input
+          id="profil-pw-confirm"
+          class="acct-input"
+          type="password"
+          autocomplete={autocompleteSignUp}
+          bind:value={pwConfirm}
+          disabled={pwBusy}
+        />
+        {#if pwErr}<p class="acct-err">{pwErr}</p>{/if}
+        {#if pwOk}<p class="acct-ok">{pwOk}</p>{/if}
+        <button type="button" class="acct-btn" disabled={pwBusy} on:click={submitPassword}>
+          {pwBusy ? '…' : 'Enregistrer le mot de passe'}
+        </button>
+      </div>
     </Card>
 
     {#if typeof Notification !== 'undefined'}
@@ -342,5 +493,86 @@
   }
   .install-modal-close:hover {
     border-color: var(--accent);
+  }
+
+  .acct-hint {
+    margin: 8px 0 14px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .acct-block {
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .acct-block--pwd {
+    margin-top: 18px;
+  }
+  .acct-sub {
+    font-size: 13px;
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--gold);
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .acct-label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .acct-input {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .acct-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent)44;
+  }
+  .acct-input:disabled {
+    opacity: 0.6;
+  }
+  .acct-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--accent)66;
+    background: linear-gradient(135deg, var(--accent)33, var(--cyan)22);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: pointer;
+  }
+  .acct-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px var(--accent)44;
+  }
+  .acct-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .acct-err {
+    color: var(--red);
+    font-size: 0.88rem;
+    margin: 0 0 8px;
+    white-space: pre-wrap;
+  }
+  .acct-ok {
+    color: var(--green);
+    font-size: 0.88rem;
+    margin: 0 0 8px;
   }
 </style>

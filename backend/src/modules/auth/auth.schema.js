@@ -60,3 +60,28 @@ export const activateSchema = z.object({
   username: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Lettres, chiffres et _ uniquement'),
   avatar:   iconSchema.optional().default('🦊'),
 })
+
+export const changeEmailSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Mot de passe requis'),
+    email: z.string().email().transform((v) => normalizeEmail(v)),
+    confirmEmail: z
+      .string()
+      .email()
+      .transform((v) => normalizeEmail(v)),
+  })
+  .refine((d) => d.email === d.confirmEmail, {
+    message: 'Les adresses ne correspondent pas',
+    path: ['confirmEmail'],
+  })
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
+    newPassword: z.string().min(8).max(100),
+    confirmNewPassword: z.string().min(8).max(100),
+  })
+  .refine((d) => d.newPassword === d.confirmNewPassword, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirmNewPassword'],
+  })

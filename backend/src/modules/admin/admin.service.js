@@ -8,6 +8,11 @@ import {
   sendTestGiftNotification,
 } from '../push/push.service.js'
 import { sendMail, isMailConfigured } from '../../core/emailService.js'
+import { config } from '../../core/config.js'
+import {
+  buildBrandedHtml,
+  textToParagraphsHtml,
+} from '../../core/emailBrandedTemplate.js'
 
 const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
 
@@ -285,15 +290,6 @@ const applyTemplate = (template, user) =>
     .replace(/\{\{username\}\}/g, user.username ?? '')
     .replace(/\{\{email\}\}/g, user.email ?? '')
 
-const escapeHtml = (s) =>
-  String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-
-const bodyToHtml = (text) => escapeHtml(text).replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
-
 export const getAdminEmailDefaults = async () => {
   const [subRow, bodyRow] = await Promise.all([
     db.appSetting.findUnique({ where: { key: EMAIL_DEFAULT_SUBJECT_KEY } }),
@@ -381,11 +377,20 @@ export const sendAdminEmail = async (actorId, { mode, userId, subject, body }) =
     const subj = applyTemplate(subject, u)
     const txt = applyTemplate(body, u)
     try {
+      const displayHeading =
+        subj.replace(/^\[Confiance\+\]\s*/i, '').trim() || 'Message'
+      const html = buildBrandedHtml({
+        heading: displayHeading,
+        innerHtml: textToParagraphsHtml(txt),
+        ctaUrl: config.FRONTEND_URL,
+        ctaLabel: 'Ouvrir Confiance+',
+        preheader: txt.replace(/\r\n/g, '\n').slice(0, 120),
+      })
       await sendMail({
         to: u.email,
         subject: subj,
         text: txt,
-        html: bodyToHtml(txt),
+        html,
       })
       sent += 1
     } catch (e) {
