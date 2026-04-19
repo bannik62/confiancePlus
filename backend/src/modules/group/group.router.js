@@ -28,7 +28,11 @@ router.post('/join',               validate(joinGroupSchema), async (req, res, n
 })
 
 router.get('/:id/leaderboard',     async (req, res, next) => {
-  try { res.json(await service.getLeaderboard(req.params.id)) }
+  try {
+    const clientToday =
+      typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
+    res.json(await service.getLeaderboard(req.params.id, { clientToday }))
+  }
   catch (e) { next(e) }
 })
 

@@ -27,6 +27,13 @@
   let dailyOk = ''
   let dailyLoading = true
 
+  let pushHour = 14
+  let pushErr = ''
+  let pushOk = ''
+  let pushSaveBusy = false
+  let pushTestBusy = false
+  let pushTestMessage = ''
+
   const auditActionLabel = (code) =>
     ({
       USER_DELETE: 'Suppression compte',
@@ -34,6 +41,8 @@
       USER_UNSUSPEND: 'Réactivation compte',
       DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
       DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
+      PUSH_SETTINGS_UPDATE: 'Notifications — heure rappel par défaut',
+      PUSH_TEST_GIFT: 'Notifications — test push (message admin)',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -129,7 +138,14 @@
   onMount(async () => {
     loading = true
     auditLoading = true
-    await Promise.all([loadUsers(), loadMessages(), loadDailyTemplates(), loadAudit(), loadGroups()])
+    await Promise.all([
+      loadUsers(),
+      loadMessages(),
+      loadDailyTemplates(),
+      loadAudit(),
+      loadGroups(),
+      loadPushSettings(),
+    ])
     loading = false
     auditLoading = false
     msgLoading = false
@@ -198,6 +214,57 @@
       err = e.message || 'Action impossible'
     }
   }
+
+  const loadPushSettings = async () => {
+    pushErr = ''
+    try {
+      const r = await adminApi.getPushSettings()
+      pushHour = r.defaultReminderHour ?? 14
+    } catch (e) {
+      pushErr = e.message || 'Chargement réglages push impossible'
+    }
+  }
+
+  const savePushSettings = async () => {
+    pushErr = ''
+    pushOk = ''
+    pushSaveBusy = true
+    try {
+      const h = Math.min(23, Math.max(0, parseInt(String(pushHour), 10)))
+      await adminApi.putPushSettings({ defaultReminderHour: h })
+      pushOk = 'Heure de rappel par défaut enregistrée.'
+      await loadAudit()
+    } catch (e) {
+      pushErr = e.message || 'Enregistrement impossible'
+    } finally {
+      pushSaveBusy = false
+    }
+  }
+
+  const sendPushTest = async () => {
+    pushErr = ''
+    pushOk = ''
+    const msg = String(pushTestMessage ?? '').trim()
+    if (!msg) {
+      pushErr = 'Saisis un message pour la notification.'
+      return
+    }
+    pushTestBusy = true
+    try {
+      const r = await adminApi.postPushTest({ message: msg })
+      const n = typeof r?.sent === 'number' ? r.sent : 0
+      const t = typeof r?.total === 'number' ? r.total : n
+      pushOk =
+        n > 0
+          ? `Notification envoyée à ${n} appareil(s) sur ${t}.`
+          : 'Notification envoyée.'
+      await loadAudit()
+    } catch (e) {
+      pushErr = e.message || 'Envoi test impossible'
+    } finally {
+      pushTestBusy = false
+    }
+  }
 </script>
 
 <div class="admin">
@@ -228,6 +295,11 @@
                 {#if u.isAdmin}<span class="tag">admin</span>{/if}
                 {#if u.isPending}<span class="tag pending">pending</span>{/if}
                 {#if u.isSuspended}<span class="tag susp">suspendu</span>{/if}
+                {#if (u.pushSubscriptionCount ?? 0) > 0}
+                  <span class="tag push" title="Web Push enregistré pour ce compte">
+                    abonné aux notifications{#if u.pushSubscriptionCount > 1} ({u.pushSubscriptionCount} appareils){/if}
+                  </span>
+                {/if}
               </div>
               <div class="dates">
                 <span>Créé : {new Date(u.createdAt).toLocaleString('fr-FR')}</span>
@@ -255,6 +327,44 @@
         <button type="button" disabled={(page + 1) * limit >= total} on:click={nextPage}>Suivant</button>
       </div>
     {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">NOTIFICATIONS PUSH</div>
+    {#if pushErr}<p class="err">{pushErr}</p>{/if}
+    {#if pushOk}<p class="ok">{pushOk}</p>{/if}
+    <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+      Heure locale (fuseau Europe/Paris par défaut côté utilisateur) du rappel « habitudes du jour ». Les utilisateurs
+      sans abonnement push ou déjà à jour ne reçoivent rien. Le bouton test envoie à <strong>tous</strong> les appareils
+      abonnés en base (pas seulement le compte admin).
+    </p>
+    <div class="push-row" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+      <label>
+        Heure par défaut (0–23)
+        <input type="number" min="0" max="23" bind:value={pushHour} style="width:4rem;margin-left:6px" />
+      </label>
+      <button type="button" class="btn-save" disabled={pushSaveBusy} on:click={savePushSettings}>
+        {pushSaveBusy ? '…' : 'Enregistrer'}
+      </button>
+    </div>
+    <div class="push-test-block">
+      <label class="push-test-label" for="push-test-msg">Message de la notification</label>
+      <div class="push-test-row">
+        <input
+          id="push-test-msg"
+          type="text"
+          class="push-test-input"
+          maxlength="200"
+          placeholder="Ex. Rappel : pense à valider tes habitudes !"
+          bind:value={pushTestMessage}
+          disabled={pushTestBusy}
+        />
+        <button type="button" class="btn-secondary" disabled={pushTestBusy} on:click={sendPushTest}>
+          {pushTestBusy ? '…' : 'Envoyer'}
+        </button>
+      </div>
+      <p class="muted push-test-hint">Max. 200 caractères — envoyé à tous les appareils abonnés.</p>
+    </div>
   </Card>
 
   <Card style="margin-bottom:14px">
@@ -460,6 +570,10 @@
   .tag.susp {
     background: #f59e0b22;
     color: #fbbf24;
+  }
+  .tag.push {
+    background: var(--green)22;
+    color: var(--green);
   }
   .cell.actions {
     display: flex;
@@ -677,6 +791,40 @@
     gap: 10px;
     align-items: center;
     margin-top: 10px;
+  }
+  .push-test-block {
+    margin-top: 14px;
+  }
+  .push-test-label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .push-test-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .push-test-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .push-test-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .push-test-hint {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
   }
   .btn-secondary {
     padding: 8px 14px;

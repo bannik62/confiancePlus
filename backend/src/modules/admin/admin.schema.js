@@ -14,6 +14,15 @@ export const userSuspensionSchema = z.object({
   suspended: z.boolean(),
 })
 
+export const pushSettingsSchema = z.object({
+  defaultReminderHour: z.coerce.number().int().min(0).max(23),
+})
+
+/** Corps de la notification test (Web Push — taille limitée côté navigateurs) */
+export const pushTestSchema = z.object({
+  message: z.string().trim().min(1).max(200),
+})
+
 export const dailyHabitTemplatesReplaceSchema = z.object({
   templates: z
     .array(

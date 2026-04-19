@@ -22,4 +22,8 @@ export const adminApi = {
   putDayMessages: (body) => api.put('/admin/day-messages', body),
   getDailyHabitTemplates: () => api.get('/admin/daily-habit-templates'),
   putDailyHabitTemplates: (body) => api.put('/admin/daily-habit-templates', body),
+  getPushSettings: () => api.get('/admin/push-settings'),
+  putPushSettings: (body) => api.put('/admin/push-settings', body),
+  /** @param {{ message: string }} body */
+  postPushTest: (body) => api.post('/admin/push/test', body),
 }

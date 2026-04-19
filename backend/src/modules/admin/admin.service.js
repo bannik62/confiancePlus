@@ -2,6 +2,11 @@ import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '../../core/db.js'
+import {
+  getPushSettingsAdmin,
+  setDefaultReminderHour as setDefaultReminderHourSvc,
+  sendTestGiftNotification,
+} from '../push/push.service.js'
 
 const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
 
@@ -78,7 +83,7 @@ export const replaceDayMessages = async (actorId, body) => {
 export const listUsers = async ({ page = 0, limit = 30 }) => {
   const p = Math.max(0, parseInt(String(page), 10) || 0)
   const l = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 30))
-  const [users, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     db.user.findMany({
       skip: p * l,
       take: l,
@@ -93,10 +98,15 @@ export const listUsers = async ({ page = 0, limit = 30 }) => {
         createdAt: true,
         lastLoginAt: true,
         avatar: true,
+        _count: { select: { pushSubscriptions: true } },
       },
     }),
     db.user.count(),
   ])
+  const users = rows.map(({ _count, ...u }) => ({
+    ...u,
+    pushSubscriptionCount: _count.pushSubscriptions,
+  }))
   return { users, total, page: p, limit: l }
 }
 
@@ -248,4 +258,20 @@ export const seedDailyHabitTemplatesFromDefaults = async () => {
   await db.dailyHabitTemplate.updateMany({ data: { isActive: true } })
   const n = await db.dailyHabitTemplate.count({ where: { isActive: true } })
   return { ok: true, seeded: n, reactivated: true }
+}
+
+export const getPushSettings = () => getPushSettingsAdmin()
+
+export const putPushSettings = async (actorId, body) => {
+  const r = await setDefaultReminderHourSvc(body.defaultReminderHour)
+  await logAudit(actorId, 'PUSH_SETTINGS_UPDATE', null, r)
+  return getPushSettingsAdmin()
+}
+
+export const sendPushTestGift = async (actorId, { message }) => {
+  const out = await sendTestGiftNotification(null, { body: message })
+  await logAudit(actorId, 'PUSH_TEST_GIFT', actorId, {
+    messagePreview: String(message).slice(0, 120),
+  })
+  return out
 }

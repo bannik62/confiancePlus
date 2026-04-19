@@ -7,8 +7,8 @@
    *    on ouvre l’app (Home) avec le « Message du jour » (phrases JSON selon l’humeur).
    * 3. Sinon → écran CheckIn (humeur + suite). Après validation, on repasse à l’app.
    *
-   * L’offre « habitude du jour » (DailyOfferModal) est indépendante : elle se déclenche
-   * dès sessionReady (même si CheckIn est encore affiché), pour ne pas dépendre du passage par Home.
+   * L’offre « habitude du jour » (DailyOfferModal) ne s’affiche qu’après le check-in humeur
+   * du jour (checkinDone), une fois la session prête — sauf compte admin (pas d’offre).
    *
    * Le bootstrap utilise loadTodayResilient ; client.js n’émet pas session:expired sur
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
@@ -147,6 +147,12 @@
   }
 
   onMount(async () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+        console.error('Service Worker:', err)
+      })
+    }
+
     await checkSession()
     loading = false
 
@@ -192,8 +198,8 @@
     resetDayMessageCache()
   }
 
-  /** Après sessionReady : l’UI peut monter le modal ; l’éligibilité vient du backend (pas le store éducateur). */
-  $: if (sessionReady && bootKey && $authStore.user?.id && !$isAppAdmin) {
+  /** Après sessionReady + check-in du jour : le modal peut s’ouvrir ; l’éligibilité vient du backend. */
+  $: if (sessionReady && checkinDone && bootKey && $authStore.user?.id && !$isAppAdmin) {
     if (dailyOfferBootKeyDone !== bootKey) {
       dailyOfferBootKeyDone = bootKey
       queueMicrotask(() => void tryDailyOffer())

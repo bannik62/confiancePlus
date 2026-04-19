@@ -15,17 +15,29 @@ router.get('/me',      async (req, res, next) => {
 })
 
 router.get('/profile', async (req, res, next) => {
-  try { res.json(await service.getMyProfile(req.user.id)) }
+  try {
+    const clientToday =
+      typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
+    res.json(await service.getMyProfile(req.user.id, { clientToday }))
+  }
   catch (e) { next(e) }
 })
 
 router.get('/leaderboard', async (req, res, next) => {
-  try { res.json(await service.getGlobalLeaderboard()) }
+  try {
+    const clientToday =
+      typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
+    res.json(await service.getGlobalLeaderboard({ clientToday }))
+  }
   catch (e) { next(e) }
 })
 
 router.get('/educator-overview', async (req, res, next) => {
-  try { res.json(await service.getEducatorAssociationOverview(req.user.id)) }
+  try {
+    const clientToday =
+      typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
+    res.json(await service.getEducatorAssociationOverview(req.user.id, { clientToday }))
+  }
   catch (e) { next(e) }
 })
 

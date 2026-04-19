@@ -6,6 +6,8 @@ import {
   dayMessagesReplaceSchema,
   userSuspensionSchema,
   dailyHabitTemplatesReplaceSchema,
+  pushSettingsSchema,
+  pushTestSchema,
 } from './admin.schema.js'
 import * as service from './admin.service.js'
 
@@ -92,5 +94,29 @@ router.put(
     }
   },
 )
+
+router.get('/push-settings', async (req, res, next) => {
+  try {
+    res.json(await service.getPushSettings())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/push-settings', validate(pushSettingsSchema), async (req, res, next) => {
+  try {
+    res.json(await service.putPushSettings(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/push/test', validate(pushTestSchema), async (req, res, next) => {
+  try {
+    res.json(await service.sendPushTestGift(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
 
 export default router

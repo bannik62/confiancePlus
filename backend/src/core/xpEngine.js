@@ -41,12 +41,19 @@ export const computeDayXP = ({ habits, allDone, hasCheckin, hasJournal, hasSleep
   return Math.round(habitXP + bonus + extras)
 }
 
-// Calcule le streak d'un user depuis une liste de dates de logs (YYYY-MM-DD)
-export const computeStreak = (logDates) => {
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Streak : jours civils consécutifs se terminant à `anchorYmd` (souvent le jour local client).
+ */
+export const computeStreak = (logDates, anchorYmd) => {
   if (!logDates.length) return 0
 
   const sorted = [...new Set(logDates)].sort().reverse()
-  const today  = new Date().toISOString().slice(0, 10)
+  const today =
+    typeof anchorYmd === 'string' && YMD_RE.test(anchorYmd)
+      ? anchorYmd
+      : new Date().toISOString().slice(0, 10)
 
   let streak = 0
   let expected = today
@@ -54,8 +61,8 @@ export const computeStreak = (logDates) => {
   for (const date of sorted) {
     if (date === expected) {
       streak++
-      const d = new Date(expected)
-      d.setDate(d.getDate() - 1)
+      const d = new Date(`${expected}T12:00:00.000Z`)
+      d.setUTCDate(d.getUTCDate() - 1)
       expected = d.toISOString().slice(0, 10)
     } else {
       break

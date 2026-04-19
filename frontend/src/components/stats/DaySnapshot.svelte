@@ -1,7 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte'
   import Card from '../ui/Card.svelte'
-  import Tag from '../ui/Tag.svelte'
   
   export let day = null
   
@@ -44,9 +43,8 @@
     })
   }
   
-  // Bonus ×1.5 si 100%
-  $: bonusApplied = day && day.habitRate === 100 && day.habitsDone > 0
-  $: displayXP = bonusApplied ? Math.round(day.xp * 1.5) : day?.xp ?? 0
+  // day.xp = serveur (computeDayXP : bonus 100 % déjà inclus)
+  $: totalXp = day?.xp ?? 0
 </script>
 
 {#if day}
@@ -118,10 +116,7 @@
       <!-- Total XP -->
       <div class="total-xp">
         <span class="xp-label">🏆 Total XP :</span>
-        <span class="xp-value">+{displayXP}</span>
-        {#if bonusApplied}
-          <Tag color="var(--gold)" style="margin-left:8px">×1.5 BONUS ⚡</Tag>
-        {/if}
+        <span class="xp-value">+{totalXp}</span>
       </div>
     </Card>
   </div>
