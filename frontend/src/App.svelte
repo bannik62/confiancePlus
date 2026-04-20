@@ -52,14 +52,14 @@
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
     { key: 'agenda', ico: '📅', label: 'Agenda'       },
-    { key: 'groupe', ico: '👥', label: 'Groupe'       },
+    { key: 'groupe', ico: '👥', label: 'Classement'   },
     { key: 'stats',  ico: '📊', label: 'Stats'        },
     { key: 'profil', ico: '⚙️', label: 'Profil'       },
   ]
   const TABS_EDUCATOR = [
     { key: 'home',   ico: '📋', label: 'Suivi'      },
     { key: 'agenda', ico: '📅', label: 'Agenda'     },
-    { key: 'groupe', ico: '👥', label: 'Groupe'     },
+    { key: 'groupe', ico: '👥', label: 'Classement' },
     { key: 'stats',  ico: '📊', label: 'Stats'      },
     { key: 'profil', ico: '⚙️', label: 'Profil'     },
   ]
