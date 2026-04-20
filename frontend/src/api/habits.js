@@ -19,4 +19,6 @@ export const habitsApi = {
     api.post('/habits/daily-offer/accept', { date: date ?? localDateString() }),
   /** Liste des habitudes actives d’un joueur (classement) */
   getPublicHabits: (userId) => api.get(`/habits/public/${encodeURIComponent(userId)}`),
+  /** Réaction ❤️ / 🤔 sur une perf (habitude validée, YMD = jour civil du joueur cible) */
+  setPerfReaction: (body) => api.post('/habits/perf-reactions', body),
 }

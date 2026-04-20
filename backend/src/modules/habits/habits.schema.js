@@ -45,3 +45,11 @@ export const dailyOfferQuerySchema = z.object({
 export const dailyOfferBodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
+
+/** Réaction sur une perf (habitude validée) — jour civil du joueur cible (YMD). kind null = retirer. */
+export const perfReactionBodySchema = z.object({
+  targetUserId: z.string().min(1),
+  habitId:    z.string().min(1),
+  ymd:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  kind:       z.enum(['HEART', 'SKEPTIC']).nullable(),
+})

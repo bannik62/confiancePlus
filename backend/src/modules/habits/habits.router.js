@@ -8,10 +8,12 @@ import {
   listHabitsQuerySchema,
   dailyOfferQuerySchema,
   dailyOfferBodySchema,
+  perfReactionBodySchema,
 } from './habits.schema.js'
 import * as service from './habits.service.js'
 import * as dailyOffer from './dailyOffer.service.js'
 import { getPublicHabitsForPeer } from './habits.peer.js'
+import { setPerfReaction } from './habits.perfReaction.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -59,6 +61,19 @@ router.post(
     try {
       const out = await dailyOffer.acceptDailyOffer(req.user.id, req.body.date)
       res.status(out.alreadyAccepted ? 200 : 201).json(out)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+/** Réaction ❤️ / 🤔 sur la perf (habitude validée) d’un autre joueur. */
+router.post(
+  '/perf-reactions',
+  validate(perfReactionBodySchema),
+  async (req, res, next) => {
+    try {
+      res.json(await setPerfReaction(req.user.id, req.body))
     } catch (e) {
       next(e)
     }

@@ -26,11 +26,35 @@ const userEligibleForPublicPeerView = async (userId) => {
   return !assoOwner
 }
 
-const canViewPeerHabits = async (viewerId, targetId) => {
+/** Exporté pour les réactions « perf » (même périmètre que la liste publique). */
+export const canViewPeerHabits = async (viewerId, targetId) => {
   if (viewerId === targetId) return true
   if (await usersShareGroup(viewerId, targetId)) return true
   if (await userEligibleForPublicPeerView(targetId)) return true
   return false
+}
+
+const attachReactionFields = (viewerId, rows, ymd, reactionRows) => {
+  const key = (habitId, day) => `${habitId}\t${day}`
+  const byKey = new Map()
+  for (const r of reactionRows) {
+    const k = key(r.habitId, r.ymd)
+    if (!byKey.has(k)) byKey.set(k, [])
+    byKey.get(k).push(r)
+  }
+  return rows.map((row) => {
+    const list = byKey.get(key(row.id, ymd)) || []
+    let reactionHeartCount = 0
+    let reactionSkepticCount = 0
+    /** @type {'HEART' | 'SKEPTIC' | null} */
+    let myReaction = null
+    for (const x of list) {
+      if (x.kind === 'HEART') reactionHeartCount++
+      else reactionSkepticCount++
+      if (x.fromUserId === viewerId) myReaction = x.kind
+    }
+    return { ...row, reactionHeartCount, reactionSkepticCount, myReaction }
+  })
 }
 
 const habitPublicSelect = {
@@ -114,6 +138,18 @@ export const getPublicHabitsForPeer = async (viewerId, targetUserId) => {
       done: todayIds.has(h.id),
     }))
 
+  const habitIds = [...new Set([...yesterdayHabits, ...todayHabits].map((h) => h.id))]
+  let reactionRows = []
+  if (habitIds.length > 0) {
+    reactionRows = await db.habitPerfReaction.findMany({
+      where: { habitId: { in: habitIds }, ymd: { in: [yesterdayYmd, todayYmd] } },
+      select: { fromUserId: true, habitId: true, ymd: true, kind: true },
+    })
+  }
+
+  const yesterdayHabitsOut = attachReactionFields(viewerId, yesterdayHabits, yesterdayYmd, reactionRows)
+  const todayHabitsOut = attachReactionFields(viewerId, todayHabits, todayYmd, reactionRows)
+
   return {
     userId: targetUserId,
     username: profile.username,
@@ -121,7 +157,7 @@ export const getPublicHabitsForPeer = async (viewerId, targetUserId) => {
     peerTodayYmd: todayYmd,
     peerYesterdayYmd: yesterdayYmd,
     habits: habits.map(mapHabit),
-    yesterdayHabits,
-    todayHabits,
+    yesterdayHabits: yesterdayHabitsOut,
+    todayHabits: todayHabitsOut,
   }
 }

@@ -1,5 +1,8 @@
 <script>
+  import { createEventDispatcher } from 'svelte'
   import { formatActiveDaysLabel } from '../../lib/habitWeekdays.js'
+  import { authStore } from '../../stores/auth.js'
+  import { habitsApi } from '../../api/habits.js'
 
   /** @type {boolean} */
   export let open = false
@@ -9,8 +12,18 @@
    *   username?: string,
    *   avatar?: string,
    *   habits?: Array<Record<string, unknown>>,
-   *   yesterdayHabits?: Array<Record<string, unknown> & { done?: boolean }>,
-   *   todayHabits?: Array<Record<string, unknown> & { done?: boolean }>,
+   *   yesterdayHabits?: Array<Record<string, unknown> & {
+   *     done?: boolean,
+   *     reactionHeartCount?: number,
+   *     reactionSkepticCount?: number,
+   *     myReaction?: 'HEART' | 'SKEPTIC' | null,
+   *   }>,
+   *   todayHabits?: Array<Record<string, unknown> & {
+   *     done?: boolean,
+   *     reactionHeartCount?: number,
+   *     reactionSkepticCount?: number,
+   *     myReaction?: 'HEART' | 'SKEPTIC' | null,
+   *   }>,
    *   peerYesterdayYmd?: string,
    *   peerTodayYmd?: string,
    * } | null} */
@@ -21,12 +34,53 @@
   export let error = ''
   export let onClose = () => {}
 
+  const dispatch = createEventDispatcher()
+
   /** @type {'yesterday' | 'today'} */
   let tab = 'today'
   let wasOpen = false
   $: {
     if (open && !wasOpen) tab = 'today'
     wasOpen = open
+  }
+
+  /** @type {string | null} */
+  let reactionBusyId = null
+  let reactionErr = ''
+
+  $: canReact =
+    !!data?.userId &&
+    !!$authStore.user?.id &&
+    $authStore.user.id !== data.userId
+
+  $: ymdForTab = tab === 'today' ? data?.peerTodayYmd : data?.peerYesterdayYmd
+
+  /**
+   * @param {Record<string, unknown> & { id?: string, myReaction?: string | null }} h
+   * @param {'HEART' | 'SKEPTIC'} kind
+   */
+  const setReaction = async (h, kind) => {
+    reactionErr = ''
+    if (!data?.userId || !ymdForTab || typeof h.id !== 'string') return
+    const next = h.myReaction === kind ? null : kind
+    reactionBusyId = h.id
+    try {
+      await habitsApi.setPerfReaction({
+        targetUserId: data.userId,
+        habitId: h.id,
+        ymd: ymdForTab,
+        kind: next,
+      })
+      const refreshed = await habitsApi.getPublicHabits(data.userId)
+      dispatch('updated', refreshed)
+    } catch (e) {
+      reactionErr =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Impossible d’enregistrer la réaction.'
+    } finally {
+      reactionBusyId = null
+    }
   }
 
   const close = () => onClose()
@@ -90,19 +144,64 @@
         <p class="err center-pad">{error}</p>
       {:else if tab === 'today'}
         {#if data?.todayHabits?.length}
+          {#if reactionErr}
+            <p class="err reaction-err">{reactionErr}</p>
+          {/if}
           <ul class="list">
             {#each data.todayHabits as h (h.id)}
               <li class="habit-row" class:done={h.done}>
                 <span class="habit-ico" aria-hidden="true">{h.icon}</span>
-                <div class="habit-info">
-                  <div class="habit-name">{h.name}</div>
-                  <div class="habit-meta muted">
-                    {formatActiveDaysLabel(h.weekdaysMask)} · {h.xp ?? 0} XP
+                <div class="habit-col">
+                  <div class="habit-top">
+                    <div class="habit-info">
+                      <div class="habit-name">{h.name}</div>
+                      <div class="habit-meta muted">
+                        {formatActiveDaysLabel(h.weekdaysMask)} · {h.xp ?? 0} XP
+                      </div>
+                    </div>
+                    <span class="status" class:ok={h.done} aria-label={h.done ? 'Fait' : 'Pas encore fait'}>
+                      {h.done ? 'Fait' : 'Pas encore'}
+                    </span>
                   </div>
+                  {#if h.done && ymdForTab}
+                    <div class="react-bar">
+                      {#if canReact}
+                        <div class="react-btns">
+                          <button
+                            type="button"
+                            class="react-btn"
+                            class:active={h.myReaction === 'HEART'}
+                            disabled={reactionBusyId === h.id}
+                            aria-pressed={h.myReaction === 'HEART'}
+                            aria-label="Aimer cette perf"
+                            on:click={() => setReaction(h, 'HEART')}
+                          >
+                            ❤️
+                          </button>
+                          <button
+                            type="button"
+                            class="react-btn"
+                            class:active={h.myReaction === 'SKEPTIC'}
+                            disabled={reactionBusyId === h.id}
+                            aria-pressed={h.myReaction === 'SKEPTIC'}
+                            aria-label="Sceptique sur cette perf"
+                            on:click={() => setReaction(h, 'SKEPTIC')}
+                          >
+                            🤔
+                          </button>
+                        </div>
+                      {/if}
+                      <span class="react-totals micro muted" aria-label="Totaux de réactions">
+                        ❤️ {h.reactionHeartCount ?? 0} · 🤔 {h.reactionSkepticCount ?? 0}
+                      </span>
+                      {#if canReact && h.myReaction}
+                        <span class="micro muted react-mine">
+                          Ta réaction : {h.myReaction === 'HEART' ? '❤️' : '🤔'}
+                        </span>
+                      {/if}
+                    </div>
+                  {/if}
                 </div>
-                <span class="status" class:ok={h.done} aria-label={h.done ? 'Fait' : 'Pas encore fait'}>
-                  {h.done ? 'Fait' : 'Pas encore'}
-                </span>
               </li>
             {/each}
           </ul>
@@ -111,19 +210,64 @@
         {/if}
       {:else if tab === 'yesterday'}
         {#if data?.yesterdayHabits?.length}
+          {#if reactionErr}
+            <p class="err reaction-err">{reactionErr}</p>
+          {/if}
           <ul class="list">
             {#each data.yesterdayHabits as h (h.id)}
               <li class="habit-row" class:done={h.done}>
                 <span class="habit-ico" aria-hidden="true">{h.icon}</span>
-                <div class="habit-info">
-                  <div class="habit-name">{h.name}</div>
-                  <div class="habit-meta muted">
-                    {formatActiveDaysLabel(h.weekdaysMask)} · {h.xp ?? 0} XP
+                <div class="habit-col">
+                  <div class="habit-top">
+                    <div class="habit-info">
+                      <div class="habit-name">{h.name}</div>
+                      <div class="habit-meta muted">
+                        {formatActiveDaysLabel(h.weekdaysMask)} · {h.xp ?? 0} XP
+                      </div>
+                    </div>
+                    <span class="status" class:ok={h.done} aria-label={h.done ? 'Fait' : 'Non fait'}>
+                      {h.done ? 'Fait' : 'Non fait'}
+                    </span>
                   </div>
+                  {#if h.done && ymdForTab}
+                    <div class="react-bar">
+                      {#if canReact}
+                        <div class="react-btns">
+                          <button
+                            type="button"
+                            class="react-btn"
+                            class:active={h.myReaction === 'HEART'}
+                            disabled={reactionBusyId === h.id}
+                            aria-pressed={h.myReaction === 'HEART'}
+                            aria-label="Aimer cette perf"
+                            on:click={() => setReaction(h, 'HEART')}
+                          >
+                            ❤️
+                          </button>
+                          <button
+                            type="button"
+                            class="react-btn"
+                            class:active={h.myReaction === 'SKEPTIC'}
+                            disabled={reactionBusyId === h.id}
+                            aria-pressed={h.myReaction === 'SKEPTIC'}
+                            aria-label="Sceptique sur cette perf"
+                            on:click={() => setReaction(h, 'SKEPTIC')}
+                          >
+                            🤔
+                          </button>
+                        </div>
+                      {/if}
+                      <span class="react-totals micro muted" aria-label="Totaux de réactions">
+                        ❤️ {h.reactionHeartCount ?? 0} · 🤔 {h.reactionSkepticCount ?? 0}
+                      </span>
+                      {#if canReact && h.myReaction}
+                        <span class="micro muted react-mine">
+                          Ta réaction : {h.myReaction === 'HEART' ? '❤️' : '🤔'}
+                        </span>
+                      {/if}
+                    </div>
+                  {/if}
                 </div>
-                <span class="status" class:ok={h.done} aria-label={h.done ? 'Fait' : 'Non fait'}>
-                  {h.done ? 'Fait' : 'Non fait'}
-                </span>
               </li>
             {/each}
           </ul>
@@ -323,8 +467,79 @@
     border-radius: 12px;
   }
 
+  .habit-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .habit-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
   .habit-row.done {
     border-color: color-mix(in srgb, var(--cyan) 45%, var(--border));
+  }
+
+  .reaction-err {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+  }
+
+  .react-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding-top: 2px;
+    border-top: 1px solid var(--border);
+  }
+
+  .react-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .react-btn {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .react-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .react-btn.active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .react-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .react-totals {
+    font-size: 0.78rem;
+  }
+
+  .react-mine {
+    flex: 1 1 100%;
   }
 
   .habit-ico {

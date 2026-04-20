@@ -42,10 +42,14 @@ model User {
   /// Dernier jour civil où une bannière streak a été renvoyée (anti-répétition)
   lastStreakBannerYmd  String? @db.VarChar(10)
 
+  /// E-mails lorsqu’un pair réagit à une perf d’habitude (❤️ / 🤔)
+  perfReactionEmailsEnabled Boolean @default(true)
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   habits      Habit[]
+  habitPerfReactionsFrom HabitPerfReaction[] @relation("HabitPerfReactionFrom")
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
   memberships GroupMember[]
@@ -221,8 +225,31 @@ model Habit {
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs              HabitLog[]
   dailyOfferCreated DailyHabitOffer?
+  habitPerfReactions HabitPerfReaction[]
 
   @@index([userId])
+}
+
+/// Réaction d’un joueur sur la perf (habitude cochée) d’un autre pour un jour civil (YMD du joueur cible).
+enum HabitPerfReactionKind {
+  HEART
+  SKEPTIC
+}
+
+model HabitPerfReaction {
+  id         String                @id @default(cuid())
+  fromUserId String
+  habitId    String
+  ymd        String                @db.VarChar(10)
+  kind       HabitPerfReactionKind
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  fromUser User  @relation("HabitPerfReactionFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  habit    Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, habitId, ymd])
+  @@index([habitId, ymd])
 }
 
 model HabitLog {

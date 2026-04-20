@@ -364,6 +364,7 @@
   loading={peerLoading}
   error={peerError}
   onClose={closePeerHabits}
+  on:updated={(e) => { peerData = e.detail }}
 />
 
 {/if}
