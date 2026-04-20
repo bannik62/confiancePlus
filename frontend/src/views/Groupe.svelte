@@ -251,6 +251,8 @@
             </div>
             <div class="tags-row">
               <Tag color="var(--gold)">LVL {m.level}</Tag>
+              <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
+              <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
               {#if m.streak > 0}
                 <Tag color="var(--red)">🔥 {m.streak}</Tag>
               {:else}
@@ -330,6 +332,8 @@
           <div class="tags-row">
             <Tag color="var(--gold)">LVL {m.level}</Tag>
             {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
+            <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
+            <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
             {#if m.streak > 0}
               <Tag color="var(--red)">🔥 {m.streak}</Tag>
             {:else}
@@ -411,6 +415,17 @@
   .info { flex: 1; min-width: min(100%, 140px); }
   .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
   .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+  .perf-react-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+    white-space: nowrap;
+    line-height: 1.2;
+  }
   .streak-hint {
     line-height: 1.35;
     max-width: 100%;

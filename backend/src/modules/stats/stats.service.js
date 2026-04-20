@@ -12,6 +12,7 @@ import {
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
+import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -147,6 +148,8 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
     apptByUser[c.userId].push(c)
   }
 
+  const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
+
   return users
     .map((user) => {
       const apptList = apptByUser[user.id] || []
@@ -172,6 +175,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
       )
+      const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
       return {
         id: user.id,
         username: user.username,
@@ -181,6 +185,8 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         title,
         streak,
         groupNames,
+        perfReactionHearts: rx.perfReactionHearts,
+        perfReactionSkeptics: rx.perfReactionSkeptics,
       }
     })
     .sort((a, b) => b.totalXP - a.totalXP)

@@ -12,6 +12,7 @@ import {
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
 import { userIsAppAdmin } from '../admin/adminScope.js'
+import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
@@ -126,6 +127,8 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
     apptByUser[c.userId].push(c)
   }
 
+  const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
+
   return ranked
     .map(({ user }) => {
       const apptList = apptByUser[user.id] || []
@@ -148,7 +151,18 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
         habits:            user.habits,
         habitLogsInWindow: streakLogs,
       })
-      return { id: user.id, username: user.username, avatar: user.avatar, totalXP, level, title, streak }
+      const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
+      return {
+        id: user.id,
+        username: user.username,
+        avatar: user.avatar,
+        totalXP,
+        level,
+        title,
+        streak,
+        perfReactionHearts: rx.perfReactionHearts,
+        perfReactionSkeptics: rx.perfReactionSkeptics,
+      }
     })
     .sort((a, b) => b.totalXP - a.totalXP)
 }
