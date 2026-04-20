@@ -76,3 +76,31 @@ export const recordDailyVisit = async (userId, ymd) => {
     update: {},
   })
 }
+
+/**
+ * Premier jour (en remontant depuis hier) où la chaîne « visite + 50 % » casse — pour le message utilisateur.
+ */
+export const diagnoseStreakBreakReason = ({
+  anchorYmd,
+  visitYmds,
+  habits,
+  habitLogsInWindow,
+}) => {
+  if (!YMD_RE.test(anchorYmd)) return 'unknown'
+  const visits = new Set(visitYmds)
+  const logsByYmd = new Map()
+  for (const l of habitLogsInWindow) {
+    const y = ymdFromDbDate(l.date)
+    if (!logsByYmd.has(y)) logsByYmd.set(y, [])
+    logsByYmd.get(y).push(l)
+  }
+
+  let d = prevCalendarYmd(anchorYmd)
+  for (let i = 0; i < STREAK_CHAIN_MAX_DAYS; i++) {
+    if (!visits.has(d)) return 'missed_visit'
+    const logs = logsByYmd.get(d) || []
+    if (!passesHalfDueHabits(habits, logs, d)) return 'half_habits'
+    d = prevCalendarYmd(d)
+  }
+  return 'unknown'
+}

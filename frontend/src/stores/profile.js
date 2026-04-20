@@ -11,15 +11,19 @@ const DEFAULT = {
   totalXP:  0,
   streak:   0,
   title:    null,
+  /** @type {null | { kind: string, reason?: string, previousStreak?: number, streak: number }} */
+  streakNotice: null,
 }
 
 export const profileStore = writable(DEFAULT)
 
 // Charge le profil depuis l'API et met à jour le store
-// À appeler : au démarrage (après checkSession) + après un check-in
-export const loadProfile = async () => {
+// À appeler : après check-in du jour ({ streakBanner: true } pour bannière streak) ou pour rafraîchir l’XP
+export const loadProfile = async (opts = {}) => {
   try {
-    const data = await statsApi.getMyProfile()
+    const data = await statsApi.getMyProfile({
+      streakBanner: opts.streakBanner === true,
+    })
     profileStore.set(data)
     return data
   } catch {

@@ -44,6 +44,7 @@
   import Agenda  from './views/Agenda.svelte'
   import Admin   from './views/Admin.svelte'
   import Topbar    from './components/modules/Topbar.svelte'
+  import StreakNoticeBanner from './components/modules/StreakNoticeBanner.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
 
@@ -155,7 +156,9 @@
       const grps = await loadGroups()
       if (!done && isAssociationOwner(grps)) done = true
       checkinDone = done
-      await loadProfile()
+      if (done) {
+        await loadProfile({ streakBanner: true })
+      }
       sessionReady = true
     } catch {
       /* 401 → session:expired peut avoir vidé authStore ; ne pas forcer sessionReady */
@@ -227,7 +230,7 @@
   const onCheckinDone = async () => {
     checkinDone = true
     resetDayMessageCache()
-    await loadProfile()
+    await loadProfile({ streakBanner: true })
     try {
       await loadToday()
     } catch {
@@ -272,6 +275,7 @@
     <CheckIn on:done={onCheckinDone} />
   {:else}
     <Topbar />
+    <StreakNoticeBanner />
 
     <main>
       <AuthGuard>

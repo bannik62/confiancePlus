@@ -18,7 +18,8 @@ router.get('/profile', async (req, res, next) => {
   try {
     const clientToday =
       typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
-    res.json(await service.getMyProfile(req.user.id, { clientToday }))
+    const streakBanner = req.query.streakBanner === '1' || req.query.streakBanner === 'true'
+    res.json(await service.getMyProfile(req.user.id, { clientToday, streakBanner }))
   }
   catch (e) { next(e) }
 })
