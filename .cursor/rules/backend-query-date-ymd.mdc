@@ -1,0 +1,23 @@
+---
+description: Valider les dates YYYY-MM-DD passées en query string côté backend Express
+globs: backend/**/*.js
+alwaysApply: false
+---
+
+# Paramètres de date en query (`?date=`)
+
+Ne jamais passer `req.query.date` au métier sans validation : une chaîne invalide peut provoquer des erreurs Prisma ou un comportement imprévisible.
+
+**À faire** : n’accepter que le format civil `YYYY-MM-DD`.
+
+```js
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+const raw = req.query.date
+const date = typeof raw === 'string' && YMD_RE.test(raw) ? raw : undefined
+```
+
+Si la date est absente ou invalide, utiliser `undefined` et laisser le service appliquer sa défaut (souvent « aujourd’hui » UTC ou logique métier).
+
+**À éviter** : `const date = typeof req.query.date === 'string' ? req.query.date : undefined` sans regex.
+
+Référence : `checkin.router.js` — route `GET /today`.

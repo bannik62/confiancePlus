@@ -1,7 +1,13 @@
 import { db } from '../../core/db.js'
 import { isHabitDueOnYmd, ALL_WEEKDAYS_MASK } from '../../lib/habitWeekdays.js'
-import { levelFromXP, xpProgress, titleForLevel, computeStreak, computeDayXP } from '../../core/xpEngine.js'
-import { totalGameXpAndStreakDates, aggregationWindowDateWhere } from '../../core/xpAggregate.js'
+import { levelFromXP, xpProgress, titleForLevel, computeDayXP } from '../../core/xpEngine.js'
+import { totalGameXpAndStreakDates, aggregationWindowDateWhere, ymdFromDbDate } from '../../core/xpAggregate.js'
+import {
+  computeEngagementStreak,
+  recordDailyVisit,
+  ymdMinusDays,
+  STREAK_CHAIN_MAX_DAYS,
+} from '../../core/streakService.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
@@ -90,6 +96,7 @@ const leaderboardExcludedUserIds = async () => {
 export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
+  const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
 
   const excludeIds = await leaderboardExcludedUserIds()
   const users = await db.user.findMany({
@@ -115,6 +122,10 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         where: { date: dateWhere },
         select: { date: true, mood: true, journal: true, sleepQuality: true },
       },
+      dailyVisits: {
+        where: { ymd: { gte: streakMinYmd, lte: anchor } },
+        select: { ymd: true },
+      },
       memberships: {
         select: { group: { select: { name: true } } },
       },
@@ -138,7 +149,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
   return users
     .map((user) => {
       const apptList = apptByUser[user.id] || []
-      const { totalXP, streakDates } = totalGameXpAndStreakDates({
+      const { totalXP } = totalGameXpAndStreakDates({
         habits: user.habits,
         habitLogs: user.habitLogs,
         dailyLogs: user.dailyLogs,
@@ -147,7 +158,16 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       })
       const level = levelFromXP(totalXP)
       const title = titleForLevel(level)
-      const streak = computeStreak(streakDates, anchor)
+      const streakLogs = user.habitLogs.filter((l) => {
+        const y = ymdFromDbDate(l.date)
+        return y >= streakMinYmd && y <= anchor
+      })
+      const streak = computeEngagementStreak({
+        anchorYmd:           anchor,
+        visitYmds:           user.dailyVisits.map((v) => v.ymd),
+        habits:              user.habits,
+        habitLogsInWindow:   streakLogs,
+      })
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
       )
@@ -196,6 +216,9 @@ export const getMyProfile = async (userId, { clientToday } = {}) => {
 
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
+  const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
+
+  await recordDailyVisit(userId, anchor)
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
@@ -219,16 +242,31 @@ export const getMyProfile = async (userId, { clientToday } = {}) => {
     select: { date: true, xpEarned: true },
   })
 
-  const { totalXP, streakDates } = totalGameXpAndStreakDates({
+  const { totalXP } = totalGameXpAndStreakDates({
     habits,
     habitLogs: logs,
     dailyLogs,
     appointmentCompletions: apptDone,
     anchorYmd: anchor,
   })
+
+  const visitRows = await db.dailyVisit.findMany({
+    where: { userId, ymd: { gte: streakMinYmd, lte: anchor } },
+    select: { ymd: true },
+  })
+  const streakLogs = logs.filter((l) => {
+    const y = ymdFromDbDate(l.date)
+    return y >= streakMinYmd && y <= anchor
+  })
+  const streak = computeEngagementStreak({
+    anchorYmd:         anchor,
+    visitYmds:         visitRows.map((v) => v.ymd),
+    habits,
+    habitLogsInWindow: streakLogs,
+  })
+
   const progress = xpProgress(totalXP)
   const title = titleForLevel(progress.level)
-  const streak = computeStreak(streakDates, anchor)
 
   return { ...user, totalXP, ...progress, title, streak }
 }
