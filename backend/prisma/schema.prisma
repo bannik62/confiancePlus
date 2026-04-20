@@ -37,6 +37,11 @@ model User {
   /// Dernier jour civil local où le bonus « journée parfaite » a été attribué
   lastCristalJourneeParfaiteYmd   String?
 
+  /// Dernier streak connu après GET /stats/profile (comparaison bannière)
+  lastProfileStreakInt Int @default(0)
+  /// Dernier jour civil où une bannière streak a été renvoyée (anti-répétition)
+  lastStreakBannerYmd  String? @db.VarChar(10)
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

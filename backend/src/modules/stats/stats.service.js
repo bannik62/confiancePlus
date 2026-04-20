@@ -4,6 +4,7 @@ import { levelFromXP, xpProgress, titleForLevel, computeDayXP } from '../../core
 import { totalGameXpAndStreakDates, aggregationWindowDateWhere, ymdFromDbDate } from '../../core/xpAggregate.js'
 import {
   computeEngagementStreak,
+  diagnoseStreakBreakReason,
   recordDailyVisit,
   ymdMinusDays,
   STREAK_CHAIN_MAX_DAYS,
@@ -210,13 +211,23 @@ export const getEducatorAssociationOverview = async (userId, { clientToday } = {
   }
 }
 
-export const getMyProfile = async (userId, { clientToday } = {}) => {
+export const getMyProfile = async (userId, { clientToday, streakBanner = false } = {}) => {
   if (await userIsAppAdmin(userId))
     throw { status: 403, message: 'Compte administrateur : pas de profil joueur.' }
 
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
   const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
+
+  const streakStateRow = await db.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: {
+      lastProfileStreakInt: true,
+      lastStreakBannerYmd:  true,
+    },
+  })
+  const prevStreakForBanner = streakStateRow.lastProfileStreakInt
+  const lastBannerYmd       = streakStateRow.lastStreakBannerYmd
 
   await recordDailyVisit(userId, anchor)
 
@@ -265,10 +276,43 @@ export const getMyProfile = async (userId, { clientToday } = {}) => {
     habitLogsInWindow: streakLogs,
   })
 
+  /** @type {null | { kind: string, reason?: string, previousStreak?: number, streak: number }} */
+  let streakNotice = null
+  if (streakBanner && lastBannerYmd !== anchor) {
+    if (prevStreakForBanner > 0 && streak < prevStreakForBanner) {
+      streakNotice = {
+        kind:            'broken',
+        reason: diagnoseStreakBreakReason({
+          anchorYmd:         anchor,
+          visitYmds:         visitRows.map((v) => v.ymd),
+          habits,
+          habitLogsInWindow: streakLogs,
+        }),
+        previousStreak: prevStreakForBanner,
+        streak,
+      }
+    } else if (streak === 1 && prevStreakForBanner === 0) {
+      streakNotice = { kind: 'started', streak }
+    } else if (
+      streak >= 1 &&
+      !(prevStreakForBanner > 0 && streak < prevStreakForBanner)
+    ) {
+      streakNotice = { kind: 'maintained', streak }
+    }
+  }
+
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      lastProfileStreakInt: streak,
+      ...(streakBanner && streakNotice ? { lastStreakBannerYmd: anchor } : {}),
+    },
+  })
+
   const progress = xpProgress(totalXP)
   const title = titleForLevel(progress.level)
 
-  return { ...user, totalXP, ...progress, title, streak }
+  return { ...user, totalXP, ...progress, title, streak, streakNotice }
 }
 
 // Calendrier année : tous les jours avec data agrégée + détails émotionnels

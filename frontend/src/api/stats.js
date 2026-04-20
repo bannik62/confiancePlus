@@ -10,8 +10,9 @@ export const statsApi = {
     const q = new URLSearchParams({ clientToday: localDateString() })
     return api.get(`/stats/educator-overview?${q}`)
   },
-  getMyProfile: () => {
+  getMyProfile: (opts = {}) => {
     const q = new URLSearchParams({ clientToday: localDateString() })
+    if (opts.streakBanner) q.set('streakBanner', '1')
     return api.get(`/stats/profile?${q}`)
   },
   globalLeaderboard: () => {
