@@ -43,7 +43,7 @@
     })
   }
   
-  // day.xp = serveur (computeDayXP : bonus 100 % déjà inclus)
+  // day.xp = serveur (computeDayXP : bonus « toutes cochées » déjà inclus)
   $: totalXp = day?.xp ?? 0
 </script>
 

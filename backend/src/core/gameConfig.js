@@ -7,7 +7,8 @@ export const GAME = {
   // ── XP par action ───────────────────────────────────────────────────────────
   xp: {
     habitBase:      20,   // XP de base si l'habitude n'a pas de valeur custom
-    bonusAllDone:   1.5,  // multiplicateur si toutes les habitudes du jour cochées
+    /** Coefficient × nombre d’habitudes dues le jour (si toutes cochées) → multiplicateur sur l’XP habitudes ; min 1 */
+    bonusPerTask:     0.2,
     checkInBonus:   5,    // XP pour avoir fait son check-in du jour
     journalBonus:   5,    // XP pour avoir rempli le journal
     sleepBonus:     3,    // XP pour avoir renseigné la qualité du sommeil

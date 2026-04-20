@@ -8,13 +8,12 @@ const dateFromYMD = (ymd) => {
   return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
 }
 
-/** Jours à ajouter à une date Y-M-D (UTC) */
-const addDaysYmd = (ymd, delta) => {
-  const [y, m, d] = ymd.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
-  dt.setUTCDate(dt.getUTCDate() + delta)
-  return dt.toISOString().slice(0, 10)
-}
+/** Même normalisation pour titre de modèle et nom d’habitude (dédup) */
+export const normalizeDailyOfferTitle = (s) =>
+  String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
 
 const notEligible = async (userId) =>
   (await userIsAssociationOwner(userId)) || (await userIsAppAdmin(userId))
@@ -37,32 +36,29 @@ const formatOffer = (row) => ({
 })
 
 /**
- * Parmi les templates actifs, exclut ceux déjà proposés sur les 7 derniers jours civils (fenêtre glissante).
- * Si le pool est vide, retombe sur tous les actifs (évite blocage).
+ * Parmi les templates actifs, exclut ceux dont le titre normalisé = nom d’habitude déjà présent.
+ * Pas de repli sur tout le catalogue si le pool est vide.
  */
-export const pickTemplateForUser = async (userId, clientYmd) => {
+export const pickTemplateForUser = async (userId) => {
   const templates = await db.dailyHabitTemplate.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
   })
-  if (!templates.length) return null
+  if (!templates.length) return { template: null, reason: 'no_templates' }
 
-  const windowStartYmd = addDaysYmd(clientYmd, -6)
-  const start = dateFromYMD(windowStartYmd)
-  const end = dateFromYMD(clientYmd)
-
-  const recent = await db.dailyHabitOffer.findMany({
-    where: {
-      userId,
-      offerDate: { gte: start, lte: end },
-    },
-    select: { templateId: true },
+  const habits = await db.habit.findMany({
+    where: { userId, isActive: true },
+    select: { name: true },
   })
-  const used = new Set(recent.map((r) => r.templateId))
-  let pool = templates.filter((t) => !used.has(t.id))
-  if (!pool.length) pool = templates
+  const taken = new Set(habits.map((h) => normalizeDailyOfferTitle(h.name)))
 
-  return pool[Math.floor(Math.random() * pool.length)]
+  const pool = templates.filter(
+    (t) => !taken.has(normalizeDailyOfferTitle(t.title)),
+  )
+  if (!pool.length) return { template: null, reason: 'exhausted' }
+
+  const template = pool[Math.floor(Math.random() * pool.length)]
+  return { template, reason: null }
 }
 
 /**
@@ -92,8 +88,11 @@ export const getOrCreateDailyOffer = async (userId, clientYmd) => {
     return { eligible: true, offer: formatOffer(existing) }
   }
 
-  const template = await pickTemplateForUser(userId, ymd)
-  if (!template) {
+  const pick = await pickTemplateForUser(userId)
+  if (!pick.template) {
+    if (pick.reason === 'exhausted') {
+      return { eligible: true, exhausted: true, offer: null }
+    }
     return { eligible: false, reason: 'no_templates' }
   }
 
@@ -101,7 +100,7 @@ export const getOrCreateDailyOffer = async (userId, clientYmd) => {
     data: {
       userId,
       offerDate: day,
-      templateId: template.id,
+      templateId: pick.template.id,
       status: 'PENDING',
     },
     include: {
