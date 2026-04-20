@@ -265,15 +265,17 @@
               <div class="xp-val">{m.totalXP.toLocaleString()}</div>
               <div class="micro muted">XP</div>
             </div>
-            <button
-              type="button"
-              class="btn-habits"
-              on:click|stopPropagation={() => openPeerHabits(m)}
-              aria-label="Habitudes de {m.username}"
-            >
-              <span class="btn-habits-ico" aria-hidden="true">📋</span>
-              <span class="btn-habits-txt">Habitudes</span>
-            </button>
+            {#if !isMe(m.id)}
+              <button
+                type="button"
+                class="btn-habits"
+                on:click|stopPropagation={() => openPeerHabits(m)}
+                aria-label="Habitudes de {m.username}"
+              >
+                <span class="btn-habits-ico" aria-hidden="true">📋</span>
+                <span class="btn-habits-txt">Habitudes</span>
+              </button>
+            {/if}
           </div>
         </div>
       {/each}
@@ -346,15 +348,17 @@
             <div class="xp-val">{m.totalXP.toLocaleString()}</div>
             <div class="micro muted">XP</div>
           </div>
-          <button
-            type="button"
-            class="btn-habits"
-            on:click|stopPropagation={() => openPeerHabits(m)}
-            aria-label="Habitudes de {m.username}"
-          >
-            <span class="btn-habits-ico" aria-hidden="true">📋</span>
-            <span class="btn-habits-txt">Habitudes</span>
-          </button>
+          {#if !isMe(m.id)}
+            <button
+              type="button"
+              class="btn-habits"
+              on:click|stopPropagation={() => openPeerHabits(m)}
+              aria-label="Habitudes de {m.username}"
+            >
+              <span class="btn-habits-ico" aria-hidden="true">📋</span>
+              <span class="btn-habits-txt">Habitudes</span>
+            </button>
+          {/if}
         </div>
       </div>
     {/each}

@@ -305,17 +305,22 @@
 </div>
 {:else}
 <div class="view">
-  <!-- Message du jour -->
-  <Card style="margin-bottom:13px; border-left: 3px solid var(--cyan)">
-    <div class="sup" style="color:var(--cyan)">MESSAGE DU JOUR</div>
-    <p class="msg">{encourage || 'Bonne journée — un pas après l’autre.'}</p>
-    <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-      <Tag color="var(--cyan)">Humeur {mood}/10</Tag>
-      {#if $dailyLog?.moodReason}
-        <em class="reason">"{$dailyLog.moodReason}"</em>
-      {/if}
-    </div>
-  </Card>
+  <!-- Message du jour + accès boutique (bouton à droite, responsive) -->
+  <div class="dayMessageRow">
+    <Card style="flex:1; min-width:0; border-left: 3px solid var(--cyan)">
+      <div class="sup" style="color:var(--cyan)">MESSAGE DU JOUR</div>
+      <p class="msg">{encourage || 'Bonne journée — un pas après l’autre.'}</p>
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+        <Tag color="var(--cyan)">Humeur {mood}/10</Tag>
+        {#if $dailyLog?.moodReason}
+          <em class="reason">"{$dailyLog.moodReason}"</em>
+        {/if}
+      </div>
+    </Card>
+    <aside class="shopAside" aria-label="Boutique">
+      <button type="button" class="shopBtn" on:click={() => tab.set('shop')}>Shop</button>
+    </aside>
+  </div>
 
   <!-- Stats mini -->
   <div class="grid2" style="margin-bottom:13px">
@@ -780,6 +785,59 @@
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
     box-shadow: 0 0 12px var(--accent)44;
+  }
+
+  .dayMessageRow {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 13px;
+  }
+  .shopAside {
+    flex: 0 0 auto;
+    padding-top: 2px;
+    align-self: flex-start;
+  }
+  .shopBtn {
+    appearance: none;
+    min-height: 44px;
+    min-width: 88px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    cursor: pointer;
+    border: 1px solid rgba(6, 182, 212, 0.42);
+    background: linear-gradient(165deg, rgba(6, 182, 212, 0.14) 0%, var(--bg) 100%);
+    box-shadow:
+      0 0 0 1px rgba(6, 182, 212, 0.12),
+      0 4px 20px rgba(6, 182, 212, 0.14);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  }
+  .shopBtn:hover {
+    border-color: rgba(6, 182, 212, 0.55);
+    box-shadow:
+      0 0 0 1px rgba(6, 182, 212, 0.18),
+      0 6px 26px rgba(6, 182, 212, 0.2);
+    transform: translateY(-1px);
+  }
+  .shopBtn:active {
+    transform: translateY(0);
+  }
+  @media (max-width: 480px) {
+    .dayMessageRow {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .shopAside {
+      padding-top: 0;
+    }
+    .shopBtn {
+      width: 100%;
+    }
   }
 </style>
 

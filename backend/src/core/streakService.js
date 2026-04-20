@@ -5,7 +5,15 @@ import { ymdFromDbDate } from './xpAggregate.js'
 /** Fenêtre chargée (jours civils) + pas max dans la chaîne — perf, aligné demande « 10 j ». */
 export const STREAK_CHAIN_MAX_DAYS = 10
 
+/** Coût sauvetage streak (M1 : cristaux uniquement). */
+export const STREAK_RECOVER_CRISTAUX_COST = 5
+
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+const dateNoonUtc = (ymd) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
+}
 
 export const prevCalendarYmd = (ymd) => {
   const d = new Date(`${ymd}T12:00:00.000Z`)
@@ -103,4 +111,94 @@ export const diagnoseStreakBreakReason = ({
     d = prevCalendarYmd(d)
   }
   return 'unknown'
+}
+
+/**
+ * Habitudes dues un jour donné (actives, créées avant ou ce jour).
+ * @param {Array<{ id: string, weekdaysMask?: number|null, createdAt: Date, isActive: boolean }>} habits
+ */
+const habitsDueOnYmd = (habits, ymd) =>
+  habits.filter((h) => {
+    if (!h.isActive) return false
+    if (createdYmd(h.createdAt) > ymd) return false
+    return isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd)
+  })
+
+/**
+ * Identifiants d’habitudes à cocher en plus pour atteindre la moitié des dues (ordre stable).
+ */
+const minimalExtraHabitIdsForHalf = (dueHabits, doneIds) => {
+  const need = Math.ceil(dueHabits.length / 2)
+  const done = dueHabits.filter((h) => doneIds.has(h.id)).length
+  if (done >= need) return []
+  const missing = dueHabits
+    .filter((h) => !doneIds.has(h.id))
+    .sort((a, b) => a.id.localeCompare(b.id))
+  return missing.slice(0, need - done).map((h) => h.id)
+}
+
+/**
+ * Plan de sauvetage « au plus un jour civil » : uniquement **hier** (par rapport à `anchorYmd`).
+ * Retourne null si hier est déjà OK pour la chaîne ou si corriger hier ne remonte pas le streak.
+ *
+ * @returns {null | { recoverYmd: string, needVisit: boolean, extraHabitIds: string[], streakBefore: number, streakAfter: number }}
+ */
+export const planYesterdayStreakRecovery = ({
+  anchorYmd,
+  visitYmds,
+  habits,
+  habitLogsInWindow,
+}) => {
+  if (!YMD_RE.test(anchorYmd)) return null
+  const recoverYmd = prevCalendarYmd(anchorYmd)
+  const visits = new Set(visitYmds)
+
+  const logsByYmd = new Map()
+  for (const l of habitLogsInWindow) {
+    const y = ymdFromDbDate(l.date)
+    if (!logsByYmd.has(y)) logsByYmd.set(y, [])
+    logsByYmd.get(y).push(l)
+  }
+
+  const logsY = logsByYmd.get(recoverYmd) || []
+  const needVisit = !visits.has(recoverYmd)
+  const due = habitsDueOnYmd(habits, recoverYmd)
+  const doneIds = new Set(logsY.map((l) => l.habitId))
+  const halfOk = passesHalfDueHabits(habits, logsY, recoverYmd)
+
+  if (!needVisit && halfOk) return null
+
+  const extraHabitIds = minimalExtraHabitIdsForHalf(due, doneIds)
+
+  const visitsSim = new Set(visits)
+  if (needVisit) visitsSim.add(recoverYmd)
+
+  const synthetic = extraHabitIds.map((habitId) => ({
+    habitId,
+    date: dateNoonUtc(recoverYmd),
+  }))
+  const logsSim = [...habitLogsInWindow, ...synthetic]
+
+  const streakBefore = computeEngagementStreak({
+    anchorYmd,
+    visitYmds:         [...visits],
+    habits,
+    habitLogsInWindow,
+  })
+  const streakAfter = computeEngagementStreak({
+    anchorYmd,
+    visitYmds:         [...visitsSim],
+    habits,
+    habitLogsInWindow: logsSim,
+  })
+
+  if (streakAfter <= streakBefore) return null
+
+  return {
+    recoverYmd:   recoverYmd,
+    needVisit,
+    extraHabitIds,
+    streakBefore,
+    streakAfter,
+  }
 }

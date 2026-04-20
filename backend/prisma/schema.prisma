@@ -41,6 +41,10 @@ model User {
   lastProfileStreakInt Int @default(0)
   /// Dernier jour civil où une bannière streak a été renvoyée (anti-répétition)
   lastStreakBannerYmd  String? @db.VarChar(10)
+  /// Dernier jour « clientToday » (YMD) où un sauvetage streak a été payé (anti double débit)
+  lastStreakRecoverAnchorYmd String? @db.VarChar(10)
+  /// Jokers « sauvetage de série » en stock (achetés en boutique, consommés au recover)
+  jokerStreak                  Int     @default(0)
 
   /// E-mails lorsqu’un pair réagit à une perf d’habitude (❤️ / 🤔)
   perfReactionEmailsEnabled Boolean @default(true)
