@@ -10,13 +10,14 @@
     "build:front":  "npm run build --prefix frontend",
     "install:all":  "npm install --prefix frontend && npm install --prefix backend",
 
+    "db:generate":  "docker compose exec -T backend npx prisma generate",
     "db:migrate":   "docker compose exec -T backend npx prisma migrate deploy",
     "db:migrate:deploy": "docker compose exec -T backend npx prisma migrate deploy",
     "db:migrate:dev": "docker compose exec -T backend npx prisma migrate dev",
-    "db:push":      "docker compose exec backend npx prisma db push",
-    "db:seed":      "docker compose exec backend npx prisma db seed",
+    "db:push":      "docker compose exec -T backend npx prisma db push",
+    "db:seed":      "docker compose exec -T backend npx prisma db seed",
     "db:studio":    "docker compose exec backend npx prisma studio",
-    "db:reset":     "docker compose exec backend npx prisma migrate reset --force",
+    "db:reset":     "docker compose exec -T backend npx prisma migrate reset --force",
 
     "logs":         "docker compose logs -f backend",
     "stop":         "docker compose down",

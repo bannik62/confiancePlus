@@ -2,6 +2,8 @@
   /** @type {{ title: string, icon: string, xpTotal: number } | null} */
   export let template = null
   export let loading = false
+  /** Erreur API (réseau, refus, etc.) */
+  export let errorMessage = ''
   /** Refus explicite uniquement (pas de fermeture au clic hors carte) */
   export let onDismiss = async () => {}
   export let onAccept = async () => {}
@@ -27,6 +29,9 @@
           +{template.xpTotal} XP si tu coches cette habitude aujourd’hui
           <span class="hint">(bonus par rapport au +10 habituel)</span>
         </p>
+        {#if errorMessage}
+          <p class="err" role="alert">{errorMessage}</p>
+        {/if}
         <div class="actions">
           <button type="button" class="btn ghost" disabled={loading} on:click={() => onDismiss()}>
             {loading ? '…' : 'Je n’en veux pas'}
@@ -102,6 +107,16 @@
     margin-top: 0.35rem;
     font-size: 0.78rem;
     color: var(--muted, #94a3b8);
+  }
+  .err {
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
   }
   .actions {
     display: flex;

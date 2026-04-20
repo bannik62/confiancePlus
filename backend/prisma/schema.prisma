@@ -47,6 +47,9 @@ model User {
 
   dailyHabitOffers DailyHabitOffer[]
 
+  /// Première ouverture app par jour civil local (YMD) — streak « flamme »
+  dailyVisits DailyVisit[]
+
   appointmentsAssigned     Appointment[]           @relation("AppointmentAssignee")
   appointmentsCreated      Appointment[]           @relation("AppointmentCreator")
   appointmentCompletions   AppointmentCompletion[]
@@ -182,6 +185,19 @@ model DailyHabitOffer {
   @@unique([userId, offerDate])
   @@index([userId, offerDate])
   @@index([templateId])
+}
+
+/// Une ligne par utilisateur et par jour civil (première connexion du jour)
+model DailyVisit {
+  id     String @id @default(cuid())
+  userId String
+  /// YYYY-MM-DD (aligné clientToday)
+  ymd    String @db.VarChar(10)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ymd])
+  @@index([userId, ymd])
 }
 
 model Habit {

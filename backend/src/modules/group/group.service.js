@@ -1,8 +1,13 @@
 import { randomBytes } from 'crypto'
 import { db } from '../../core/db.js'
 import { normalizeEmail } from '../../core/emailUtil.js'
-import { levelFromXP, titleForLevel, computeStreak } from '../../core/xpEngine.js'
-import { totalGameXpAndStreakDates, aggregationWindowDateWhere } from '../../core/xpAggregate.js'
+import { levelFromXP, titleForLevel } from '../../core/xpEngine.js'
+import { totalGameXpAndStreakDates, aggregationWindowDateWhere, ymdFromDbDate } from '../../core/xpAggregate.js'
+import {
+  computeEngagementStreak,
+  ymdMinusDays,
+  STREAK_CHAIN_MAX_DAYS,
+} from '../../core/streakService.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
@@ -66,6 +71,7 @@ export const joinGroup = async (userId, { inviteCode }) => {
 export const getLeaderboard = async (groupId, { clientToday } = {}) => {
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
+  const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
 
   const group = await db.group.findUnique({
     where: { id: groupId },
@@ -91,6 +97,10 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
           dailyLogs: {
             where: { date: dateWhere },
             select: { date: true, mood: true, journal: true, sleepQuality: true },
+          },
+          dailyVisits: {
+            where: { ymd: { gte: streakMinYmd, lte: anchor } },
+            select: { ymd: true },
           },
         },
       },
@@ -119,7 +129,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
   return ranked
     .map(({ user }) => {
       const apptList = apptByUser[user.id] || []
-      const { totalXP, streakDates } = totalGameXpAndStreakDates({
+      const { totalXP } = totalGameXpAndStreakDates({
         habits: user.habits,
         habitLogs: user.habitLogs,
         dailyLogs: user.dailyLogs,
@@ -128,7 +138,16 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
       })
       const level = levelFromXP(totalXP)
       const title = titleForLevel(level)
-      const streak = computeStreak(streakDates, anchor)
+      const streakLogs = user.habitLogs.filter((l) => {
+        const y = ymdFromDbDate(l.date)
+        return y >= streakMinYmd && y <= anchor
+      })
+      const streak = computeEngagementStreak({
+        anchorYmd:         anchor,
+        visitYmds:         user.dailyVisits.map((v) => v.ymd),
+        habits:            user.habits,
+        habitLogsInWindow: streakLogs,
+      })
       return { id: user.id, username: user.username, avatar: user.avatar, totalXP, level, title, streak }
     })
     .sort((a, b) => b.totalXP - a.totalXP)

@@ -174,17 +174,6 @@ export const acceptDailyOffer = async (userId, clientYmd) => {
     }
   }
 
-  const logsToday = await db.habitLog.count({
-    where: { userId, date: day },
-  })
-  if (logsToday === 0) {
-    throw {
-      status: 400,
-      message:
-        'Coche au moins une habitude aujourd’hui avant d’accepter l’offre du jour.',
-    }
-  }
-
   const maxRow = await db.habit.aggregate({
     where: { userId },
     _max: { order: true },

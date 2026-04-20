@@ -76,6 +76,7 @@
   let showDailyOffer = false
   let dailyOfferTemplate = null
   let dailyOfferLoading = false
+  let dailyOfferError = ''
 
   async function tryDailyOffer() {
     if (get(isAppAdmin)) return
@@ -83,6 +84,7 @@
     try {
       const r = await habitsApi.getDailyOffer()
       if (r.eligible && r.offer?.status === 'PENDING' && r.offer.template) {
+        dailyOfferError = ''
         dailyOfferTemplate = r.offer.template
         showDailyOffer = true
       }
@@ -93,10 +95,16 @@
 
   async function handleDailyDismiss() {
     dailyOfferLoading = true
+    dailyOfferError = ''
     try {
       await habitsApi.dismissDailyOffer()
       showDailyOffer = false
       dailyOfferTemplate = null
+    } catch (e) {
+      dailyOfferError =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Impossible d’enregistrer ton choix.'
     } finally {
       dailyOfferLoading = false
     }
@@ -104,12 +112,18 @@
 
   async function handleDailyAccept() {
     dailyOfferLoading = true
+    dailyOfferError = ''
     try {
       const r = await habitsApi.acceptDailyOffer()
       if (r && typeof r.cristaux === 'number') mergeUser({ cristaux: r.cristaux })
       await loadHabits()
       showDailyOffer = false
       dailyOfferTemplate = null
+    } catch (e) {
+      dailyOfferError =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Impossible d’accepter l’offre pour le moment.'
     } finally {
       dailyOfferLoading = false
     }
@@ -119,6 +133,7 @@
     sessionReady = false
     showDailyOffer = false
     dailyOfferTemplate = null
+    dailyOfferError = ''
     try {
       await tick()
       await new Promise((r) => setTimeout(r, 50))
@@ -167,6 +182,7 @@
       checkinDone = false
       showDailyOffer = false
       dailyOfferTemplate = null
+      dailyOfferError = ''
       resetDayMessageCache()
     }
 
@@ -194,6 +210,7 @@
     checkinDone    = false
     showDailyOffer = false
     dailyOfferTemplate = null
+    dailyOfferError = ''
     resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
@@ -245,6 +262,7 @@
     <DailyOfferModal
       template={dailyOfferTemplate}
       loading={dailyOfferLoading}
+      errorMessage={dailyOfferError}
       onDismiss={handleDailyDismiss}
       onAccept={handleDailyAccept}
     />
