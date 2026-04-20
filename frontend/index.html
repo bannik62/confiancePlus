@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +10,13 @@
     />
     <meta name="theme-color" content="#07071a" />
 
-    <!-- Partage réseaux (Open Graph, Messenger, WhatsApp, etc.) -->
+    <link rel="canonical" href="https://habitracks.vitalinfo.site/" />
+
+    <!--
+      Open Graph : Facebook, LinkedIn, Messenger, WhatsApp, iMessage, etc.
+      Rafraîchir le cache : https://developers.facebook.com/tools/debug/
+      LinkedIn : https://www.linkedin.com/post-inspector/
+    -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://habitracks.vitalinfo.site/" />
     <meta property="og:site_name" content="Habitracks" />
@@ -23,9 +29,20 @@
       property="og:image"
       content="https://habitracks.vitalinfo.site/screenshots/desktop.png"
     />
-    <meta property="og:image:width" content="1280" />
-    <meta property="og:image:height" content="720" />
+    <meta
+      property="og:image:secure_url"
+      content="https://habitracks.vitalinfo.site/screenshots/desktop.png"
+    />
+    <meta property="og:image:type" content="image/png" />
+    <!-- Pas de og:image:width/height si le fichier réel a d’autres dimensions — Facebook rejette parfois un écart -->
+    <meta
+      property="og:image:alt"
+      content="Aperçu Habitracks — tracker d’habitudes quotidiennes"
+    />
     <meta property="og:locale" content="fr_FR" />
+
+    <!-- Ancien format Facebook + certains crawlers -->
+    <link rel="image_src" href="https://habitracks.vitalinfo.site/screenshots/desktop.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Habitracks" />
@@ -37,6 +54,21 @@
       name="twitter:image"
       content="https://habitracks.vitalinfo.site/screenshots/desktop.png"
     />
+    <meta name="twitter:image:alt" content="Aperçu Habitracks — application" />
+
+    <!-- Données structurées — certaines applis Facebook / Google les lisent en complément d’OG -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Habitracks",
+        "url": "https://habitracks.vitalinfo.site/",
+        "description": "Tracker d’habitudes quotidiennes — coches, streak, XP et plus.",
+        "image": "https://habitracks.vitalinfo.site/screenshots/desktop.png",
+        "inLanguage": "fr-FR"
+      }
+    </script>
+
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/favicon.png" sizes="48x48" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
