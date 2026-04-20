@@ -11,6 +11,7 @@ import {
 } from './habits.schema.js'
 import * as service from './habits.service.js'
 import * as dailyOffer from './dailyOffer.service.js'
+import { getPublicHabitsForPeer } from './habits.peer.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -63,6 +64,15 @@ router.post(
     }
   },
 )
+
+/** Habitudes visibles depuis le classement (joueur du même groupe ou profil « classement global »). */
+router.get('/public/:userId', async (req, res, next) => {
+  try {
+    res.json(await getPublicHabitsForPeer(req.user.id, req.params.userId))
+  } catch (e) {
+    next(e)
+  }
+})
 
 router.post('/',               validate(createHabitSchema), async (req, res, next) => {
   try { res.status(201).json(await service.createHabit(req.user.id, req.body)) }

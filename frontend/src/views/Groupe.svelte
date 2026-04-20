@@ -6,8 +6,10 @@
     myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard, loadGroups,
   } from '../stores/group.js'
   import { groupApi } from '../api/group.js'
+  import { habitsApi } from '../api/habits.js'
   import Tag  from '../components/ui/Tag.svelte'
   import Card from '../components/ui/Card.svelte'
+  import PeerHabitsModal from '../components/group/PeerHabitsModal.svelte'
 
   // ── Onglet actif ─────────────────────────────────────────────────────────
   let tab = 'global'  // 'groupe' | 'global'
@@ -104,6 +106,35 @@
       error = e.message
     } finally {
       sharingSaving = false
+    }
+  }
+
+  let peerOpen = false
+  let peerLoading = false
+  let peerError = ''
+  let peerData = null
+  let peerTitle = 'Habitudes'
+
+  const closePeerHabits = () => {
+    peerOpen = false
+    peerError = ''
+  }
+
+  const openPeerHabits = async (m) => {
+    peerTitle = m.username ? `Habitudes — ${m.username}` : 'Habitudes'
+    peerOpen = true
+    peerLoading = true
+    peerError = ''
+    peerData = null
+    try {
+      peerData = await habitsApi.getPublicHabits(m.id)
+    } catch (e) {
+      peerError =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Impossible d’afficher les habitudes.'
+    } finally {
+      peerLoading = false
     }
   }
 </script>
@@ -223,9 +254,20 @@
               {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
             </div>
           </div>
-          <div class="xp-col">
-            <div class="xp-val">{m.totalXP.toLocaleString()}</div>
-            <div class="micro muted">XP</div>
+          <div class="actions-col">
+            <div class="xp-stack">
+              <div class="xp-val">{m.totalXP.toLocaleString()}</div>
+              <div class="micro muted">XP</div>
+            </div>
+            <button
+              type="button"
+              class="btn-habits"
+              on:click|stopPropagation={() => openPeerHabits(m)}
+              aria-label="Habitudes de {m.username}"
+            >
+              <span class="btn-habits-ico" aria-hidden="true">📋</span>
+              <span class="btn-habits-txt">Habitudes</span>
+            </button>
           </div>
         </div>
       {/each}
@@ -287,14 +329,34 @@
             {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
           </div>
         </div>
-        <div class="xp-col">
-          <div class="xp-val">{m.totalXP.toLocaleString()}</div>
-          <div class="micro muted">XP</div>
+        <div class="actions-col">
+          <div class="xp-stack">
+            <div class="xp-val">{m.totalXP.toLocaleString()}</div>
+            <div class="micro muted">XP</div>
+          </div>
+          <button
+            type="button"
+            class="btn-habits"
+            on:click|stopPropagation={() => openPeerHabits(m)}
+            aria-label="Habitudes de {m.username}"
+          >
+            <span class="btn-habits-ico" aria-hidden="true">📋</span>
+            <span class="btn-habits-txt">Habitudes</span>
+          </button>
         </div>
       </div>
     {/each}
   </div>
 {/if}
+
+<PeerHabitsModal
+  open={peerOpen}
+  title={peerTitle}
+  data={peerData}
+  loading={peerLoading}
+  error={peerError}
+  onClose={closePeerHabits}
+/>
 
 {/if}
 
@@ -319,6 +381,7 @@
   .row-member {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
     transition: all 0.15s;
   }
   .row-member.top { border-color: var(--gold)66; box-shadow: 0 0 14px var(--gold)44; }
@@ -336,7 +399,7 @@
     background: var(--accent)22; border: 2px solid var(--accent)44;
     display: flex; align-items: center; justify-content: center; font-size: 22px;
   }
-  .info { flex: 1; }
+  .info { flex: 1; min-width: min(100%, 140px); }
   .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
   .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
 
@@ -367,8 +430,76 @@
     font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
   }
 
-  .xp-col { text-align: right; }
+  .actions-col {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  @media (max-width: 400px) {
+    .actions-col {
+      width: 100%;
+      margin-left: 0;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  .xp-stack { text-align: right; min-width: 0; }
   .xp-val { font-weight: 900; font-size: 16px; color: var(--gold); }
+
+  .btn-habits {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--accent)55;
+    border-radius: 12px;
+    background: var(--accent)18;
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-habits:hover {
+    background: var(--accent)30;
+    border-color: var(--accent)88;
+  }
+
+  .btn-habits-ico {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  @media (max-width: 380px) {
+    .btn-habits-txt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .btn-habits {
+      padding: 0 10px;
+    }
+  }
 
   /* ── Header groupe ── */
   .group-header {

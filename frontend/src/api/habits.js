@@ -17,4 +17,6 @@ export const habitsApi = {
     api.post('/habits/daily-offer/dismiss', { date: date ?? localDateString() }),
   acceptDailyOffer: (date) =>
     api.post('/habits/daily-offer/accept', { date: date ?? localDateString() }),
+  /** Liste des habitudes actives d’un joueur (classement) */
+  getPublicHabits: (userId) => api.get(`/habits/public/${encodeURIComponent(userId)}`),
 }
