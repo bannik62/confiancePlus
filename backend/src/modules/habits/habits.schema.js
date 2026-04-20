@@ -33,6 +33,9 @@ export const toggleSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
+/** Passer / annuler le passage pour un jour (même format de date que toggle) */
+export const skipDaySchema = toggleSchema
+
 /** Query GET /habits — date = jour civil client (YYYY-MM-DD), comme /checkin/today */
 export const listHabitsQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -44,4 +47,12 @@ export const dailyOfferQuerySchema = z.object({
 
 export const dailyOfferBodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+})
+
+/** Réaction sur une perf (habitude validée) — jour civil du joueur cible (YMD). kind null = retirer. */
+export const perfReactionBodySchema = z.object({
+  targetUserId: z.string().min(1),
+  habitId:    z.string().min(1),
+  ymd:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  kind:       z.enum(['HEART', 'SKEPTIC']).nullable(),
 })

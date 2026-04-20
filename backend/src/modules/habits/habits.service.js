@@ -40,14 +40,66 @@ export const getHabits = async (userId, dateStr) => {
     orderBy: { order: 'asc' },
     include: { logs: { where: { date: day } } },
   })
+  const skips = await db.habitDaySkip.findMany({
+    where: { userId, date: day },
+    select: { habitId: true },
+  })
+  const skippedIds = new Set(skips.map((s) => s.habitId))
   return rows.map((h) => {
     const weekdaysMask = h.weekdaysMask ?? ALL_WEEKDAYS_MASK
     return {
       ...h,
       weekdaysMask,
-      isDue: isHabitDueOnYmd(weekdaysMask, ymd),
+      isDue:          isHabitDueOnYmd(weekdaysMask, ymd),
+      skippedForDay:  skippedIds.has(h.id),
     }
   })
+}
+
+/**
+ * Déclare ne pas pouvoir faire l’habitude ce jour : pas d’XP, n’entre pas dans les « dues » pour streak / journée parfaite.
+ */
+export const skipHabitForDay = async (habitId, userId, dateStr) => {
+  await forbidEducatorHabitMutations(userId)
+  const habit = await assertOwner(habitId, userId)
+  const ymd =
+    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : new Date().toISOString().slice(0, 10)
+  if (!isHabitDueOnYmd(habit.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd))
+    throw {
+      status: 400,
+      message: "Cette habitude n'est pas prévue ce jour-là.",
+    }
+  const date = dateFromYMD(ymd)
+  const existing = await db.habitLog.findUnique({
+    where: { habitId_date: { habitId, date } },
+  })
+  if (existing)
+    throw {
+      status: 400,
+      message: 'Retire la coche avant de passer ce jour.',
+    }
+  await db.habitDaySkip.upsert({
+    where: { habitId_date: { habitId, date } },
+    create: { userId, habitId, date },
+    update: {},
+  })
+  return getHabits(userId, ymd)
+}
+
+export const unskipHabitForDay = async (habitId, userId, dateStr) => {
+  await forbidEducatorHabitMutations(userId)
+  await assertOwner(habitId, userId)
+  const ymd =
+    dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : new Date().toISOString().slice(0, 10)
+  const date = dateFromYMD(ymd)
+  const del = await db.habitDaySkip.deleteMany({ where: { habitId, userId, date } })
+  if (del.count === 0)
+    throw { status: 404, message: 'Aucun passage enregistré pour ce jour.' }
+  return getHabits(userId, ymd)
 }
 
 export const createHabit = async (userId, data) => {
@@ -136,6 +188,7 @@ export const toggleHabit = async (habitId, userId, dateStr) => {
     }
   }
 
+  await db.habitDaySkip.deleteMany({ where: { habitId, userId, date } })
   await db.habitLog.create({ data: { habitId, userId, date } })
   const jp = await cristaux.tryGrantJourneeParfaite(userId, ymd)
   return {

@@ -94,6 +94,22 @@
           <div class="journal-text">"{day.journal}"</div>
         </div>
       {/if}
+
+      {#if day.rdvNotDone && day.rdvNotDone.length > 0}
+        <div class="section">
+          <div class="section-title">📌 RDV non faits</div>
+          <ul class="rdv-not-done-list">
+            {#each day.rdvNotDone as r}
+              <li class="rdv-not-done-item">
+                <span class="rdv-not-done-title">{r.title}</span>
+                {#if r.reason && String(r.reason).trim()}
+                  <div class="rdv-not-done-reason">« {String(r.reason).trim()} »</div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
       
       <!-- Habitudes -->
       <div class="section">
@@ -294,6 +310,37 @@
     color: var(--muted);
     text-align: center;
     padding: 12px;
+  }
+
+  .rdv-not-done-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .rdv-not-done-item {
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    border-left: 3px solid var(--muted);
+  }
+
+  .rdv-not-done-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    display: block;
+  }
+
+  .rdv-not-done-reason {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.4;
   }
   
   .total-xp {

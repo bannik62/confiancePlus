@@ -42,8 +42,10 @@
   $: heatByDate = $isEducatorAssociation
     ? heatMapFromManaged(managedRows, year)
     : Object.fromEntries((heatDays ?? []).map((d) => [d.date, d]))
-  /** @type {{ id: string, title: string, notes?: string, date: string, timeHm: string, xpReward: number, done: boolean }[]} */
+  /** @type {{ id: string, title: string, notes?: string, date: string, timeHm: string, xpReward: number, done: boolean, notDone?: boolean }[]} */
   let modalDayRows = []
+  let apptDeclineOpenId = null
+  let apptDeclineReason = ''
 
   let loading = false
   let modalLoading = false
@@ -228,6 +230,8 @@
     editingRow = null
     eduEditingId = null
     eduEditingRow = null
+    apptDeclineOpenId = null
+    apptDeclineReason = ''
   }
 
   const cellColor = (intensity) => {
@@ -304,6 +308,28 @@
     } catch (e) {
       err = e.message || 'Validation impossible'
     }
+  }
+
+  const declineOne = async (a) => {
+    err = ''
+    try {
+      await appointmentsApi.notDone(a.id, {
+        today: localDateString(),
+        reason: apptDeclineReason.trim() || undefined,
+      })
+      apptDeclineOpenId = null
+      apptDeclineReason = ''
+      await loadProfile()
+      await loadCalendarStudent()
+      await loadModalDayStudent()
+    } catch (e) {
+      err = e.message || 'Enregistrement impossible'
+    }
+  }
+
+  const cancelDeclineAppt = () => {
+    apptDeclineOpenId = null
+    apptDeclineReason = ''
   }
 
   const removeOne = async (id) => {
@@ -599,24 +625,55 @@
                           <Tag color="var(--gold)">+{APPT_XP_FIXED} XP</Tag>
                           {#if a.done}
                             <Tag color="var(--green)">Validé</Tag>
+                          {:else if a.notDone}
+                            <Tag color="var(--red)">Non fait</Tag>
                           {/if}
                         </div>
                         {#if a.notes}
                           <p class="notes">{a.notes}</p>
                         {/if}
-                        <div class="btn-row">
-                          {#if !a.done}
-                            {#if localDateString() === a.date}
-                              <button type="button" class="cta small" on:click={() => completeOne(a)}>Valider (XP)</button>
+                        {#if apptDeclineOpenId === a.id && !a.notDone}
+                          <p class="appt-decline-hint micro muted">Raison optionnelle — visible dans Stats → calendrier.</p>
+                          <textarea
+                            class="appt-decline-ta"
+                            rows="2"
+                            maxlength="500"
+                            placeholder="Optionnel"
+                            bind:value={apptDeclineReason}
+                          ></textarea>
+                          <div class="btn-row">
+                            <button type="button" class="cta small" on:click={() => declineOne(a)}>Confirmer non fait</button>
+                            <button type="button" class="btn-sec small" on:click={cancelDeclineAppt}>Annuler</button>
+                          </div>
+                        {:else}
+                          <div class="btn-row">
+                            {#if !a.done}
+                              {#if a.notDone}
+                                <p class="micro muted appt-missed-inline">
+                                  Raté — plus d’XP. Supprime le RDV si tu veux l’ôter de la liste.
+                                </p>
+                                <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier</button>
+                              {:else if localDateString() === a.date}
+                                <button type="button" class="cta small" on:click={() => completeOne(a)}>Valider (XP)</button>
+                                <button
+                                  type="button"
+                                  class="btn-sec small"
+                                  on:click={() => {
+                                    apptDeclineOpenId = a.id
+                                    apptDeclineReason = ''
+                                  }}
+                                >Non fait</button>
+                                <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier</button>
+                              {:else}
+                                <span class="micro wait">Validation le jour J</span>
+                                <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier</button>
+                              {/if}
                             {:else}
-                              <span class="micro wait">Validation le jour J</span>
+                              <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier titre / notes</button>
                             {/if}
-                            <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier</button>
-                          {:else}
-                            <button type="button" class="btn-sec small" on:click={() => startEdit(a)}>Modifier titre / notes</button>
-                          {/if}
-                          <button type="button" class="btn-del-txt" on:click={() => removeOne(a.id)}>Supprimer</button>
-                        </div>
+                            <button type="button" class="btn-del-txt" on:click={() => removeOne(a.id)}>Supprimer</button>
+                          </div>
+                        {/if}
                       </div>
                     {/if}
                   </li>
@@ -1206,5 +1263,29 @@
   }
   .wait {
     color: var(--muted);
+  }
+  .appt-missed-inline {
+    width: 100%;
+    flex-basis: 100%;
+    margin: 0 0 6px;
+    line-height: 1.35;
+  }
+  .appt-decline-hint {
+    margin: 6px 0 4px;
+    max-width: 16rem;
+  }
+  .appt-decline-ta {
+    width: 100%;
+    max-width: 16rem;
+    margin-top: 4px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    resize: vertical;
+    min-height: 44px;
+    font-family: inherit;
   }
 </style>

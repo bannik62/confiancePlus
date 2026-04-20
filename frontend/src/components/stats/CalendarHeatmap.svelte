@@ -171,6 +171,19 @@
             <span class="quote">{clip(hoveredDay.journal, 100)}</span>
           </div>
         {/if}
+        {#if hoveredDay.rdvNotDone && hoveredDay.rdvNotDone.length > 0}
+          <div class="tooltip-rdv">
+            <span class="lbl">RDV non faits</span>
+            {#each hoveredDay.rdvNotDone as r}
+              <div class="tooltip-rdv-line">
+                <span class="rdv-t">{clip(r.title, 72)}</span>
+                {#if r.reason && String(r.reason).trim()}
+                  <span class="rdv-q">« {clip(String(r.reason).trim(), 80)} »</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -372,6 +385,41 @@
     font-style: italic;
     display: block;
     word-break: break-word;
+  }
+
+  .tooltip-rdv {
+    margin-top: 2px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .tooltip-rdv .lbl {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .tooltip-rdv-line {
+    font-size: 11px;
+    line-height: 1.35;
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+
+  .tooltip-rdv-line:last-child {
+    margin-bottom: 0;
+  }
+
+  .rdv-t {
+    display: block;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .rdv-q {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-style: italic;
   }
 
   .legend {

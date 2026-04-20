@@ -8,10 +8,14 @@ import {
   recordDailyVisit,
   ymdMinusDays,
   STREAK_CHAIN_MAX_DAYS,
+  planYesterdayStreakRecovery,
+  STREAK_RECOVER_CRISTAUX_COST,
+  buildHabitSkipsByYmd,
 } from '../../core/streakService.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
+import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -127,6 +131,10 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         where: { ymd: { gte: streakMinYmd, lte: anchor } },
         select: { ymd: true },
       },
+      habitDaySkips: {
+        where: { date: dateWhere },
+        select: { habitId: true, date: true },
+      },
       memberships: {
         select: { group: { select: { name: true } } },
       },
@@ -147,15 +155,19 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
     apptByUser[c.userId].push(c)
   }
 
+  const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
+
   return users
     .map((user) => {
       const apptList = apptByUser[user.id] || []
+      const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
       const { totalXP } = totalGameXpAndStreakDates({
         habits: user.habits,
         habitLogs: user.habitLogs,
         dailyLogs: user.dailyLogs,
         appointmentCompletions: apptList,
         anchorYmd: anchor,
+        habitSkipsByYmd,
       })
       const level = levelFromXP(totalXP)
       const title = titleForLevel(level)
@@ -168,10 +180,12 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         visitYmds:           user.dailyVisits.map((v) => v.ymd),
         habits:              user.habits,
         habitLogsInWindow:   streakLogs,
+        habitSkipsByYmd,
       })
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
       )
+      const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
       return {
         id: user.id,
         username: user.username,
@@ -181,6 +195,8 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         title,
         streak,
         groupNames,
+        perfReactionHearts: rx.perfReactionHearts,
+        perfReactionSkeptics: rx.perfReactionSkeptics,
       }
     })
     .sort((a, b) => b.totalXP - a.totalXP)
@@ -222,8 +238,9 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
   const streakStateRow = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
-      lastProfileStreakInt: true,
-      lastStreakBannerYmd:  true,
+      lastProfileStreakInt:       true,
+      lastStreakBannerYmd:        true,
+      lastStreakRecoverAnchorYmd: true,
     },
   })
   const prevStreakForBanner = streakStateRow.lastProfileStreakInt
@@ -233,7 +250,7 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, username: true, avatar: true, createdAt: true },
+    select: { id: true, username: true, avatar: true, createdAt: true, cristaux: true, jokerStreak: true },
   })
 
   const habits = await db.habit.findMany({
@@ -253,12 +270,19 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
     select: { date: true, xpEarned: true },
   })
 
+  const skipRows = await db.habitDaySkip.findMany({
+    where: { userId, date: dateWhere },
+    select: { habitId: true, date: true },
+  })
+  const habitSkipsByYmd = buildHabitSkipsByYmd(skipRows)
+
   const { totalXP } = totalGameXpAndStreakDates({
     habits,
     habitLogs: logs,
     dailyLogs,
     appointmentCompletions: apptDone,
     anchorYmd: anchor,
+    habitSkipsByYmd,
   })
 
   const visitRows = await db.dailyVisit.findMany({
@@ -274,12 +298,24 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
     visitYmds:         visitRows.map((v) => v.ymd),
     habits,
     habitLogsInWindow: streakLogs,
+    habitSkipsByYmd,
   })
 
   /** @type {null | { kind: string, reason?: string, previousStreak?: number, streak: number }} */
   let streakNotice = null
   if (streakBanner && lastBannerYmd !== anchor) {
     if (prevStreakForBanner > 0 && streak < prevStreakForBanner) {
+      const plan = planYesterdayStreakRecovery({
+        anchorYmd:         anchor,
+        visitYmds:         visitRows.map((v) => v.ymd),
+        habits,
+        habitLogsInWindow: streakLogs,
+        habitSkipsByYmd,
+      })
+      const recoverAvailable =
+        plan != null &&
+        streakStateRow.lastStreakRecoverAnchorYmd !== anchor &&
+        (user.cristaux >= STREAK_RECOVER_CRISTAUX_COST || user.jokerStreak >= 1)
       streakNotice = {
         kind:            'broken',
         reason: diagnoseStreakBreakReason({
@@ -287,9 +323,13 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
           visitYmds:         visitRows.map((v) => v.ymd),
           habits,
           habitLogsInWindow: streakLogs,
+          habitSkipsByYmd,
         }),
         previousStreak: prevStreakForBanner,
         streak,
+        recoverAvailable,
+        recoverCostCristaux: STREAK_RECOVER_CRISTAUX_COST,
+        recoverWithJoker:    user.jokerStreak >= 1,
       }
     } else if (streak === 1 && prevStreakForBanner === 0) {
       streakNotice = { kind: 'started', streak }
@@ -313,6 +353,117 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
   const title = titleForLevel(progress.level)
 
   return { ...user, totalXP, ...progress, title, streak, streakNotice }
+}
+
+/**
+ * Sauvetage streak : **hier** seulement ; paiement **CRISTAUX** (5) ou **JOKER** (1 en stock).
+ */
+export const recoverStreak = async (userId, { clientToday, payment } = {}) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de sauvetage streak.' }
+  if (await userIsAssociationOwner(userId))
+    throw { status: 403, message: 'Compte éducateur : pas de sauvetage streak.' }
+  if (payment !== 'CRISTAUX' && payment !== 'JOKER')
+    throw { status: 400, message: 'Paiement invalide (CRISTAUX ou JOKER).' }
+
+  const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  const dateWhere = aggregationWindowDateWhere(anchor)
+  const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
+
+  await db.$transaction(async (tx) => {
+    const u = await tx.user.findUnique({
+      where: { id: userId },
+      select: { cristaux: true, jokerStreak: true, lastStreakRecoverAnchorYmd: true },
+    })
+    if (!u) throw { status: 404, message: 'Utilisateur introuvable.' }
+    if (u.lastStreakRecoverAnchorYmd === anchor) {
+      throw { status: 409, message: 'Tu as déjà utilisé un sauvetage aujourd’hui.' }
+    }
+    if (payment === 'CRISTAUX' && u.cristaux < STREAK_RECOVER_CRISTAUX_COST) {
+      throw { status: 400, message: 'Pas assez de cristaux.' }
+    }
+    if (payment === 'JOKER' && u.jokerStreak < 1) {
+      throw { status: 400, message: 'Tu n’as pas de joker de série.' }
+    }
+
+    await tx.dailyVisit.upsert({
+      where: { userId_ymd: { userId, ymd: anchor } },
+      create: { userId, ymd: anchor },
+      update: {},
+    })
+
+    const habits = await tx.habit.findMany({
+      where: { userId },
+      select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
+    })
+
+    const logs = await tx.habitLog.findMany({
+      where: { userId, date: dateWhere },
+      include: { habit: { select: { xp: true } } },
+    })
+
+    const visitRows = await tx.dailyVisit.findMany({
+      where: { userId, ymd: { gte: streakMinYmd, lte: anchor } },
+      select: { ymd: true },
+    })
+    const streakLogs = logs.filter((l) => {
+      const y = ymdFromDbDate(l.date)
+      return y >= streakMinYmd && y <= anchor
+    })
+
+    const skipRowsTx = await tx.habitDaySkip.findMany({
+      where: { userId, date: dateWhere },
+      select: { habitId: true, date: true },
+    })
+    const habitSkipsByYmdTx = buildHabitSkipsByYmd(skipRowsTx)
+
+    const plan = planYesterdayStreakRecovery({
+      anchorYmd:         anchor,
+      visitYmds:         visitRows.map((v) => v.ymd),
+      habits,
+      habitLogsInWindow: streakLogs,
+      habitSkipsByYmd:   habitSkipsByYmdTx,
+    })
+    if (!plan) {
+      throw {
+        status: 400,
+        message:
+          'Aucun sauvetage possible pour hier : la série ne peut pas être réparée ainsi, ou hier est déjà bon.',
+      }
+    }
+
+    const payData =
+      payment === 'CRISTAUX'
+        ? { cristaux: { decrement: STREAK_RECOVER_CRISTAUX_COST } }
+        : { jokerStreak: { decrement: 1 } }
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...payData,
+        lastStreakRecoverAnchorYmd: anchor,
+      },
+    })
+
+    if (plan.needVisit) {
+      await tx.dailyVisit.upsert({
+        where: { userId_ymd: { userId, ymd: plan.recoverYmd } },
+        create: { userId, ymd: plan.recoverYmd },
+        update: {},
+      })
+    }
+
+    const dayDate = dateFromYMD(plan.recoverYmd)
+    for (const habitId of plan.extraHabitIds) {
+      await tx.habitLog.upsert({
+        where: { habitId_date: { habitId, date: dayDate } },
+        create: { userId, habitId, date: dayDate },
+        update: {},
+      })
+    }
+  })
+
+  return getMyProfile(userId, { clientToday, streakBanner: false })
 }
 
 // Calendrier année : tous les jours avec data agrégée + détails émotionnels
@@ -363,6 +514,29 @@ export const getCalendarYear = async (userId, year) => {
   dailyLogs.forEach((log) => {
     dailyLogsMap[log.date.toISOString().slice(0, 10)] = log
   })
+
+  const apptNotDoneRows = await db.appointmentCompletion.findMany({
+    where: {
+      userId,
+      outcome: 'NOT_DONE',
+      date: { gte: startDate, lte: endDate },
+    },
+    include: {
+      appointment: { select: { title: true } },
+    },
+  })
+  const notDoneByYmd = {}
+  for (const row of apptNotDoneRows) {
+    const k = row.date.toISOString().slice(0, 10)
+    if (!notDoneByYmd[k]) notDoneByYmd[k] = []
+    notDoneByYmd[k].push({
+      title: row.appointment.title,
+      reason:
+        row.declineReason && String(row.declineReason).trim()
+          ? String(row.declineReason).trim()
+          : null,
+    })
+  }
 
   // Générer tableau des 365 jours de l'année
   const days = []
@@ -426,6 +600,8 @@ export const getCalendarYear = async (userId, year) => {
       journal: dailyLog?.journal ?? null,
       // Liste habitudes cochées
       habits,
+      /** RDV marqués « non fait » ce jour — raison visible ici / heatmap uniquement */
+      rdvNotDone: notDoneByYmd[dateStr] ?? [],
     })
   }
 

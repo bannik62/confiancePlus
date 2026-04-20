@@ -73,7 +73,8 @@
       day.mood ||
       day.sleepQuality ||
       day.journal ||
-      (day.moodReason && String(day.moodReason).trim())
+      (day.moodReason && String(day.moodReason).trim()) ||
+      (Array.isArray(day.rdvNotDone) && day.rdvNotDone.length > 0)
     ) {
       selectedDay = day
       showModal = true

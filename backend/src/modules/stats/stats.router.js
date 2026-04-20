@@ -24,6 +24,19 @@ router.get('/profile', async (req, res, next) => {
   catch (e) { next(e) }
 })
 
+router.post('/streak-recover', async (req, res, next) => {
+  try {
+    const clientToday =
+      typeof req.body?.clientToday === 'string' ? req.body.clientToday : undefined
+    const payment = req.body?.payment
+    if (payment !== 'CRISTAUX' && payment !== 'JOKER') {
+      return res.status(400).json({ message: 'Paiement invalide (CRISTAUX ou JOKER).' })
+    }
+    res.json(await service.recoverStreak(req.user.id, { clientToday, payment }))
+  }
+  catch (e) { next(e) }
+})
+
 router.get('/leaderboard', async (req, res, next) => {
   try {
     const clientToday =

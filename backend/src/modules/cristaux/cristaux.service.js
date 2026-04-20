@@ -91,15 +91,25 @@ export const tryGrantJourneeParfaite = async (userId, ymd) => {
   }
 
   const day = dateFromYMD(ymd)
+  const skippedRows = await db.habitDaySkip.findMany({
+    where: { userId, date: day },
+    select: { habitId: true },
+  })
+  const skipped = new Set(skippedRows.map((r) => r.habitId))
+  const dueEffective = due.filter((h) => !skipped.has(h.id))
+  if (dueEffective.length === 0) {
+    return { cristaux: user.cristaux, grantedJourneeParfaite: false }
+  }
+
   const logs = await db.habitLog.findMany({
     where: {
       userId,
       date: day,
-      habitId: { in: due.map((h) => h.id) },
+      habitId: { in: dueEffective.map((h) => h.id) },
     },
     select: { habitId: true },
   })
-  if (logs.length !== due.length) {
+  if (logs.length !== dueEffective.length) {
     return { cristaux: user.cristaux, grantedJourneeParfaite: false }
   }
 

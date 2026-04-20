@@ -11,5 +11,7 @@ export const appointmentsApi = {
   createForMember: (body) => api.post('/appointments/for-member', body),
   update: (id, body) => api.patch(`/appointments/${encodeURIComponent(id)}`, body),
   complete: (id, body) => api.post(`/appointments/${encodeURIComponent(id)}/complete`, body),
+  /** Non fait le jour J — raison optionnelle (stats / heatmap uniquement). */
+  notDone: (id, body) => api.post(`/appointments/${encodeURIComponent(id)}/not-done`, body),
   remove: (id) => api.delete(`/appointments/${encodeURIComponent(id)}`),
 }

@@ -7,6 +7,7 @@ import {
   createForMemberSchema,
   updateAppointmentSchema,
   completeAppointmentSchema,
+  notDoneAppointmentSchema,
   listQuerySchema,
   listManagedQuerySchema,
   dayQuerySchema,
@@ -66,6 +67,14 @@ router.patch('/:id', validate(updateAppointmentSchema), async (req, res, next) =
 router.post('/:id/complete', validate(completeAppointmentSchema), async (req, res, next) => {
   try {
     res.json(await service.complete(req.user.id, req.params.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/:id/not-done', validate(notDoneAppointmentSchema), async (req, res, next) => {
+  try {
+    res.json(await service.declineNotDone(req.user.id, req.params.id, req.body))
   } catch (e) {
     next(e)
   }

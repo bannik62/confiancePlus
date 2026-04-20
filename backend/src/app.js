@@ -17,6 +17,7 @@ import contentRouter  from './modules/content/content.router.js'
 import adminRouter    from './modules/admin/admin.router.js'
 import appointmentsRouter from './modules/appointments/appointments.router.js'
 import pushRouter     from './modules/push/push.router.js'
+import storeRouter    from './modules/store/store.router.js'
 
 const app = express()
 
@@ -46,6 +47,7 @@ app.use('/api/educator', csrfProtect, educatorRouter)
 app.use('/api/appointments', csrfProtect, appointmentsRouter)
 app.use('/api/admin', csrfProtect, adminRouter)
 app.use('/api/push', csrfProtect, pushRouter)
+app.use('/api/store', csrfProtect, storeRouter)
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 

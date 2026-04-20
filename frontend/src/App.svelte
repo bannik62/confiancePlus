@@ -42,13 +42,14 @@
   import Stats   from './views/Stats.svelte'
   import Profil  from './views/Profil.svelte'
   import Agenda  from './views/Agenda.svelte'
+  import Shop    from './views/Shop.svelte'
   import Admin   from './views/Admin.svelte'
   import Topbar    from './components/modules/Topbar.svelte'
   import StreakNoticeBanner from './components/modules/StreakNoticeBanner.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
 
-  const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil }
+  const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
     { key: 'agenda', ico: '📅', label: 'Agenda'       },

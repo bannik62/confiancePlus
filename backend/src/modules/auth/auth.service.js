@@ -251,6 +251,7 @@ export const me = async (userId) => {
       createdAt: true,
       lastLoginAt: true,
       cristaux: true,
+      jokerStreak: true,
     },
   })
   return user
