@@ -32,7 +32,11 @@ export const listCalendar = async (userId, year) => {
     }),
     db.appointmentCompletion.groupBy({
       by: ['date'],
-      where: { userId, date: { gte: start, lte: end } },
+      where: {
+        userId,
+        date: { gte: start, lte: end },
+        outcome: 'COMPLETED',
+      },
       _count: { _all: true },
     }),
   ])
@@ -67,15 +71,19 @@ export const listDay = async (userId, dateStr) => {
       completions: { where: { date: day } },
     },
   })
-  return rows.map((a) => ({
-    id: a.id,
-    title: a.title,
-    notes: a.notes,
-    date: ymdFromDate(a.date),
-    timeHm: a.timeHm,
-    xpReward: a.xpReward,
-    done: a.completions.length > 0,
-  }))
+  return rows.map((a) => {
+    const c = a.completions[0]
+    return {
+      id: a.id,
+      title: a.title,
+      notes: a.notes,
+      date: ymdFromDate(a.date),
+      timeHm: a.timeHm,
+      xpReward: a.xpReward,
+      done: c?.outcome === 'COMPLETED',
+      notDone: c?.outcome === 'NOT_DONE',
+    }
+  })
 }
 
 export const createMine = async (userId, data) => {
@@ -155,7 +163,11 @@ export const listManaged = async (educatorId, groupId, year) => {
     orderBy: [{ date: 'asc' }, { timeHm: 'asc' }, { createdAt: 'asc' }],
     include: {
       assignee: { select: { id: true, username: true, avatar: true } },
-      completions: { take: 1, select: { id: true } },
+      completions: {
+        where: { outcome: 'COMPLETED' },
+        take: 1,
+        select: { id: true },
+      },
     },
   })
   return rows.map(({ completions, ...rest }) => ({
@@ -185,7 +197,15 @@ export const complete = async (userId, appointmentId, body) => {
   const existing = await db.appointmentCompletion.findUnique({
     where: { appointmentId_date: { appointmentId, date: day } },
   })
-  if (existing) return { ok: true, already: true, xpEarned: existing.xpEarned }
+  if (existing?.outcome === 'COMPLETED')
+    return { ok: true, already: true, xpEarned: existing.xpEarned }
+
+  if (existing?.outcome === 'NOT_DONE')
+    throw {
+      status: 400,
+      message:
+        'Ce RDV est marqué non fait : il ne peut plus être validé ni rapporter d’XP. Tu peux supprimer le RDV depuis l’agenda si besoin.',
+    }
 
   const row = await db.appointmentCompletion.create({
     data: {
@@ -193,15 +213,71 @@ export const complete = async (userId, appointmentId, body) => {
       userId,
       date: day,
       xpEarned: appt.xpReward,
+      outcome: 'COMPLETED',
     },
   })
   return { ok: true, xpEarned: row.xpEarned }
 }
 
+/** Marque le RDV « non fait » ce jour — pas d’XP ; raison optionnelle (Stats heatmap uniquement). */
+export const declineNotDone = async (userId, appointmentId, body) => {
+  await assertNotEducatorBlocked(userId)
+
+  const appt = await db.appointment.findFirst({
+    where: { id: appointmentId, userId },
+  })
+  if (!appt) throw { status: 404, message: 'Rendez-vous introuvable' }
+
+  const apptYmd = ymdFromDate(appt.date)
+  const today = body?.today
+  if (!today || today !== apptYmd)
+    throw {
+      status: 400,
+      message: 'Ce RDV ne peut être marqué que le jour prévu (jour civil).',
+    }
+
+  const day = dateFromYMD(apptYmd)
+  const reason =
+    typeof body?.reason === 'string' && body.reason.trim().length > 0
+      ? body.reason.trim().slice(0, 500)
+      : null
+
+  const existing = await db.appointmentCompletion.findUnique({
+    where: { appointmentId_date: { appointmentId, date: day } },
+  })
+  if (existing?.outcome === 'COMPLETED')
+    throw { status: 400, message: 'RDV déjà validé.' }
+
+  if (existing?.outcome === 'NOT_DONE') {
+    await db.appointmentCompletion.update({
+      where: { id: existing.id },
+      data: { declineReason: reason },
+    })
+    return { ok: true }
+  }
+
+  await db.appointmentCompletion.create({
+    data: {
+      appointmentId,
+      userId,
+      date: day,
+      xpEarned: 0,
+      outcome: 'NOT_DONE',
+      declineReason: reason,
+    },
+  })
+  return { ok: true }
+}
+
 export const update = async (requesterId, appointmentId, data) => {
   const appt = await db.appointment.findUnique({
     where: { id: appointmentId },
-    include: { completions: { take: 1 } },
+    include: {
+      completions: {
+        where: { outcome: 'COMPLETED' },
+        take: 1,
+      },
+    },
   })
   if (!appt) throw { status: 404, message: 'Rendez-vous introuvable' }
 

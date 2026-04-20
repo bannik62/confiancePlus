@@ -33,6 +33,9 @@ export const toggleSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
+/** Passer / annuler le passage pour un jour (même format de date que toggle) */
+export const skipDaySchema = toggleSchema
+
 /** Query GET /habits — date = jour civil client (YYYY-MM-DD), comme /checkin/today */
 export const listHabitsQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

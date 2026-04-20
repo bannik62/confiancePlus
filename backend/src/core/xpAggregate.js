@@ -51,6 +51,7 @@ export function totalGameXpAndStreakDates({
   dailyLogs,
   appointmentCompletions,
   anchorYmd,
+  /** @type {Map<string, Set<string>> | null} */ habitSkipsByYmd = null,
 }) {
   const anchor =
     typeof anchorYmd === 'string' && YMD_RE.test(anchorYmd)
@@ -78,11 +79,13 @@ export function totalGameXpAndStreakDates({
   let habitDailySum = 0
   for (const ymd of sortedYmds) {
     const dayLogs = habitLogsF.filter((l) => ymdFromDbDate(l.date) === ymd)
+    const skipSet = habitSkipsByYmd?.get(ymd) ?? new Set()
     const activeHabits = habits.filter((h) => {
       const createdDate = ymdFromDbDate(h.createdAt)
       return (
         createdDate <= ymd &&
         h.isActive &&
+        !skipSet.has(h.id) &&
         isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd)
       )
     })

@@ -63,6 +63,9 @@ model User {
   /// Première ouverture app par jour civil local (YMD) — streak « flamme »
   dailyVisits DailyVisit[]
 
+  /// « Passer ce jour » — déclaré incapable : pas d’XP, n’entre pas dans les « dues » pour streak / journée parfaite
+  habitDaySkips HabitDaySkip[]
+
   appointmentsAssigned     Appointment[]           @relation("AppointmentAssignee")
   appointmentsCreated      Appointment[]           @relation("AppointmentCreator")
   appointmentCompletions   AppointmentCompletion[]
@@ -230,8 +233,23 @@ model Habit {
   logs              HabitLog[]
   dailyOfferCreated DailyHabitOffer?
   habitPerfReactions HabitPerfReaction[]
+  habitDaySkips     HabitDaySkip[]
 
   @@index([userId])
+}
+
+/// Utilisateur déclare ne pas pouvoir faire une habitude ce jour civil (sans XP, sans pénaliser le streak).
+model HabitDaySkip {
+  id      String   @id @default(cuid())
+  habitId String
+  userId  String
+  date    DateTime @db.Date
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([userId, date])
 }
 
 /// Réaction d’un joueur sur la perf (habitude cochée) d’un autre pour un jour civil (YMD du joueur cible).
@@ -318,12 +336,20 @@ model Appointment {
   @@index([groupId])
 }
 
+enum AppointmentCompletionOutcome {
+  COMPLETED
+  NOT_DONE
+}
+
 model AppointmentCompletion {
   id              String   @id @default(cuid())
   appointmentId   String
   userId          String
   date            DateTime @db.Date
   xpEarned        Int
+  outcome         AppointmentCompletionOutcome @default(COMPLETED)
+  /// Note optionnelle si NOT_DONE — affichée seulement dans le calendrier Stats (heatmap).
+  declineReason   String?  @db.VarChar(500)
   createdAt       DateTime @default(now())
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -331,4 +357,5 @@ model AppointmentCompletion {
 
   @@unique([appointmentId, date])
   @@index([userId, date])
+  @@index([outcome])
 }

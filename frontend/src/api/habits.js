@@ -8,6 +8,15 @@ export const habitsApi = {
   update:   (id, data)   => api.patch(`/habits/${id}`, data),
   delete:   (id)         => api.delete(`/habits/${id}`),
   toggle:   (id, date)   => api.patch(`/habits/${id}/toggle`, date ? { date } : {}),
+  /** Ne peut pas aujourd’hui : pas d’XP, pas de pénalité streak (jour civil local si omis). */
+  skipDay: (id, date) =>
+    api.post(`/habits/${encodeURIComponent(id)}/skip-day`, date ? { date } : {}),
+  unskipDay: (id, date) => {
+    const d = date ?? localDateString()
+    return api.delete(
+      `/habits/${encodeURIComponent(id)}/skip-day?date=${encodeURIComponent(d)}`,
+    )
+  },
   /** Proposition « habitude du jour » (fenêtre 7 jours sans doublon de modèle) */
   getDailyOffer: (date) => {
     const d = date ?? localDateString()

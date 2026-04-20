@@ -30,11 +30,30 @@ export const ymdMinusDays = (anchorYmd, delta) => {
 
 const createdYmd = (createdAt) => ymdFromDbDate(createdAt)
 
-/** Au moins la moitié des habitudes dues ce jour (arrondi sup). */
-export const passesHalfDueHabits = (habits, logsForDay, ymd) => {
+/**
+ * @param {Array<{ habitId: string, date: Date }>} rows
+ * @returns {Map<string, Set<string>>} ymd → habitIds « passés » ce jour
+ */
+export const buildHabitSkipsByYmd = (rows) => {
+  const m = new Map()
+  for (const r of rows) {
+    const y = ymdFromDbDate(r.date)
+    if (!m.has(y)) m.set(y, new Set())
+    m.get(y).add(r.habitId)
+  }
+  return m
+}
+
+/**
+ * Au moins la moitié des habitudes dues ce jour (arrondi sup).
+ * `habitSkipsByYmd` : habitudes exclues du quota « dues » (passage déclaré).
+ */
+export const passesHalfDueHabits = (habits, logsForDay, ymd, habitSkipsByYmd = null) => {
+  const skipForDay = habitSkipsByYmd?.get(ymd) ?? new Set()
   const due = habits.filter((h) => {
     if (!h.isActive) return false
     if (createdYmd(h.createdAt) > ymd) return false
+    if (skipForDay.has(h.id)) return false
     return isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd)
   })
   if (due.length === 0) return true
@@ -53,6 +72,7 @@ export const computeEngagementStreak = ({
   visitYmds,
   habits,
   habitLogsInWindow,
+  habitSkipsByYmd = null,
 }) => {
   if (!YMD_RE.test(anchorYmd)) return 0
   const visits = new Set(visitYmds)
@@ -69,7 +89,7 @@ export const computeEngagementStreak = ({
     if (!visits.has(d)) break
     if (d < anchorYmd) {
       const logs = logsByYmd.get(d) || []
-      if (!passesHalfDueHabits(habits, logs, d)) break
+      if (!passesHalfDueHabits(habits, logs, d, habitSkipsByYmd)) break
     }
     count++
     d = prevCalendarYmd(d)
@@ -93,6 +113,7 @@ export const diagnoseStreakBreakReason = ({
   visitYmds,
   habits,
   habitLogsInWindow,
+  habitSkipsByYmd = null,
 }) => {
   if (!YMD_RE.test(anchorYmd)) return 'unknown'
   const visits = new Set(visitYmds)
@@ -107,7 +128,7 @@ export const diagnoseStreakBreakReason = ({
   for (let i = 0; i < STREAK_CHAIN_MAX_DAYS; i++) {
     if (!visits.has(d)) return 'missed_visit'
     const logs = logsByYmd.get(d) || []
-    if (!passesHalfDueHabits(habits, logs, d)) return 'half_habits'
+    if (!passesHalfDueHabits(habits, logs, d, habitSkipsByYmd)) return 'half_habits'
     d = prevCalendarYmd(d)
   }
   return 'unknown'
@@ -115,7 +136,6 @@ export const diagnoseStreakBreakReason = ({
 
 /**
  * Habitudes dues un jour donné (actives, créées avant ou ce jour).
- * @param {Array<{ id: string, weekdaysMask?: number|null, createdAt: Date, isActive: boolean }>} habits
  */
 const habitsDueOnYmd = (habits, ymd) =>
   habits.filter((h) => {
@@ -139,15 +159,13 @@ const minimalExtraHabitIdsForHalf = (dueHabits, doneIds) => {
 
 /**
  * Plan de sauvetage « au plus un jour civil » : uniquement **hier** (par rapport à `anchorYmd`).
- * Retourne null si hier est déjà OK pour la chaîne ou si corriger hier ne remonte pas le streak.
- *
- * @returns {null | { recoverYmd: string, needVisit: boolean, extraHabitIds: string[], streakBefore: number, streakAfter: number }}
  */
 export const planYesterdayStreakRecovery = ({
   anchorYmd,
   visitYmds,
   habits,
   habitLogsInWindow,
+  habitSkipsByYmd = null,
 }) => {
   if (!YMD_RE.test(anchorYmd)) return null
   const recoverYmd = prevCalendarYmd(anchorYmd)
@@ -162,9 +180,10 @@ export const planYesterdayStreakRecovery = ({
 
   const logsY = logsByYmd.get(recoverYmd) || []
   const needVisit = !visits.has(recoverYmd)
-  const due = habitsDueOnYmd(habits, recoverYmd)
+  const skipRecover = habitSkipsByYmd?.get(recoverYmd) ?? new Set()
+  const due = habitsDueOnYmd(habits, recoverYmd).filter((h) => !skipRecover.has(h.id))
   const doneIds = new Set(logsY.map((l) => l.habitId))
-  const halfOk = passesHalfDueHabits(habits, logsY, recoverYmd)
+  const halfOk = passesHalfDueHabits(habits, logsY, recoverYmd, habitSkipsByYmd)
 
   if (!needVisit && halfOk) return null
 
@@ -184,12 +203,14 @@ export const planYesterdayStreakRecovery = ({
     visitYmds:         [...visits],
     habits,
     habitLogsInWindow,
+    habitSkipsByYmd,
   })
   const streakAfter = computeEngagementStreak({
     anchorYmd,
     visitYmds:         [...visitsSim],
     habits,
     habitLogsInWindow: logsSim,
+    habitSkipsByYmd,
   })
 
   if (streakAfter <= streakBefore) return null

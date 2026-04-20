@@ -5,6 +5,7 @@ import {
   createHabitSchema,
   updateHabitSchema,
   toggleSchema,
+  skipDaySchema,
   listHabitsQuerySchema,
   dailyOfferQuerySchema,
   dailyOfferBodySchema,
@@ -107,6 +108,22 @@ router.delete('/:id',          async (req, res, next) => {
 router.patch('/:id/toggle',    validate(toggleSchema), async (req, res, next) => {
   try { res.json(await service.toggleHabit(req.params.id, req.user.id, req.body.date)) }
   catch (e) { next(e) }
+})
+
+router.post('/:id/skip-day', validate(skipDaySchema), async (req, res, next) => {
+  try {
+    res.json(await service.skipHabitForDay(req.params.id, req.user.id, req.body.date))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/:id/skip-day', validate(listHabitsQuerySchema, 'query'), async (req, res, next) => {
+  try {
+    res.json(await service.unskipHabitForDay(req.params.id, req.user.id, req.query.date))
+  } catch (e) {
+    next(e)
+  }
 })
 
 export default router

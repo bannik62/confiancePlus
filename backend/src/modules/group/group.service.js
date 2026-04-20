@@ -7,6 +7,7 @@ import {
   computeEngagementStreak,
   ymdMinusDays,
   STREAK_CHAIN_MAX_DAYS,
+  buildHabitSkipsByYmd,
 } from '../../core/streakService.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -103,6 +104,10 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
             where: { ymd: { gte: streakMinYmd, lte: anchor } },
             select: { ymd: true },
           },
+          habitDaySkips: {
+            where: { date: dateWhere },
+            select: { habitId: true, date: true },
+          },
         },
       },
     },
@@ -132,12 +137,14 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
   return ranked
     .map(({ user }) => {
       const apptList = apptByUser[user.id] || []
+      const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
       const { totalXP } = totalGameXpAndStreakDates({
         habits: user.habits,
         habitLogs: user.habitLogs,
         dailyLogs: user.dailyLogs,
         appointmentCompletions: apptList,
         anchorYmd: anchor,
+        habitSkipsByYmd,
       })
       const level = levelFromXP(totalXP)
       const title = titleForLevel(level)
@@ -150,6 +157,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
         visitYmds:         user.dailyVisits.map((v) => v.ymd),
         habits:            user.habits,
         habitLogsInWindow: streakLogs,
+        habitSkipsByYmd,
       })
       const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
       return {

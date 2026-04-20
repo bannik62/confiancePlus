@@ -32,6 +32,12 @@ export const completeAppointmentSchema = z.object({
   today: ymd,
 })
 
+/** Marquer non fait — raison optionnelle (affichée seulement dans le calendrier Stats). */
+export const notDoneAppointmentSchema = z.object({
+  today: ymd,
+  reason: z.string().max(500).optional().nullable(),
+})
+
 export const listQuerySchema = z.object({
   year: z.coerce.number().int().min(2020).max(2100),
 })

@@ -10,6 +10,7 @@ import {
   STREAK_CHAIN_MAX_DAYS,
   planYesterdayStreakRecovery,
   STREAK_RECOVER_CRISTAUX_COST,
+  buildHabitSkipsByYmd,
 } from '../../core/streakService.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
@@ -130,6 +131,10 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         where: { ymd: { gte: streakMinYmd, lte: anchor } },
         select: { ymd: true },
       },
+      habitDaySkips: {
+        where: { date: dateWhere },
+        select: { habitId: true, date: true },
+      },
       memberships: {
         select: { group: { select: { name: true } } },
       },
@@ -155,12 +160,14 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
   return users
     .map((user) => {
       const apptList = apptByUser[user.id] || []
+      const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
       const { totalXP } = totalGameXpAndStreakDates({
         habits: user.habits,
         habitLogs: user.habitLogs,
         dailyLogs: user.dailyLogs,
         appointmentCompletions: apptList,
         anchorYmd: anchor,
+        habitSkipsByYmd,
       })
       const level = levelFromXP(totalXP)
       const title = titleForLevel(level)
@@ -173,6 +180,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         visitYmds:           user.dailyVisits.map((v) => v.ymd),
         habits:              user.habits,
         habitLogsInWindow:   streakLogs,
+        habitSkipsByYmd,
       })
       const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
         a.localeCompare(b, 'fr'),
@@ -262,12 +270,19 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
     select: { date: true, xpEarned: true },
   })
 
+  const skipRows = await db.habitDaySkip.findMany({
+    where: { userId, date: dateWhere },
+    select: { habitId: true, date: true },
+  })
+  const habitSkipsByYmd = buildHabitSkipsByYmd(skipRows)
+
   const { totalXP } = totalGameXpAndStreakDates({
     habits,
     habitLogs: logs,
     dailyLogs,
     appointmentCompletions: apptDone,
     anchorYmd: anchor,
+    habitSkipsByYmd,
   })
 
   const visitRows = await db.dailyVisit.findMany({
@@ -283,6 +298,7 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
     visitYmds:         visitRows.map((v) => v.ymd),
     habits,
     habitLogsInWindow: streakLogs,
+    habitSkipsByYmd,
   })
 
   /** @type {null | { kind: string, reason?: string, previousStreak?: number, streak: number }} */
@@ -294,6 +310,7 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
         visitYmds:         visitRows.map((v) => v.ymd),
         habits,
         habitLogsInWindow: streakLogs,
+        habitSkipsByYmd,
       })
       const recoverAvailable =
         plan != null &&
@@ -306,6 +323,7 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
           visitYmds:         visitRows.map((v) => v.ymd),
           habits,
           habitLogsInWindow: streakLogs,
+          habitSkipsByYmd,
         }),
         previousStreak: prevStreakForBanner,
         streak,
@@ -393,11 +411,18 @@ export const recoverStreak = async (userId, { clientToday, payment } = {}) => {
       return y >= streakMinYmd && y <= anchor
     })
 
+    const skipRowsTx = await tx.habitDaySkip.findMany({
+      where: { userId, date: dateWhere },
+      select: { habitId: true, date: true },
+    })
+    const habitSkipsByYmdTx = buildHabitSkipsByYmd(skipRowsTx)
+
     const plan = planYesterdayStreakRecovery({
       anchorYmd:         anchor,
       visitYmds:         visitRows.map((v) => v.ymd),
       habits,
       habitLogsInWindow: streakLogs,
+      habitSkipsByYmd:   habitSkipsByYmdTx,
     })
     if (!plan) {
       throw {
@@ -490,6 +515,29 @@ export const getCalendarYear = async (userId, year) => {
     dailyLogsMap[log.date.toISOString().slice(0, 10)] = log
   })
 
+  const apptNotDoneRows = await db.appointmentCompletion.findMany({
+    where: {
+      userId,
+      outcome: 'NOT_DONE',
+      date: { gte: startDate, lte: endDate },
+    },
+    include: {
+      appointment: { select: { title: true } },
+    },
+  })
+  const notDoneByYmd = {}
+  for (const row of apptNotDoneRows) {
+    const k = row.date.toISOString().slice(0, 10)
+    if (!notDoneByYmd[k]) notDoneByYmd[k] = []
+    notDoneByYmd[k].push({
+      title: row.appointment.title,
+      reason:
+        row.declineReason && String(row.declineReason).trim()
+          ? String(row.declineReason).trim()
+          : null,
+    })
+  }
+
   // Générer tableau des 365 jours de l'année
   const days = []
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -552,6 +600,8 @@ export const getCalendarYear = async (userId, year) => {
       journal: dailyLog?.journal ?? null,
       // Liste habitudes cochées
       habits,
+      /** RDV marqués « non fait » ce jour — raison visible ici / heatmap uniquement */
+      rdvNotDone: notDoneByYmd[dateStr] ?? [],
     })
   }
 
