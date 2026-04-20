@@ -7,6 +7,6 @@ dist/
 *:Zone.Identifier
 fait-Ou-aFaire.md
 repomix-output.*
-
+.cursor
 
 frontend/dev-dist/
