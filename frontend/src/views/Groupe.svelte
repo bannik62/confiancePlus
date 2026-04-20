@@ -251,7 +251,11 @@
             </div>
             <div class="tags-row">
               <Tag color="var(--gold)">LVL {m.level}</Tag>
-              {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
+              {#if m.streak > 0}
+                <Tag color="var(--red)">🔥 {m.streak}</Tag>
+              {:else}
+                <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
+              {/if}
             </div>
           </div>
           <div class="actions-col">
@@ -326,7 +330,11 @@
           <div class="tags-row">
             <Tag color="var(--gold)">LVL {m.level}</Tag>
             {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
-            {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
+            {#if m.streak > 0}
+              <Tag color="var(--red)">🔥 {m.streak}</Tag>
+            {:else}
+              <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
+            {/if}
           </div>
         </div>
         <div class="actions-col">
@@ -401,7 +409,11 @@
   }
   .info { flex: 1; min-width: min(100%, 140px); }
   .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
-  .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+  .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+  .streak-hint {
+    line-height: 1.35;
+    max-width: 100%;
+  }
 
   .group-chips {
     display: flex;
