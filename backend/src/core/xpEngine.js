@@ -34,11 +34,16 @@ export const titleForLevel = (level) =>
 // flags   : présence du check-in, journal, sommeil
 export const computeDayXP = ({ habits, allDone, hasCheckin, hasJournal, hasSleep }) => {
   const habitXP = habits.reduce((sum, h) => sum + (h.xp ?? GAME.xp.habitBase), 0)
-  const bonus   = allDone ? habitXP * (GAME.xp.bonusAllDone - 1) : 0
+  const n = habits.length
+  const mult =
+    allDone && n > 0
+      ? Math.max(1, GAME.xp.bonusPerTask * n)
+      : 1
+  const habitTotal = habitXP * mult
   const extras  = (hasCheckin ? GAME.xp.checkInBonus : 0)
                 + (hasJournal ? GAME.xp.journalBonus  : 0)
                 + (hasSleep   ? GAME.xp.sleepBonus    : 0)
-  return Math.round(habitXP + bonus + extras)
+  return Math.round(habitTotal + extras)
 }
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/

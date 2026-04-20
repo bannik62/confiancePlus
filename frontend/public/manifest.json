@@ -1,7 +1,7 @@
 {
-  "name": "HabiTracks",
-  "short_name": "HabiTracks",
-  "description": "Tracker d'habitudes quotidiennes",
+  "name": "Habitracks",
+  "short_name": "Habitracks",
+  "description": "Tracker d'habitudes quotidiennes — coches, streak, XP",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -35,14 +35,14 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "HabiTracks sur bureau"
+      "label": "Habitracks sur bureau"
     },
     {
       "src": "/screenshots/mobile.png",
       "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "HabiTracks sur mobile"
+      "label": "Habitracks sur mobile"
     }
   ]
 }

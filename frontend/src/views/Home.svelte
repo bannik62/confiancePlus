@@ -23,6 +23,7 @@
   import { mergeUser } from '../stores/auth.js'
   import { appointmentsApi } from '../api/appointments.js'
   import { loadProfile } from '../stores/profile.js'
+  import { habitDayMultiplier } from '../lib/xpHabitBonus.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -337,7 +338,12 @@
   $: done       = dueHabits.filter((h) => !!h.logs?.length).length
   $: total      = dueHabits.length
   $: allDone    = done === total && total > 0
-  $: earnedXP   = dueHabits.filter((h) => !!h.logs?.length).reduce((s, h) => s + h.xp, 0) * (allDone ? 1.5 : 1)
+  $: baseHabitXp =
+    dueHabits.filter((h) => !!h.logs?.length).reduce((s, h) => s + h.xp, 0)
+  $: habitMult  = habitDayMultiplier(allDone, total)
+  /** Affichage du multiplicateur (évite 1.4000000001) */
+  $: habitMultLabel = habitMult.toFixed(1).replace(/\.0$/, '')
+  $: earnedXP   = baseHabitXp * habitMult
   /** Humeur du check-in : 1–3 encouragement, 4–7 maintien, 8–10 félicitation (JSON) */
   $: mood       = $dailyLog?.mood ?? 5
   $: encourage  = dayMessageFor(mood, localDateString())
@@ -424,7 +430,9 @@
     <Card>
       <div class="micro" style="color:var(--gold)">XP AUJOURD'HUI</div>
       <div class="xp-num">+{Math.round(earnedXP)}</div>
-      {#if allDone}<Tag color="var(--gold)">×1.5 BONUS ⚡</Tag>{/if}
+      {#if allDone && habitMult > 1}
+        <Tag color="var(--gold)">×{habitMultLabel} BONUS ⚡</Tag>
+      {/if}
     </Card>
   </div>
 

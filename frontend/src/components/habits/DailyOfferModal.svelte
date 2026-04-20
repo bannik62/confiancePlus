@@ -1,4 +1,8 @@
 <script>
+  /** Catalogue épuisé (tous les titres proposés sont déjà dans tes habitudes, etc.) */
+  export let exhausted = false
+  export let onExhaustedOk = () => {}
+
   /** @type {{ title: string, icon: string, xpTotal: number } | null} */
   export let template = null
   export let loading = false
@@ -9,7 +13,30 @@
   export let onAccept = async () => {}
 </script>
 
-{#if template}
+{#if exhausted}
+  <div class="overlay" aria-hidden={false}>
+    <div class="backdrop" aria-hidden="true"></div>
+    <div class="modal-inner">
+      <div
+        class="card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="daily-offer-exhausted-title"
+        aria-describedby="daily-offer-exhausted-desc"
+      >
+        <p class="kicker">Habitude du jour</p>
+        <h2 id="daily-offer-exhausted-title" class="title">Pas de nouvelle proposition</h2>
+        <p id="daily-offer-exhausted-desc" class="sub exhausted-copy">
+          Tu as déjà des habitudes qui reprennent tous les modèles disponibles pour l’instant, ou le
+          catalogue est épuisé. De nouvelles idées arriveront dans une prochaine mise à jour.
+        </p>
+        <div class="actions exhausted-actions">
+          <button type="button" class="btn primary" on:click={() => onExhaustedOk()}>OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{:else if template}
   <div class="overlay" aria-hidden={false}>
     <div class="backdrop" aria-hidden="true"></div>
     <div class="modal-inner">
@@ -126,6 +153,16 @@
   }
   .actions .btn {
     flex: 1 1 8rem;
+  }
+  .exhausted-copy {
+    margin-bottom: 1.1rem;
+  }
+  .exhausted-actions {
+    justify-content: center;
+  }
+  .exhausted-actions .btn {
+    flex: 0 1 auto;
+    min-width: 8rem;
   }
   .btn {
     border-radius: 10px;

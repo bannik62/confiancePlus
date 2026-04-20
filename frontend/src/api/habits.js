@@ -17,7 +17,7 @@ export const habitsApi = {
       `/habits/${encodeURIComponent(id)}/skip-day?date=${encodeURIComponent(d)}`,
     )
   },
-  /** Proposition « habitude du jour » (fenêtre 7 jours sans doublon de modèle) */
+  /** Proposition « habitude du jour » (titres normalisés vs habitudes ; `exhausted` si rien à proposer) */
   getDailyOffer: (date) => {
     const d = date ?? localDateString()
     return api.get(`/habits/daily-offer?date=${encodeURIComponent(d)}`)

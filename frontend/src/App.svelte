@@ -25,6 +25,7 @@
   import { hasMoodForToday } from './lib/checkinState.js'
   import { habitsApi } from './api/habits.js'
   import { loadHabits } from './stores/habits.js'
+  import { localDateString } from './lib/dateLocal.js'
   import DailyOfferModal from './components/habits/DailyOfferModal.svelte'
 
   import Login   from './views/Login.svelte'
@@ -76,6 +77,7 @@
   let dailyOfferBootKeyDone = null
 
   let showDailyOffer = false
+  let showDailyOfferExhausted = false
   let dailyOfferTemplate = null
   let dailyOfferLoading = false
   let dailyOfferError = ''
@@ -83,8 +85,20 @@
   async function tryDailyOffer() {
     if (get(isAppAdmin)) return
     if (showDailyOffer && dailyOfferTemplate) return
+    if (showDailyOfferExhausted) return
     try {
       const r = await habitsApi.getDailyOffer()
+      if (r.eligible && r.exhausted) {
+        try {
+          const k = `ht_daily_offer_exhausted_${localDateString()}`
+          if (sessionStorage.getItem(k)) return
+          sessionStorage.setItem(k, '1')
+        } catch {
+          /* private mode */
+        }
+        showDailyOfferExhausted = true
+        return
+      }
       if (r.eligible && r.offer?.status === 'PENDING' && r.offer.template) {
         dailyOfferError = ''
         dailyOfferTemplate = r.offer.template
@@ -134,6 +148,7 @@
   async function bootstrapSession() {
     sessionReady = false
     showDailyOffer = false
+    showDailyOfferExhausted = false
     dailyOfferTemplate = null
     dailyOfferError = ''
     try {
@@ -185,6 +200,7 @@
       sessionReady = false
       checkinDone = false
       showDailyOffer = false
+      showDailyOfferExhausted = false
       dailyOfferTemplate = null
       dailyOfferError = ''
       resetDayMessageCache()
@@ -213,6 +229,7 @@
     sessionReady   = false
     checkinDone    = false
     showDailyOffer = false
+    showDailyOfferExhausted = false
     dailyOfferTemplate = null
     dailyOfferError = ''
     resetGroupState()
@@ -262,7 +279,14 @@
   <div class="splash">Chargement…</div>
 
 {:else}
-  {#if showDailyOffer && dailyOfferTemplate}
+  {#if showDailyOfferExhausted}
+    <DailyOfferModal
+      exhausted={true}
+      onExhaustedOk={() => {
+        showDailyOfferExhausted = false
+      }}
+    />
+  {:else if showDailyOffer && dailyOfferTemplate}
     <DailyOfferModal
       template={dailyOfferTemplate}
       loading={dailyOfferLoading}
