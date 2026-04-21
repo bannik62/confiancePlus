@@ -36,6 +36,14 @@ export const GAME = {
     absoluteMax: 20,
   },
 
+  // ── Rendez-vous (agenda) ────────────────────────────────────────────────────
+  appointments: {
+    /** Au plus ce nombre de RDV validés le même jour civil rapportent de l’XP (ordre des validations libre). */
+    maxRewardingCompletionsPerDay: 2,
+    /** Plafond d’XP issue des RDV pour un même jour civil (somme des xpEarned). */
+    maxXpFromAppointmentsPerDay: 60,
+  },
+
   // ── Streak ──────────────────────────────────────────────────────────────────
   streak: {
     // Nombre de jours consécutifs avec au moins 1 habitude cochée
