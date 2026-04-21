@@ -1258,7 +1258,7 @@
       <p class="muted" style="margin-top:8px">Chargement…</p>
     {:else}
       <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
-        Emoji + titre + XP totale (ex. 15 = +10 habituel +5 bonus). Les entrées retirées de la liste sont désactivées côté serveur.
+        Emoji + titre + XP par coche pour l’habitude du jour (cible 15 ; habitudes perso 10 ; RDV agenda 30). Les entrées retirées de la liste sont désactivées côté serveur.
       </p>
       <div class="daily-grid">
         {#each dailyTemplates as t, idx}

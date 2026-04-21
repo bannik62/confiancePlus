@@ -1071,6 +1071,14 @@
     box-shadow: 0 0 0 1px var(--accent);
     z-index: 1;
   }
+  .gh-cell.today:hover:not(:disabled) {
+    z-index: 2;
+    box-shadow:
+      0 0 8px var(--accent)66,
+      0 0 12px color-mix(in srgb, var(--cyan) 55%, transparent),
+      0 0 20px color-mix(in srgb, var(--cyan) 32%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
+  }
   .gh-cell.pad {
     background: transparent !important;
     border-color: transparent;
@@ -1080,7 +1088,12 @@
     min-height: var(--week-col-min);
   }
   .gh-cell.today {
-    box-shadow: 0 0 0 2px var(--cyan);
+    z-index: 2;
+    box-shadow:
+      0 0 6px color-mix(in srgb, var(--cyan) 85%, transparent),
+      0 0 14px color-mix(in srgb, var(--cyan) 40%, transparent),
+      0 0 22px color-mix(in srgb, var(--accent) 28%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent);
   }
   .gh-cell.has-appt {
     border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
