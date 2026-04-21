@@ -329,7 +329,6 @@
   }
 
   const deleteUserHabit = async (h) => {
-    if (h.origin === 'DAILY_OFFER') return
     if (!confirm(`Retirer « ${h.name} » de ta liste ?`)) return
     try {
       const snapshot = { ...habitDraft }
@@ -735,15 +734,13 @@
             aria-label={h.origin === 'DAILY_OFFER' ? 'Choisir les jours (habitude du jour)' : 'Modifier l’habitude'}
             on:click|stopPropagation={() => { editHabit = h }}
           >Modifier</button>
-          {#if h.origin !== 'DAILY_OFFER'}
-            <button
-              type="button"
-              class="habit-action-btn text danger"
-              title="Retirer cette habitude de ta liste"
-              aria-label="Supprimer l’habitude"
-              on:click|stopPropagation={() => deleteUserHabit(h)}
-            >Retirer</button>
-          {/if}
+          <button
+            type="button"
+            class="habit-action-btn text danger"
+            title="Retirer cette habitude de ta liste"
+            aria-label="Supprimer l’habitude"
+            on:click|stopPropagation={() => deleteUserHabit(h)}
+          >Retirer</button>
         </div>
       </div>
     {/each}

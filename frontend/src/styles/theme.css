@@ -80,4 +80,13 @@
   --grad-avatar:  linear-gradient(135deg, #7c3aed, #06b6d4);
   --grad-delete:  linear-gradient(135deg, #ef4444, #dc2626);
   --grad-topbar:  linear-gradient(90deg,  #0d0030, #001835);
+
+  /* Gouttières horizontales : mobile (PWA) serré, desktop marges latérales */
+  --app-gutter-x: 14px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-gutter-x: clamp(24px, 5vw, 72px);
+  }
 }

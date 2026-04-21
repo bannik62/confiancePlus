@@ -52,6 +52,9 @@
       chartsRevealed = true
       return
     }
+    /* Deux frames : certains navigateurs (surtout desktop) n’ont pas encore peint
+     * la hauteur/largeur à 0 avant la transition — une seule rAF peut sauter l’anim CSS. */
+    await new Promise((r) => requestAnimationFrame(r))
     await new Promise((r) => requestAnimationFrame(r))
     chartsRevealed = true
   }
@@ -338,7 +341,7 @@
   .stats-learner .bar {
     width: 100%;
     border-radius: 5px 5px 2px 2px;
-    min-height: 4px;
+    min-height: 0;
     transition: height var(--stat-bar-ms, 650ms) cubic-bezier(0.22, 1, 0.36, 1);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
@@ -376,6 +379,13 @@
     border-radius: 3px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transition: width var(--stat-bar-ms, 650ms) cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stats-learner .bar,
+    .stats-learner .fill {
+      transition-duration: 0ms !important;
+    }
   }
 
   .loading,

@@ -32,7 +32,7 @@
   header {
     background: var(--grad-topbar);
     border-bottom: 1px solid var(--accent)44;
-    padding: 10px 16px;
+    padding: 10px var(--app-gutter-x);
     display: flex;
     align-items: center;
     justify-content: space-between;
