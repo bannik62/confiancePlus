@@ -144,7 +144,7 @@
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 10px;
-    margin: 0 14px 12px;
+    margin: 0 var(--app-gutter-x) 12px;
     padding: 12px 14px;
     border-radius: 12px;
     font-size: 14px;

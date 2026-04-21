@@ -21,7 +21,7 @@
     border-top: 1px solid var(--accent)33;
     display: flex;
     justify-content: space-around;
-    padding: 8px 0 12px;
+    padding: 8px var(--app-gutter-x) 12px;
     z-index: 100;
   }
   button {

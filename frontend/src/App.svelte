@@ -344,7 +344,7 @@
   }
 
   main {
-    padding: 14px;
+    padding: 14px var(--app-gutter-x);
     padding-bottom: 80px;
   }
 </style>
