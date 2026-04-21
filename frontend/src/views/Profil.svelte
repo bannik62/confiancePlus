@@ -10,6 +10,8 @@
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
   import CountUpInline from '../components/ui/CountUpInline.svelte'
+  import { gameplayStore } from '../stores/gameplay.js'
+  import { animMs } from '../lib/gameplayUiDefaults.js'
   import { autocompleteSignIn, autocompleteSignUp } from '../lib/htmlInputTokens.js'
 
   let profile = null
@@ -213,7 +215,9 @@
 
     <Card style="margin-bottom:12px">
       <div class="micro muted">XP TOTAL</div>
-      <div class="total-xp"><CountUpInline value={profile.totalXP} duration={1200} /> XP</div>
+      <div class="total-xp">
+        <CountUpInline value={profile.totalXP} duration={animMs($gameplayStore, 'profilTotalXp')} /> XP
+      </div>
     </Card>
 
     <Card style="margin-bottom:12px">

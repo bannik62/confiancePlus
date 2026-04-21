@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
   import { authStore } from '../stores/auth.js'
   import { isEducatorAssociation } from '../stores/group.js'
@@ -10,8 +10,12 @@
     globalTaskRateFillBg,
     globalTaskRateLabelColor,
   } from '../lib/statRateColors.js'
+  import { readPrefersReducedMotion } from '../lib/animateNumber.js'
+  import { animMs } from '../lib/gameplayUiDefaults.js'
+  import { gameplayStore } from '../stores/gameplay.js'
   import Card from '../components/ui/Card.svelte'
   import Tag from '../components/ui/Tag.svelte'
+  import CountUpInline from '../components/ui/CountUpInline.svelte'
   import CalendarHeatmap from '../components/stats/CalendarHeatmap.svelte'
   import DaySnapshot from '../components/stats/DaySnapshot.svelte'
   import InsightsCard from '../components/stats/InsightsCard.svelte'
@@ -32,6 +36,25 @@
 
   const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`)
   const isMe = (id) => id === get(authStore).user?.id
+
+  /** Barres 7 jours / habitudes : hauteur / largeur après 1 frame (effet « croissance ») */
+  let chartsRevealed = false
+  let chartsRevealScheduled = false
+
+  $: if (byDay.length > 0 && !chartsRevealScheduled) {
+    chartsRevealScheduled = true
+    void revealStatCharts()
+  }
+
+  async function revealStatCharts() {
+    await tick()
+    if (readPrefersReducedMotion()) {
+      chartsRevealed = true
+      return
+    }
+    await new Promise((r) => requestAnimationFrame(r))
+    chartsRevealed = true
+  }
 
   onMount(async () => {
     if (get(isEducatorAssociation)) {
@@ -99,7 +122,13 @@
       <div class="micro purple">STATS GROUPE — ASSOCIATION</div>
       <div class="edu-title">{educatorOverview.group.name}</div>
       <p class="hint">
-        {educatorOverview.memberCount} membre{educatorOverview.memberCount > 1 ? 's' : ''} · XP et série des participants (sans l’éducateur).
+        <span class="hint-num"
+          ><CountUpInline
+            value={educatorOverview.memberCount}
+            duration={animMs($gameplayStore, 'statsCountUp')}
+          /></span
+        >
+        membre{educatorOverview.memberCount > 1 ? 's' : ''} · XP et série des participants (sans l’éducateur).
       </p>
     </Card>
 
@@ -116,13 +145,34 @@
                 {#if isMe(m.id)}<span class="you-badge">toi</span>{/if}
               </div>
               <div class="tags-row">
-                <Tag color="var(--gold)">LVL {m.level}</Tag>
+                <Tag color="var(--gold)">
+                  LVL <span class="tag-num-wrap"
+                    ><CountUpInline
+                      value={m.level}
+                      duration={animMs($gameplayStore, 'statsLeaderboardTag')}
+                    /></span
+                  >
+                </Tag>
                 {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
-                {#if m.streak > 0}<Tag color="var(--red)">🔥 {m.streak}</Tag>{/if}
+                {#if m.streak > 0}
+                  <Tag color="var(--red)">
+                    🔥 <span class="tag-num-wrap"
+                      ><CountUpInline
+                        value={m.streak}
+                        duration={animMs($gameplayStore, 'statsLeaderboardTag')}
+                      /></span
+                    >
+                  </Tag>
+                {/if}
               </div>
             </div>
             <div class="xp-col">
-              <div class="xp-val">{m.totalXP.toLocaleString()}</div>
+              <div class="xp-val">
+                <CountUpInline
+                  value={m.totalXP}
+                  duration={animMs($gameplayStore, 'statsLeaderboardXp')}
+                />
+              </div>
               <div class="micro muted">XP</div>
             </div>
           </div>
@@ -130,15 +180,26 @@
       </div>
     </Card>
   {:else}
+    <div
+      class="stats-learner"
+      style="--stat-bar-ms:{animMs($gameplayStore, 'statsBarsCss')}ms"
+    >
     <Card glow style="margin-bottom:12px">
       <div class="micro purple">📊 TAUX DE RÉUSSITE — 7 JOURS</div>
       <div class="bars">
         {#each byDay as d}
           <div class="bar-col">
-            <div class="rate" style="color: {globalTaskRateLabelColor(d.rate)}">{d.rate}%</div>
+            <div class="rate" style="color: {globalTaskRateLabelColor(d.rate)}">
+              <span class="rate-num"
+                ><CountUpInline
+                  value={Math.round(Number(d.rate) || 0)}
+                  duration={animMs($gameplayStore, 'statsCountUp')}
+                /></span
+              >%
+            </div>
             <div
               class="bar"
-              style="height:{d.rate}%; background: {globalTaskRateBarBg(d.rate)}"
+              style="height:{chartsRevealed ? d.rate : 0}%; background: {globalTaskRateBarBg(d.rate)}"
             />
             <div class="day" class:today={d.date === localDateString()}>{weekdayLetterMonFirst(d.date)}</div>
           </div>
@@ -152,12 +213,19 @@
         <div class="habit-row">
           <div class="habit-meta">
             <span>{h.icon} {h.name}</span>
-            <span class="pct" style="color: {globalTaskRateLabelColor(h.rate)}">{h.rate}%</span>
+            <span class="pct" style="color: {globalTaskRateLabelColor(h.rate)}">
+              <span class="pct-num"
+                ><CountUpInline
+                  value={Math.round(Number(h.rate) || 0)}
+                  duration={animMs($gameplayStore, 'statsCountUp')}
+                /></span
+              >%
+            </span>
           </div>
           <div class="track">
             <div
               class="fill"
-              style="width:{h.rate}%; background: {globalTaskRateFillBg(h.rate)}"
+              style="width:{chartsRevealed ? h.rate : 0}%; background: {globalTaskRateFillBg(h.rate)}"
             />
           </div>
         </div>
@@ -182,6 +250,7 @@
           <div class="error">Erreur chargement calendrier</div>
         {/if}
       </Card>
+    </div>
     </div>
   {/if}
 </div>
@@ -242,11 +311,35 @@
     font-size: 9px;
     color: var(--muted);
   }
-  .bar {
+  .hint-num,
+  .tag-num-wrap,
+  .rate-num,
+  .pct-num {
+    display: inline;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    vertical-align: baseline;
+  }
+  .hint-num :global(.countup-inline) {
+    font-weight: 700;
+    color: var(--text);
+  }
+  .rate {
+    font-variant-numeric: tabular-nums;
+  }
+  .pct {
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-learner {
+    width: 100%;
+    min-width: 0;
+  }
+  .stats-learner .bar {
     width: 100%;
     border-radius: 5px 5px 2px 2px;
     min-height: 4px;
-    transition: height 0.4s;
+    transition: height var(--stat-bar-ms, 650ms) cubic-bezier(0.22, 1, 0.36, 1);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
       0 0 14px rgba(251, 191, 36, 0.18);
@@ -278,10 +371,11 @@
     border-radius: 3px;
     overflow: hidden;
   }
-  .fill {
+  .stats-learner .fill {
     height: 100%;
     border-radius: 3px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: width var(--stat-bar-ms, 650ms) cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .loading,

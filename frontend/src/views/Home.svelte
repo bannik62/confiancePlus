@@ -26,6 +26,7 @@
   import { loadProfile, profileStore } from '../stores/profile.js'
   import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
   import { gameplayStore } from '../stores/gameplay.js'
+  import { animMs } from '../lib/gameplayUiDefaults.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -454,7 +455,7 @@
         <div class="xp-mini-block">
           <div class="micro" style="color:var(--muted)">XP TOTAL (ACTUEL)</div>
           <div class="xp-total-num">
-            <CountUpInline value={$profileStore.totalXP} duration={1200} />
+            <CountUpInline value={$profileStore.totalXP} duration={animMs($gameplayStore, 'homeTotalXp')} />
           </div>
         </div>
         <div class="xp-mini-block">
@@ -462,7 +463,7 @@
             {dayBundleLocked ? 'AUJOURD’HUI (HABITUDES)' : 'AUJOURD’HUI (APERÇU)'}
           </div>
           <div class="xp-num">
-            +<CountUpInline value={earnedRounded} duration={750} />
+            +<CountUpInline value={earnedRounded} duration={animMs($gameplayStore, 'homeToday')} />
           </div>
           {#if allDoneDraft && habitMultDraft > 1}
             <Tag color="var(--gold)">×{habitMultDraftLabel} BONUS ⚡</Tag>
@@ -474,7 +475,7 @@
             class="xp-sum-num"
             title="Somme du cumul profil et de l’aperçu habitudes. Indicatif : le cumul inclut peut-être déjà une partie du jour ; check-in, journal, sommeil et RDV sont recalculés au serveur."
           >
-            <CountUpInline value={xpCombinedSum} duration={900} />
+            <CountUpInline value={xpCombinedSum} duration={animMs($gameplayStore, 'homeCombined')} />
           </div>
           <p class="xp-proj-hint micro muted">Indicatif — le serveur recalcule le total réel à l’enregistrement.</p>
         </div>
