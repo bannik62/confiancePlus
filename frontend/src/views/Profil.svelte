@@ -9,6 +9,7 @@
   import Card  from '../components/ui/Card.svelte'
   import Tag   from '../components/ui/Tag.svelte'
   import XPBar from '../components/ui/XPBar.svelte'
+  import CountUpInline from '../components/ui/CountUpInline.svelte'
   import { autocompleteSignIn, autocompleteSignUp } from '../lib/htmlInputTokens.js'
 
   let profile = null
@@ -212,7 +213,7 @@
 
     <Card style="margin-bottom:12px">
       <div class="micro muted">XP TOTAL</div>
-      <div class="total-xp">{profile.totalXP.toLocaleString()} XP</div>
+      <div class="total-xp"><CountUpInline value={profile.totalXP} duration={1200} /> XP</div>
     </Card>
 
     <Card style="margin-bottom:12px">
