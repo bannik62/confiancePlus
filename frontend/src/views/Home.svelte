@@ -22,8 +22,9 @@
   import { tab } from '../stores/tab.js'
   import { mergeUser } from '../stores/auth.js'
   import { appointmentsApi } from '../api/appointments.js'
-  import { loadProfile } from '../stores/profile.js'
-  import { habitDayMultiplier } from '../lib/xpHabitBonus.js'
+  import { loadProfile, profileStore } from '../stores/profile.js'
+  import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
+  import { gameplayStore } from '../stores/gameplay.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -307,8 +308,10 @@
     apptDeclineReason = ''
   }
 
-  /** RDV encore « jouables » (pas marqués non faits). */
-  $: apptsMainToday = todayAppointments.filter((a) => !a.notDone)
+  /** À traiter : ni validés ni marqués non faits (liste principale). */
+  $: apptsPendingToday = todayAppointments.filter((a) => !a.notDone && !a.done)
+  /** Validés — même présentation repliable que les non faits. */
+  $: apptsDoneToday = todayAppointments.filter((a) => a.done)
   /** Ratés ce jour — plus d’XP ; seule la suppression du RDV enlève l’entrée. */
   $: apptsMissedToday = todayAppointments.filter((a) => a.notDone)
 
@@ -340,13 +343,26 @@
   $: dueHabits = $habits.filter(isHabitCountedToday)
   $: done       = dueHabits.filter((h) => !!h.logs?.length).length
   $: total      = dueHabits.length
-  $: allDone    = done === total && total > 0
-  $: baseHabitXp =
-    dueHabits.filter((h) => !!h.logs?.length).reduce((s, h) => s + h.xp, 0)
-  $: habitMult  = habitDayMultiplier(allDone, total)
-  /** Affichage du multiplicateur (évite 1.4000000001) */
-  $: habitMultLabel = habitMult.toFixed(1).replace(/\.0$/, '')
-  $: earnedXP   = baseHabitXp * habitMult
+  /**
+   * Aperçu XP habitudes : brouillon en édition ; logs serveur si journée verrouillée
+   * (après « Sauvegarder », habitDraft = {} — il faut lire les logs pour ne pas afficher 0).
+   */
+  $: baseDraftXp = dueHabits
+    .filter((h) => (dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id]))
+    .reduce((s, h) => s + h.xp, 0)
+  $: doneDraft = dueHabits.filter((h) =>
+    dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id],
+  ).length
+  $: allDoneDraft = doneDraft === total && total > 0
+  $: habitMultDraft = habitDayMultiplier(
+    allDoneDraft,
+    total,
+    $gameplayStore?.xp?.bonusPerTask ?? HABIT_BONUS_PER_TASK,
+  )
+  $: habitMultDraftLabel = habitMultDraft.toFixed(1).replace(/\.0$/, '')
+  $: earnedFromDraft = baseDraftXp * habitMultDraft
+  /** Somme des deux lignes du dessus (cumul profil + aperçu habitudes du jour) */
+  $: xpCombinedSum = $profileStore.totalXP + Math.round(earnedFromDraft)
   /** Humeur du check-in : 1–3 encouragement, 4–7 maintien, 8–10 félicitation (JSON) */
   $: mood       = $dailyLog?.mood ?? 5
   $: encourage  = dayMessageFor(mood, localDateString())
@@ -431,11 +447,31 @@
     </Card>
 
     <Card>
-      <div class="micro" style="color:var(--gold)">XP AUJOURD'HUI</div>
-      <div class="xp-num">+{Math.round(earnedXP)}</div>
-      {#if allDone && habitMult > 1}
-        <Tag color="var(--gold)">×{habitMultLabel} BONUS ⚡</Tag>
-      {/if}
+      <div class="xp-mini-card">
+        <div class="xp-mini-block">
+          <div class="micro" style="color:var(--muted)">XP TOTAL (ACTUEL)</div>
+          <div class="xp-total-num">{$profileStore.totalXP.toLocaleString('fr-FR')}</div>
+        </div>
+        <div class="xp-mini-block">
+          <div class="micro" style="color:var(--gold)">
+            {dayBundleLocked ? 'AUJOURD’HUI (HABITUDES)' : 'AUJOURD’HUI (APERÇU)'}
+          </div>
+          <div class="xp-num">+{Math.round(earnedFromDraft)}</div>
+          {#if allDoneDraft && habitMultDraft > 1}
+            <Tag color="var(--gold)">×{habitMultDraftLabel} BONUS ⚡</Tag>
+          {/if}
+        </div>
+        <div class="xp-mini-block">
+          <div class="micro" style="color:var(--muted)">TOTAL (ACTUEL + AUJ.)</div>
+          <div
+            class="xp-sum-num"
+            title="Somme du cumul profil et de l’aperçu habitudes. Indicatif : le cumul inclut peut-être déjà une partie du jour ; check-in, journal, sommeil et RDV sont recalculés au serveur."
+          >
+            {xpCombinedSum.toLocaleString('fr-FR')}
+          </div>
+          <p class="xp-proj-hint micro muted">Indicatif — le serveur recalcule le total réel à l’enregistrement.</p>
+        </div>
+      </div>
     </Card>
   </div>
 
@@ -450,7 +486,7 @@
         <p class="muted micro">Chargement…</p>
       {:else}
         <div class="appt-home-list">
-          {#each apptsMainToday as a (a.id)}
+          {#each apptsPendingToday as a (a.id)}
             <div class="appt-home-row">
               <div>
                 <div class="appt-home-title">{a.title}</div>
@@ -461,8 +497,7 @@
                   {#if a.timeHm}
                     <Tag color="var(--cyan)">{a.timeHm}</Tag>
                   {/if}
-                  <Tag color="var(--gold)">+30 XP</Tag>
-                  {#if a.done}<Tag color="var(--green)">Validé</Tag>{/if}
+                  <Tag color="var(--gold)">+{a.xpReward ?? 30} XP</Tag>
                 </div>
                 {#if apptDeclineOpenId === a.id}
                   <p class="appt-decline-hint micro muted">
@@ -479,36 +514,65 @@
               </div>
               {#if localDateString() === a.date}
                 <div class="appt-home-btns">
-                  {#if a.done}
-                    <!-- rien -->
+                  {#if apptDeclineOpenId === a.id}
+                    <button type="button" class="appt-val-btn" on:click={() => submitDeclineAppointment(a)}>
+                      Confirmer non fait
+                    </button>
+                    <button type="button" class="appt-cancel-btn" on:click={cancelDeclineAppointment}>
+                      Annuler
+                    </button>
                   {:else}
-                    {#if apptDeclineOpenId === a.id}
-                      <button type="button" class="appt-val-btn" on:click={() => submitDeclineAppointment(a)}>
-                        Confirmer non fait
-                      </button>
-                      <button type="button" class="appt-cancel-btn" on:click={cancelDeclineAppointment}>
-                        Annuler
-                      </button>
-                    {:else}
-                      <button
-                        type="button"
-                        class="appt-val-btn"
-                        on:click={() => completeTodayAppointment(a)}
-                      >Valider</button>
-                      <button
-                        type="button"
-                        class="appt-cancel-btn"
-                        on:click={() => {
-                          apptDeclineOpenId = a.id
-                          apptDeclineReason = ''
-                        }}
-                      >Non fait</button>
-                    {/if}
+                    <button
+                      type="button"
+                      class="appt-val-btn"
+                      on:click={() => completeTodayAppointment(a)}
+                    >Valider</button>
+                    <button
+                      type="button"
+                      class="appt-cancel-btn"
+                      on:click={() => {
+                        apptDeclineOpenId = a.id
+                        apptDeclineReason = ''
+                      }}
+                    >Non fait</button>
                   {/if}
                 </div>
               {/if}
             </div>
           {/each}
+
+          {#if apptsPendingToday.length === 0 && (apptsDoneToday.length > 0 || apptsMissedToday.length > 0)}
+            <p class="muted micro appt-pending-empty">
+              Aucun RDV à traiter — voir validés ou non faits ci-dessous.
+            </p>
+          {/if}
+
+          {#if apptsDoneToday.length > 0}
+            <details class="appt-missed-details appt-done-details">
+              <summary class="appt-missed-summary appt-done-summary">
+                Rendez-vous validés ({apptsDoneToday.length})
+              </summary>
+              <div class="appt-missed-inner">
+                {#each apptsDoneToday as a (a.id)}
+                  <div class="appt-home-row appt-missed-row appt-done-row">
+                    <div>
+                      <div class="appt-home-title">{a.title}</div>
+                      {#if a.notes}
+                        <p class="appt-home-notes">{a.notes}</p>
+                      {/if}
+                      <div class="appt-home-meta">
+                        {#if a.timeHm}
+                          <Tag color="var(--cyan)">{a.timeHm}</Tag>
+                        {/if}
+                        <Tag color="var(--gold)">+{a.xpReward ?? 30} XP</Tag>
+                        <Tag color="var(--green)">Validé</Tag>
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </details>
+          {/if}
 
           {#if apptsMissedToday.length > 0}
             <details class="appt-missed-details">
@@ -729,6 +793,41 @@
   .reason      { font-size: 11px; color: var(--muted); }
   .big-num     { font-size: 20px; font-weight: 900; background: linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .xp-num      { font-size: 26px; font-weight: 900; color: var(--gold); }
+  .xp-mini-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    min-height: 100%;
+    justify-content: center;
+  }
+  .xp-mini-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+  .xp-total-num {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .xp-sum-num {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--cyan);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .xp-proj-hint {
+    margin: 0;
+    max-width: 11rem;
+    line-height: 1.35;
+    font-size: 8px !important;
+    letter-spacing: 0.06em;
+  }
   .circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .circle-label { text-align: center; }
 
@@ -1134,6 +1233,19 @@
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border);
+  }
+
+  .appt-pending-empty {
+    margin: 0 0 8px;
+    line-height: 1.4;
+  }
+
+  .appt-done-summary {
+    color: var(--green);
+  }
+
+  .appt-done-details .appt-done-summary::before {
+    color: var(--green);
   }
 
   .appt-missed-summary {

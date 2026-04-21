@@ -1,7 +1,9 @@
 <script>
   import { onMount } from 'svelte'
+  import { fade } from 'svelte/transition'
   import { authStore, clearAuth } from '../stores/auth.js'
   import { adminApi } from '../api/admin.js'
+  import { loadGameplay as refreshPublicGameplay } from '../stores/gameplay.js'
   import Card from '../components/ui/Card.svelte'
 
   let users = []
@@ -46,6 +48,76 @@
   let emailRecipients = []
   let emailRecipLoading = true
 
+  /** État éditable (copie profonde de la config serveur). */
+  let gpEdit = null
+  let gpHasDb = false
+  let gpLoading = true
+  let gpErr = ''
+  let gpOk = ''
+  let gpBusy = false
+  let gpResetBusy = false
+  /** Paliers streak (saisie « 7,14,30… ») */
+  let streakBadgesStr = '7,14,30,60,100,365'
+
+  const cloneGameplay = (c) => JSON.parse(JSON.stringify(c))
+
+  /** Aide gameplay : ouverture au clic (téléphone sans hover). */
+  const GP_TIPS = {
+    intro:
+      'Ces réglages pilotent l’XP, la courbe de niveaux, le nombre de places d’habitudes et les RDV côté serveur (total XP, création d’habitudes et de RDV). Enregistrer crée une surcharge en base ; « Réinitialiser » revient aux valeurs du fichier code.',
+    xpBlock:
+      'Utilisé dans le calcul d’XP du jour (habitudes cochées + bonus si tout est fait + bonus check-in / journal / sommeil). Aligné avec l’aperçu sur l’accueil une fois la config chargée.',
+    habitBase:
+      'XP attribuée par habitude cochée lorsque l’habitude n’a pas de valeur XP personnalisée en base.',
+    bonusPerTask:
+      'Coefficient du bonus « toutes les habitudes prévues ce jour sont cochées » : multiplicateur = max(1, bonusPerTask × nombre d’habitudes cochées).',
+    checkInBonus:
+      'XP ajoutée le jour où l’utilisateur a enregistré son humeur (check-in du jour).',
+    journalBonus:
+      'XP ajoutée si le journal du jour civil est renseigné (sauvegarde de la journée).',
+    sleepBonus: 'XP ajoutée si la qualité du sommeil est renseignée pour ce jour.',
+    newHabitDefault:
+      'XP par défaut lors de la création manuelle d’une nouvelle habitude (avant toute édition du champ XP).',
+    levelsBlock:
+      'Détermine combien d’XP totale il faut pour atteindre chaque niveau, donc le rythme de progression et le titre affiché.',
+    levelBase:
+      'Facteur d’échelle de la courbe : avec l’exposant, fixe l’XP requise pour passer les premiers niveaux.',
+    levelExponent:
+      'Plus il est élevé, plus l’XP nécessaire augmente vite pour les niveaux hauts (courbe plus exigeante).',
+    slotsBlock:
+      'Nombre maximum d’habitudes « actives » selon le niveau du joueur : utilisé à la création d’habitude et pour l’offre du jour (places pleines).',
+    baseSlots:
+      'Nombre de places pour les niveaux jusqu’à levelAnchor inclus (avant d’ajouter bonusPerLevel par niveau).',
+    levelAnchor:
+      'Dernier niveau où l’on reste sur baseSlots ; à partir du niveau suivant, on ajoute bonusPerLevel par niveau gagné.',
+    bonusPerLevelSlots:
+      'Places supplémentaires par niveau au-delà de levelAnchor (jusqu’au plafond absoluteMax).',
+    absoluteMax:
+      'Plafond absolu du nombre d’habitudes actives, même si la formule en donnerait plus.',
+    rdvBlock:
+      'Règles d’XP pour les RDV validés le jour prévu : plafond par nombre de RDV « payants » et par somme d’XP RDV le même jour civil.',
+    maxRdvXp:
+      'Nombre maximum de RDV validés le même jour qui rapportent de l’XP ; les suivants sont enregistrés comme faits mais avec 0 XP.',
+    maxXpRdvDay:
+      'Somme maximale d’XP issue des RDV pour un même jour civil (la somme des xpEarned est plafonnée).',
+    xpRdvCreate:
+      'Valeur stockée sur chaque nouveau RDV : affichage dans l’agenda et plafond théorique par validation (sous réserve des plafonds journaliers).',
+    streakBlock:
+      'Jours de série consécutive à partir desquels un palier de badge peut être mis en avant dans le profil. Saisie : nombres séparés par des virgules (ex. 7, 14, 30).',
+    titlesBlock:
+      'Libellé et emoji affichés selon le niveau : on prend la ligne dont « depuis » est le plus grand seuil inférieur ou égal au niveau actuel. L’ordre des lignes dans la liste n’a pas d’importance.',
+  }
+
+  let gpTipKey = null
+
+  const toggleGpTip = (key) => {
+    gpTipKey = gpTipKey === key ? null : key
+  }
+
+  const closeGpTip = () => {
+    gpTipKey = null
+  }
+
   const auditActionLabel = (code) =>
     ({
       USER_DELETE: 'Suppression compte',
@@ -57,6 +129,8 @@
       PUSH_TEST_GIFT: 'Notifications — test push (message admin)',
       ADMIN_EMAIL_DEFAULTS_SAVE: 'E-mail — modèle par défaut (titre + corps)',
       ADMIN_EMAIL_SEND: 'E-mail — envoi (tous ou un utilisateur)',
+      GAMEPLAY_CONFIG_UPDATE: 'Gameplay — enregistrement config',
+      GAMEPLAY_CONFIG_RESET: 'Gameplay — reset défaut code',
     }[code] ?? code)
 
   const loadUsers = async () => {
@@ -161,11 +235,21 @@
       loadPushSettings(),
       loadEmailDefaults(),
       loadEmailRecipients(),
+      loadGameplayAdmin(),
     ])
     loading = false
     auditLoading = false
     msgLoading = false
     dailyLoading = false
+    gpLoading = false
+  })
+
+  onMount(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeGpTip()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   })
 
   const nextPage = async () => {
@@ -337,6 +421,79 @@
     } finally {
       emailBusy = false
     }
+  }
+
+  const loadGameplayAdmin = async () => {
+    gpErr = ''
+    gpOk = ''
+    try {
+      const r = await adminApi.getGameplay()
+      gpHasDb = !!r.hasDbOverride
+      gpEdit = cloneGameplay(r.config)
+      streakBadgesStr = (gpEdit.streak?.badgeAt ?? []).join(',')
+    } catch (e) {
+      gpErr = e.message || 'Chargement gameplay impossible'
+      gpEdit = null
+    }
+  }
+
+  const saveGameplay = async () => {
+    if (!gpEdit) return
+    gpErr = ''
+    gpOk = ''
+    const badges = String(streakBadgesStr ?? '')
+      .split(/[,;\s]+/)
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0)
+    if (badges.length < 1) {
+      gpErr = 'Indique au moins un palier streak (nombres séparés par des virgules).'
+      return
+    }
+    gpEdit.streak.badgeAt = badges
+    gpBusy = true
+    try {
+      const r = await adminApi.putGameplay(gpEdit)
+      gpHasDb = !!r.hasDbOverride
+      gpEdit = cloneGameplay(r.config)
+      streakBadgesStr = gpEdit.streak.badgeAt.join(',')
+      gpOk = 'Configuration gameplay enregistrée (prise en compte immédiate côté serveur).'
+      await refreshPublicGameplay()
+      await loadAudit()
+    } catch (e) {
+      gpErr = e.message || 'Enregistrement impossible'
+    } finally {
+      gpBusy = false
+    }
+  }
+
+  const resetGameplay = async () => {
+    if (!confirm('Réinitialiser le gameplay aux valeurs du fichier code (supprime la surcharge en base) ?')) return
+    gpErr = ''
+    gpOk = ''
+    gpResetBusy = true
+    try {
+      const r = await adminApi.resetGameplay()
+      gpHasDb = !!r.hasDbOverride
+      gpEdit = cloneGameplay(r.config)
+      streakBadgesStr = gpEdit.streak.badgeAt.join(',')
+      gpOk = 'Gameplay réinitialisé sur les défauts du dépôt.'
+      await refreshPublicGameplay()
+      await loadAudit()
+    } catch (e) {
+      gpErr = e.message || 'Reset impossible'
+    } finally {
+      gpResetBusy = false
+    }
+  }
+
+  const addGameplayTitleRow = () => {
+    if (!gpEdit?.titles) return
+    gpEdit.titles = [...gpEdit.titles, { from: 0, label: 'Nouveau', icon: '🌱' }]
+  }
+
+  const removeGameplayTitleRow = (idx) => {
+    if (!gpEdit?.titles || gpEdit.titles.length <= 1) return
+    gpEdit.titles = gpEdit.titles.filter((_, i) => i !== idx)
   }
 
   const sendPushTest = async () => {
@@ -519,6 +676,356 @@
   </Card>
 
   <Card style="margin-bottom:14px">
+    <div class="gp-card-title">
+      <div class="sup muted">GAMEPLAY — équilibrage (serveur)</div>
+      <button
+        type="button"
+        class="gp-tip"
+        aria-label="Aide : vue d’ensemble du bloc gameplay"
+        aria-expanded={gpTipKey === 'intro'}
+        aria-controls="gp-tip-panel"
+        on:click|stopPropagation={() => toggleGpTip('intro')}
+      >i</button>
+    </div>
+    {#if gpErr}<p class="err">{gpErr}</p>{/if}
+    {#if gpOk}<p class="ok">{gpOk}</p>{/if}
+    {#if gpLoading || !gpEdit}
+      <p class="muted" style="margin-top:8px">Chargement…</p>
+    {:else}
+      <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+        Surcharge stockée en base (<code>AppSetting.gameConfig</code>). Sans sauvegarde, les valeurs du fichier
+        <code>gameConfig.js</code> s’appliquent.
+        {#if gpHasDb}<strong> Surcharge active.</strong>{/if}
+      </p>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>XP — habitudes &amp; journée</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : section XP habitudes et journée"
+            aria-expanded={gpTipKey === 'xpBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('xpBlock')}
+          >i</button>
+        </div>
+        <div class="gp-grid">
+          <label>
+            <span class="gp-label-row">
+              <span>habitBase</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : habitBase"
+                aria-expanded={gpTipKey === 'habitBase'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('habitBase')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.xp.habitBase} min="1" max="500" />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>bonusPerTask</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : bonusPerTask"
+                aria-expanded={gpTipKey === 'bonusPerTask'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('bonusPerTask')}
+              >i</button>
+            </span>
+            <input type="number" step="0.01" bind:value={gpEdit.xp.bonusPerTask} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>checkInBonus</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : checkInBonus"
+                aria-expanded={gpTipKey === 'checkInBonus'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('checkInBonus')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.xp.checkInBonus} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>journalBonus</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : journalBonus"
+                aria-expanded={gpTipKey === 'journalBonus'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('journalBonus')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.xp.journalBonus} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>sleepBonus</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : sleepBonus"
+                aria-expanded={gpTipKey === 'sleepBonus'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('sleepBonus')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.xp.sleepBonus} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>newHabitDefault</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : newHabitDefault"
+                aria-expanded={gpTipKey === 'newHabitDefault'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('newHabitDefault')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.xp.newHabitDefault} />
+          </label>
+        </div>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Courbe de niveaux (XP pour niveau n ≈ base × n^exponent)</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : courbe de niveaux"
+            aria-expanded={gpTipKey === 'levelsBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('levelsBlock')}
+          >i</button>
+        </div>
+        <div class="gp-grid">
+          <label>
+            <span class="gp-label-row">
+              <span>base</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : levels.base"
+                aria-expanded={gpTipKey === 'levelBase'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('levelBase')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.levels.base} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>exponent</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : levels.exponent"
+                aria-expanded={gpTipKey === 'levelExponent'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('levelExponent')}
+              >i</button>
+            </span>
+            <input type="number" step="0.01" bind:value={gpEdit.levels.exponent} />
+          </label>
+        </div>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Places habitudes actives</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : places habitudes"
+            aria-expanded={gpTipKey === 'slotsBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('slotsBlock')}
+          >i</button>
+        </div>
+        <div class="gp-grid">
+          <label>
+            <span class="gp-label-row">
+              <span>baseSlots</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : baseSlots"
+                aria-expanded={gpTipKey === 'baseSlots'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('baseSlots')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.habitSlots.baseSlots} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>levelAnchor</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : levelAnchor"
+                aria-expanded={gpTipKey === 'levelAnchor'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('levelAnchor')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.habitSlots.levelAnchor} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>bonusPerLevel</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : bonusPerLevel (places)"
+                aria-expanded={gpTipKey === 'bonusPerLevelSlots'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('bonusPerLevelSlots')}
+              >i</button>
+            </span>
+            <input type="number" step="0.1" bind:value={gpEdit.habitSlots.bonusPerLevel} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>absoluteMax</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : absoluteMax"
+                aria-expanded={gpTipKey === 'absoluteMax'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('absoluteMax')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.habitSlots.absoluteMax} />
+          </label>
+        </div>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Rendez-vous</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : rendez-vous"
+            aria-expanded={gpTipKey === 'rdvBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('rdvBlock')}
+          >i</button>
+        </div>
+        <div class="gp-grid">
+          <label>
+            <span class="gp-label-row">
+              <span>max RDV avec XP / jour</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : max RDV avec XP par jour"
+                aria-expanded={gpTipKey === 'maxRdvXp'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('maxRdvXp')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.appointments.maxRewardingCompletionsPerDay} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>max XP RDV / jour</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : max XP RDV par jour"
+                aria-expanded={gpTipKey === 'maxXpRdvDay'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('maxXpRdvDay')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.appointments.maxXpFromAppointmentsPerDay} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>XP à la création d’un RDV</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : XP création RDV"
+                aria-expanded={gpTipKey === 'xpRdvCreate'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('xpRdvCreate')}
+              >i</button>
+            </span>
+            <input type="number" bind:value={gpEdit.appointments.xpRewardOnCreate} />
+          </label>
+        </div>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Streak — paliers badges</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : paliers streak"
+            aria-expanded={gpTipKey === 'streakBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('streakBlock')}
+          >i</button>
+        </div>
+        <label class="gp-full">
+          <input type="text" class="gp-streak-input" bind:value={streakBadgesStr} placeholder="7,14,30,…" />
+        </label>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Titres affichés (niveau ≥ « depuis »)</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : titres par niveau"
+            aria-expanded={gpTipKey === 'titlesBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('titlesBlock')}
+          >i</button>
+        </div>
+        <div class="gp-titles">
+          {#each gpEdit.titles as row, ti}
+            <div class="gp-title-row">
+              <input type="number" class="gp-t-from" bind:value={row.from} title="Niveau min" />
+              <input type="text" class="gp-t-label" bind:value={row.label} maxlength="40" placeholder="Libellé" />
+              <input type="text" class="gp-t-icon" bind:value={row.icon} maxlength="16" placeholder="Icône" />
+              <button type="button" class="btn-del" disabled={gpEdit.titles.length <= 1} on:click={() => removeGameplayTitleRow(ti)}>×</button>
+            </div>
+          {/each}
+        </div>
+        <button type="button" class="btn-secondary" style="margin-top:8px" on:click={addGameplayTitleRow}>+ Titre</button>
+      </div>
+
+      <div class="gp-actions">
+        <button type="button" class="btn-save" disabled={gpBusy} on:click={saveGameplay}>
+          {gpBusy ? '…' : 'Enregistrer le gameplay'}
+        </button>
+        <button type="button" class="btn-secondary" disabled={gpResetBusy} on:click={resetGameplay}>
+          {gpResetBusy ? '…' : 'Réinitialiser (défaut code)'}
+        </button>
+      </div>
+    {/if}
+  </Card>
+
+  <Card style="margin-bottom:14px">
     <div class="sup muted">GROUPES (lecture seule)</div>
     {#if !groups.length}
       <p class="muted" style="margin-top:8px">Aucun groupe.</p>
@@ -617,6 +1124,32 @@
       {msgLoading ? 'Enregistrement…' : 'Enregistrer les messages'}
     </button>
   </Card>
+
+  {#if gpTipKey && GP_TIPS[gpTipKey]}
+    <div class="gp-tip-layer" transition:fade={{ duration: 200 }}>
+      <button
+        type="button"
+        class="gp-tip-backdrop"
+        aria-label="Fermer l’aide"
+        on:click={closeGpTip}
+      ></button>
+      <div
+        id="gp-tip-panel"
+        class="gp-tip-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gp-tip-heading"
+      >
+        <div class="gp-tip-sheet-handle" aria-hidden="true"></div>
+        <div class="gp-tip-sheet-head">
+          <span class="gp-tip-sheet-icon" aria-hidden="true">✦</span>
+          <h3 id="gp-tip-heading" class="gp-tip-sheet-title">Aide</h3>
+        </div>
+        <p class="gp-tip-sheet-body">{GP_TIPS[gpTipKey]}</p>
+        <button type="button" class="gp-tip-sheet-btn" on:click={closeGpTip}>Fermer</button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1042,5 +1575,285 @@
     background: var(--bg);
     color: var(--text);
     box-sizing: border-box;
+  }
+
+  .gp-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+
+  .gp-section {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .gp-section:last-of-type {
+    border-bottom: none;
+  }
+  .gp-h {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .gp-h > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /** Aide : petit disque bleu (::before) ; sur étroit, bouton transparent ≥44px pour le tactile */
+  .gp-tip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-weight: 800;
+    font-style: italic;
+    font-family: Georgia, 'Times New Roman', serif;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    isolation: isolate;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .gp-tip::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2563eb 0%, #0ea5e9 100%);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+    z-index: -1;
+  }
+  @media (min-width: 901px) {
+    .gp-tip {
+      min-width: unset;
+      min-height: unset;
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+  }
+  .gp-tip:hover::before,
+  .gp-tip:focus-visible::before {
+    filter: brightness(1.08);
+  }
+  .gp-tip:focus-visible {
+    outline: 2px solid rgba(14, 165, 233, 0.7);
+    outline-offset: 2px;
+  }
+
+  .gp-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .gp-label-row .gp-tip {
+    flex-shrink: 0;
+  }
+  .gp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px 10px;
+  }
+  .gp-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .gp-grid input {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .gp-full {
+    display: block;
+    width: 100%;
+  }
+  .gp-streak-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  .gp-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .gp-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .gp-t-from {
+    width: 4rem;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .gp-t-label {
+    flex: 1 1 120px;
+    min-width: 100px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .gp-t-icon {
+    width: 3.5rem;
+    text-align: center;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1rem;
+  }
+  .gp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .gp-actions .btn-save {
+    margin-top: 0;
+  }
+
+  .gp-tip-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, 0.55);
+    cursor: pointer;
+  }
+
+  .gp-tip-sheet {
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(78vh, 560px);
+    overflow: auto;
+    margin: 0;
+    padding: 18px 18px max(18px, env(safe-area-inset-bottom));
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+    box-sizing: border-box;
+  }
+
+  .gp-tip-sheet-title {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--cyan);
+  }
+
+  .gp-tip-sheet-body {
+    margin: 0 0 16px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+
+  .gp-tip-sheet-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .gp-tip-sheet-btn:hover,
+  .gp-tip-sheet-btn:focus-visible {
+    filter: brightness(1.06);
+    outline: 2px solid rgba(14, 165, 233, 0.55);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 768px) {
+    .gp-tip-sheet {
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(92vw, 440px);
+      max-height: min(82vh, 560px);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 22px;
+      padding-bottom: 22px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .gp-tip-sheet-btn {
+      width: auto;
+      min-width: 120px;
+      margin-left: auto;
+    }
   }
 </style>

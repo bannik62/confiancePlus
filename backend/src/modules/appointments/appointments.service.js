@@ -1,4 +1,5 @@
 import { db } from '../../core/db.js'
+import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 
@@ -89,6 +90,7 @@ export const listDay = async (userId, dateStr) => {
 export const createMine = async (userId, data) => {
   await assertNotEducatorBlocked(userId)
   const d = dateFromYMD(data.date)
+  const xpReward = getGameConfigSync().appointments.xpRewardOnCreate
   return db.appointment.create({
     data: {
       userId,
@@ -97,7 +99,7 @@ export const createMine = async (userId, data) => {
       notes: data.notes?.trim() || null,
       date: d,
       timeHm: data.timeHm,
-      xpReward: 30,
+      xpReward,
     },
   })
 }
@@ -126,6 +128,7 @@ export const createForMember = async (educatorId, data) => {
     throw { status: 400, message: 'Impossible d’assigner un RDV au propriétaire du groupe.' }
 
   const d = dateFromYMD(data.date)
+  const xpReward = getGameConfigSync().appointments.xpRewardOnCreate
   return db.appointment.create({
     data: {
       userId: data.memberUserId,
@@ -135,7 +138,7 @@ export const createForMember = async (educatorId, data) => {
       notes: data.notes?.trim() || null,
       date: d,
       timeHm: data.timeHm,
-      xpReward: 30,
+      xpReward,
     },
   })
 }
@@ -207,16 +210,48 @@ export const complete = async (userId, appointmentId, body) => {
         'Ce RDV est marqué non fait : il ne peut plus être validé ni rapporter d’XP. Tu peux supprimer le RDV depuis l’agenda si besoin.',
     }
 
+  const GAME = getGameConfigSync()
+  const maxSlots = GAME.appointments.maxRewardingCompletionsPerDay
+  const maxDayXp = GAME.appointments.maxXpFromAppointmentsPerDay
+
+  const [rewardingCount, sumAgg] = await Promise.all([
+    db.appointmentCompletion.count({
+      where: {
+        userId,
+        date: day,
+        outcome: 'COMPLETED',
+        xpEarned: { gt: 0 },
+      },
+    }),
+    db.appointmentCompletion.aggregate({
+      where: { userId, date: day, outcome: 'COMPLETED' },
+      _sum: { xpEarned: true },
+    }),
+  ])
+  const sumXpToday = sumAgg._sum.xpEarned ?? 0
+
+  let xpEarned = 0
+  if (rewardingCount >= maxSlots) {
+    xpEarned = 0
+  } else {
+    xpEarned = Math.min(appt.xpReward, Math.max(0, maxDayXp - sumXpToday))
+  }
+
   const row = await db.appointmentCompletion.create({
     data: {
       appointmentId,
       userId,
       date: day,
-      xpEarned: appt.xpReward,
+      xpEarned,
       outcome: 'COMPLETED',
     },
   })
-  return { ok: true, xpEarned: row.xpEarned }
+
+  const rdvXpCapped =
+    appt.xpReward > 0 &&
+    (rewardingCount >= maxSlots || row.xpEarned < appt.xpReward)
+
+  return { ok: true, xpEarned: row.xpEarned, rdvXpCapped }
 }
 
 /** Marque le RDV « non fait » ce jour — pas d’XP ; raison optionnelle (Stats heatmap uniquement). */

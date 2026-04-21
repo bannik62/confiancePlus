@@ -1,8 +1,10 @@
-import { GAME } from './gameConfig.js'
+import { getGameConfigSync } from './gameConfigRuntime.js'
 
 // XP total requis pour atteindre un niveau donné
-export const xpForLevel = (level) =>
-  Math.floor(GAME.levels.base * Math.pow(level, GAME.levels.exponent))
+export const xpForLevel = (level) => {
+  const GAME = getGameConfigSync()
+  return Math.floor(GAME.levels.base * Math.pow(level, GAME.levels.exponent))
+}
 
 // Niveau correspondant à un total XP
 export const levelFromXP = (totalXP) => {
@@ -13,8 +15,8 @@ export const levelFromXP = (totalXP) => {
 
 // Progression dans le niveau actuel (pour la barre XP)
 export const xpProgress = (totalXP) => {
-  const level    = levelFromXP(totalXP)
-  const current  = totalXP - xpForLevel(level)
+  const level = levelFromXP(totalXP)
+  const current = totalXP - xpForLevel(level)
   const required = xpForLevel(level + 1) - xpForLevel(level)
   return {
     level,
@@ -25,17 +27,20 @@ export const xpProgress = (totalXP) => {
 }
 
 // Titre et icône associés à un niveau
-export const titleForLevel = (level) =>
-  [...GAME.titles].reverse().find((t) => level >= t.from) ?? GAME.titles[0]
+export const titleForLevel = (level) => {
+  const GAME = getGameConfigSync()
+  return [...GAME.titles].reverse().find((t) => level >= t.from) ?? GAME.titles[0]
+}
 
 /**
  * Nombre max d’habitudes **actives** pour un niveau (plafonné).
- * Niveaux 0–5 → 10 ; ensuite +2 par niveau jusqu’à absoluteMax.
+ * Base → baseSlots ; ensuite +bonusPerLevel par niveau au-delà de levelAnchor.
  */
 export const maxActiveHabitsForLevel = (level) => {
-  const { levelAnchor, bonusPerLevel, absoluteMax } = GAME.habitSlots
+  const GAME = getGameConfigSync()
+  const { baseSlots, levelAnchor, bonusPerLevel, absoluteMax } = GAME.habitSlots
   const n = Math.max(0, level - levelAnchor)
-  const raw = 10 + bonusPerLevel * n
+  const raw = baseSlots + bonusPerLevel * n
   return Math.min(absoluteMax, raw)
 }
 
@@ -44,16 +49,16 @@ export const maxActiveHabitsForLevel = (level) => {
 // allDone : toutes les habitudes actives ont été cochées
 // flags   : présence du check-in, journal, sommeil
 export const computeDayXP = ({ habits, allDone, hasCheckin, hasJournal, hasSleep }) => {
+  const GAME = getGameConfigSync()
   const habitXP = habits.reduce((sum, h) => sum + (h.xp ?? GAME.xp.habitBase), 0)
   const n = habits.length
   const mult =
-    allDone && n > 0
-      ? Math.max(1, GAME.xp.bonusPerTask * n)
-      : 1
+    allDone && n > 0 ? Math.max(1, GAME.xp.bonusPerTask * n) : 1
   const habitTotal = habitXP * mult
-  const extras  = (hasCheckin ? GAME.xp.checkInBonus : 0)
-                + (hasJournal ? GAME.xp.journalBonus  : 0)
-                + (hasSleep   ? GAME.xp.sleepBonus    : 0)
+  const extras =
+    (hasCheckin ? GAME.xp.checkInBonus : 0) +
+    (hasJournal ? GAME.xp.journalBonus : 0) +
+    (hasSleep ? GAME.xp.sleepBonus : 0)
   return Math.round(habitTotal + extras)
 }
 

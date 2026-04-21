@@ -1,4 +1,5 @@
 import { db } from '../../core/db.js'
+import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 
 const CATEGORIES = ['encouragement', 'maintien', 'felicitation']
 
@@ -14,3 +15,6 @@ export const getDayMessagesPublic = async () => {
   }
   return out
 }
+
+/** Paramètres gameplay effectifs (lecture seule, sans auth). */
+export const getGameplayPublic = async () => getGameConfigSync()

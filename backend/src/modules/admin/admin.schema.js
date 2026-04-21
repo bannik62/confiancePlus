@@ -54,3 +54,43 @@ export const adminEmailDefaultsSchema = z.object({
   subject: z.string().max(500),
   body: z.string().max(50000),
 })
+
+/** Config gameplay complète (même forme que `gameConfig.js`). */
+export const gameplayConfigSchema = z.object({
+  xp: z.object({
+    habitBase: z.coerce.number().min(1).max(500),
+    bonusPerTask: z.coerce.number().min(0.01).max(5),
+    checkInBonus: z.coerce.number().min(0).max(500),
+    journalBonus: z.coerce.number().min(0).max(500),
+    sleepBonus: z.coerce.number().min(0).max(500),
+    newHabitDefault: z.coerce.number().int().min(1).max(500),
+  }),
+  levels: z.object({
+    base: z.coerce.number().min(1).max(1000000),
+    exponent: z.coerce.number().min(0.5).max(5),
+  }),
+  habitSlots: z.object({
+    baseSlots: z.coerce.number().int().min(1).max(50),
+    levelAnchor: z.coerce.number().int().min(0).max(200),
+    bonusPerLevel: z.coerce.number().min(0).max(20),
+    absoluteMax: z.coerce.number().int().min(1).max(100),
+  }),
+  appointments: z.object({
+    maxRewardingCompletionsPerDay: z.coerce.number().int().min(0).max(50),
+    maxXpFromAppointmentsPerDay: z.coerce.number().int().min(0).max(100000),
+    xpRewardOnCreate: z.coerce.number().int().min(0).max(500),
+  }),
+  streak: z.object({
+    badgeAt: z.array(z.coerce.number().int().min(1)).min(1).max(30),
+  }),
+  titles: z
+    .array(
+      z.object({
+        from: z.coerce.number().int().min(0).max(100000),
+        label: z.string().min(1).max(40),
+        icon: z.string().min(1).max(16),
+      }),
+    )
+    .min(1)
+    .max(30),
+})

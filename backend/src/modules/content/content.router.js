@@ -11,4 +11,12 @@ router.get('/day-messages', async (req, res, next) => {
   }
 })
 
+router.get('/gameplay', async (req, res, next) => {
+  try {
+    res.json(await service.getGameplayPublic())
+  } catch (e) {
+    next(e)
+  }
+})
+
 export default router
