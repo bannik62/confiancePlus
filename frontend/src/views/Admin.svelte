@@ -4,6 +4,7 @@
   import { authStore, clearAuth } from '../stores/auth.js'
   import { adminApi } from '../api/admin.js'
   import { loadGameplay as refreshPublicGameplay } from '../stores/gameplay.js'
+  import { DEFAULT_UI_ANIMATIONS } from '../lib/gameplayUiDefaults.js'
   import Card from '../components/ui/Card.svelte'
 
   let users = []
@@ -61,6 +62,13 @@
 
   const cloneGameplay = (c) => JSON.parse(JSON.stringify(c))
 
+  /** Complète `ui.animations` pour les configs anciennes ou partielles */
+  const ensureGameplayUi = (gp) => {
+    if (!gp?.ui) gp.ui = { animations: { ...DEFAULT_UI_ANIMATIONS } }
+    if (!gp.ui.animations) gp.ui.animations = {}
+    gp.ui.animations = { ...DEFAULT_UI_ANIMATIONS, ...gp.ui.animations }
+  }
+
   /** Aide gameplay : ouverture au clic (téléphone sans hover). */
   const GP_TIPS = {
     intro:
@@ -106,6 +114,30 @@
       'Jours de série consécutive à partir desquels un palier de badge peut être mis en avant dans le profil. Saisie : nombres séparés par des virgules (ex. 7, 14, 30).',
     titlesBlock:
       'Libellé et emoji affichés selon le niveau : on prend la ligne dont « depuis » est le plus grand seuil inférieur ou égal au niveau actuel. L’ordre des lignes dans la liste n’a pas d’importance.',
+    animationsUiBlock:
+      'Durées d’animation des compteurs (ms) et des barres de l’onglet Stats. 0 = affichage instantané. Le navigateur peut réduire les animations si l’utilisateur a activé « réduire les mouvements ». Après enregistrement du gameplay, le store public est rechargé : pas besoin de redéployer le frontend.',
+    animCountUpDefault:
+      'Durée de secours si une clé manque côté client (fallback dans le code). Peut rester alignée sur la valeur par défaut du dépôt.',
+    animHomeTotalXp:
+      'Compteur « XP TOTAL (ACTUEL) » sur l’accueil (carte stats du jour).',
+    animHomeToday:
+      'Compteur « +… » pour l’aperçu XP des habitudes du jour sur l’accueil.',
+    animHomeCombined:
+      'Compteur « TOTAL (ACTUEL + AUJ.) » (indicatif) sur l’accueil.',
+    animStatsCountUp:
+      'Pourcentages affichés dans Stats (barres 7 jours, habitudes) et nombre de membres (vue éducateur).',
+    animStatsBarsCss:
+      'Durée CSS (ms) de la montée des barres verticales et du remplissage horizontal des pistes dans Stats — pas le compteur %, seulement le graphique.',
+    animStatsLeaderboardXp:
+      'Compteur XP dans le classement groupe (vue éducateur).',
+    animStatsLeaderboardTag:
+      'Compteurs niveau (LVL) et série (🔥) dans les pastilles du classement.',
+    animInsightsTitle:
+      'Compteur du nombre de jours analysés dans le titre de la carte Insights (Stats).',
+    animInsightsBody:
+      'Compteurs des scores et pourcentages dans le texte des insights (humeur, sommeil, meilleur jour, etc.).',
+    animProfilTotalXp:
+      'Compteur « XP TOTAL » sur la page Profil.',
   }
 
   let gpTipKey = null
@@ -430,6 +462,7 @@
       const r = await adminApi.getGameplay()
       gpHasDb = !!r.hasDbOverride
       gpEdit = cloneGameplay(r.config)
+      ensureGameplayUi(gpEdit)
       streakBadgesStr = (gpEdit.streak?.badgeAt ?? []).join(',')
     } catch (e) {
       gpErr = e.message || 'Chargement gameplay impossible'
@@ -439,6 +472,7 @@
 
   const saveGameplay = async () => {
     if (!gpEdit) return
+    ensureGameplayUi(gpEdit)
     gpErr = ''
     gpOk = ''
     const badges = String(streakBadgesStr ?? '')
@@ -455,6 +489,7 @@
       const r = await adminApi.putGameplay(gpEdit)
       gpHasDb = !!r.hasDbOverride
       gpEdit = cloneGameplay(r.config)
+      ensureGameplayUi(gpEdit)
       streakBadgesStr = gpEdit.streak.badgeAt.join(',')
       gpOk = 'Configuration gameplay enregistrée (prise en compte immédiate côté serveur).'
       await refreshPublicGameplay()
@@ -475,6 +510,7 @@
       const r = await adminApi.resetGameplay()
       gpHasDb = !!r.hasDbOverride
       gpEdit = cloneGameplay(r.config)
+      ensureGameplayUi(gpEdit)
       streakBadgesStr = gpEdit.streak.badgeAt.join(',')
       gpOk = 'Gameplay réinitialisé sur les défauts du dépôt.'
       await refreshPublicGameplay()
@@ -1012,6 +1048,179 @@
           {/each}
         </div>
         <button type="button" class="btn-secondary" style="margin-top:8px" on:click={addGameplayTitleRow}>+ Titre</button>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Animations UI (durées en ms — compteurs &amp; barres stats)</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : animations UI"
+            aria-expanded={gpTipKey === 'animationsUiBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('animationsUiBlock')}
+          >i</button>
+        </div>
+        <p class="muted" style="margin:0 0 10px;font-size:0.82rem">
+          0 = instantané. Respecte aussi <code>prefers-reduced-motion</code> côté app. Prise en compte après enregistrement + rechargement du store public.
+        </p>
+        <div class="gp-grid">
+          <label>
+            <span class="gp-label-row">
+              <span>countUpDefault</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : countUpDefault"
+                aria-expanded={gpTipKey === 'animCountUpDefault'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animCountUpDefault')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.countUpDefault} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>homeTotalXp</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : homeTotalXp"
+                aria-expanded={gpTipKey === 'animHomeTotalXp'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animHomeTotalXp')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.homeTotalXp} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>homeToday</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : homeToday"
+                aria-expanded={gpTipKey === 'animHomeToday'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animHomeToday')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.homeToday} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>homeCombined</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : homeCombined"
+                aria-expanded={gpTipKey === 'animHomeCombined'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animHomeCombined')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.homeCombined} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>statsCountUp</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : statsCountUp"
+                aria-expanded={gpTipKey === 'animStatsCountUp'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animStatsCountUp')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.statsCountUp} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>statsBarsCss</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : statsBarsCss"
+                aria-expanded={gpTipKey === 'animStatsBarsCss'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animStatsBarsCss')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.statsBarsCss} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>statsLeaderboardXp</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : statsLeaderboardXp"
+                aria-expanded={gpTipKey === 'animStatsLeaderboardXp'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animStatsLeaderboardXp')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.statsLeaderboardXp} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>statsLeaderboardTag</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : statsLeaderboardTag"
+                aria-expanded={gpTipKey === 'animStatsLeaderboardTag'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animStatsLeaderboardTag')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.statsLeaderboardTag} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>insightsTitle</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : insightsTitle"
+                aria-expanded={gpTipKey === 'animInsightsTitle'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animInsightsTitle')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.insightsTitle} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>insightsBody</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : insightsBody"
+                aria-expanded={gpTipKey === 'animInsightsBody'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animInsightsBody')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.insightsBody} />
+          </label>
+          <label>
+            <span class="gp-label-row">
+              <span>profilTotalXp</span>
+              <button
+                type="button"
+                class="gp-tip"
+                aria-label="Aide : profilTotalXp"
+                aria-expanded={gpTipKey === 'animProfilTotalXp'}
+                aria-controls="gp-tip-panel"
+                on:click|stopPropagation={() => toggleGpTip('animProfilTotalXp')}
+              >i</button>
+            </span>
+            <input type="number" min="0" max="30000" bind:value={gpEdit.ui.animations.profilTotalXp} />
+          </label>
+        </div>
       </div>
 
       <div class="gp-actions">

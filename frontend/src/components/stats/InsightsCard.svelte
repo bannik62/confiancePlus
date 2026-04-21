@@ -1,8 +1,11 @@
 <script>
   import Card from '../ui/Card.svelte'
-  
+  import CountUpInline from '../ui/CountUpInline.svelte'
+  import { gameplayStore } from '../../stores/gameplay.js'
+  import { animMs } from '../../lib/gameplayUiDefaults.js'
+
   export let insights = null
-  
+
   const formatDate = (dateStr) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
@@ -11,7 +14,13 @@
 
 {#if insights && insights.daysAnalyzed > 0}
   <Card style="margin-bottom:12px">
-    <div class="micro purple">💡 INSIGHTS ({insights.daysAnalyzed} derniers jours)</div>
+    <div class="micro purple">
+      💡 INSIGHTS (<CountUpInline
+        value={insights.daysAnalyzed}
+        duration={animMs($gameplayStore, 'insightsTitle')}
+        class="ins-num"
+      /> derniers jours)
+    </div>
     
     <div class="insights-grid">
       <!-- Mood × Réussite -->
@@ -19,10 +28,23 @@
         <div class="insight-item">
           <div class="insight-icon">🎯</div>
           <div class="insight-text">
-            Quand tu fais <strong>≥80%</strong> d'habitudes, ton humeur moyenne est 
-            <span class="highlight green">{insights.moodBySuccess.high}/10</span>
+            Quand tu fais <strong>≥80%</strong> d'habitudes, ton humeur moyenne est
+            <span class="highlight green"
+              ><CountUpInline
+                value={Math.round(Number(insights.moodBySuccess.high) || 0)}
+                duration={animMs($gameplayStore, 'insightsBody')}
+                class="ins-inline"
+              />/10</span
+            >
             {#if insights.moodBySuccess.low}
-              vs <span class="highlight red">{insights.moodBySuccess.low}/10</span> si &lt;50%
+              vs <span class="highlight red"
+                ><CountUpInline
+                  value={Math.round(Number(insights.moodBySuccess.low) || 0)}
+                  duration={animMs($gameplayStore, 'insightsBody')}
+                  class="ins-inline"
+                />/10</span
+              >
+              si &lt;50%
             {/if}
           </div>
         </div>
@@ -33,10 +55,23 @@
         <div class="insight-item">
           <div class="insight-icon">🌙</div>
           <div class="insight-text">
-            Avec un sommeil <strong>≥8/10</strong>, ton humeur moyenne est 
-            <span class="highlight cyan">{insights.moodBySleep.great}/10</span>
+            Avec un sommeil <strong>≥8/10</strong>, ton humeur moyenne est
+            <span class="highlight cyan"
+              ><CountUpInline
+                value={Math.round(Number(insights.moodBySleep.great) || 0)}
+                duration={animMs($gameplayStore, 'insightsBody')}
+                class="ins-inline"
+              />/10</span
+            >
             {#if insights.moodBySleep.poor}
-              vs <span class="highlight red">{insights.moodBySleep.poor}/10</span> si &lt;5
+              vs <span class="highlight red"
+                ><CountUpInline
+                  value={Math.round(Number(insights.moodBySleep.poor) || 0)}
+                  duration={animMs($gameplayStore, 'insightsBody')}
+                  class="ins-inline"
+                />/10</span
+              >
+              si &lt;5
             {/if}
           </div>
         </div>
@@ -47,8 +82,21 @@
         <div class="insight-item">
           <div class="insight-icon">🏆</div>
           <div class="insight-text">
-            Ton <strong>meilleur jour</strong> : {formatDate(insights.bestDay.date)} 
-            (humeur {insights.bestDay.mood}/10, {insights.bestDay.habitRate}% habitudes{#if insights.bestDay.sleep}, sommeil {insights.bestDay.sleep}/10{/if})
+            Ton <strong>meilleur jour</strong> : {formatDate(insights.bestDay.date)}
+            (humeur <CountUpInline
+              value={Math.round(Number(insights.bestDay.mood) || 0)}
+              duration={animMs($gameplayStore, 'insightsBody')}
+              class="ins-inline"
+            />/10,
+            <CountUpInline
+              value={Math.round(Number(insights.bestDay.habitRate) || 0)}
+              duration={animMs($gameplayStore, 'insightsBody')}
+              class="ins-inline"
+            />% habitudes{#if insights.bestDay.sleep}, sommeil <CountUpInline
+              value={Math.round(Number(insights.bestDay.sleep) || 0)}
+              duration={animMs($gameplayStore, 'insightsBody')}
+              class="ins-inline"
+            />/10{/if})
           </div>
         </div>
       {/if}
@@ -58,8 +106,16 @@
         <div class="insight-item">
           <div class="insight-icon">💪</div>
           <div class="insight-text">
-            <strong>Jour à retenir</strong> : {formatDate(insights.worstDay.date)} 
-            (humeur {insights.worstDay.mood}/10{#if insights.worstDay.sleep}, sommeil {insights.worstDay.sleep}/10{/if}) — mais tu as persévéré !
+            <strong>Jour à retenir</strong> : {formatDate(insights.worstDay.date)}
+            (humeur <CountUpInline
+              value={Math.round(Number(insights.worstDay.mood) || 0)}
+              duration={animMs($gameplayStore, 'insightsBody')}
+              class="ins-inline"
+            />/10{#if insights.worstDay.sleep}, sommeil <CountUpInline
+              value={Math.round(Number(insights.worstDay.sleep) || 0)}
+              duration={animMs($gameplayStore, 'insightsBody')}
+              class="ins-inline"
+            />/10{/if}) — mais tu as persévéré !
           </div>
         </div>
       {/if}
@@ -128,5 +184,13 @@
   
   .highlight.cyan {
     color: var(--cyan);
+  }
+
+  :global(.ins-num),
+  :global(.ins-inline) {
+    font-variant-numeric: tabular-nums;
+  }
+  :global(.ins-inline) {
+    display: inline;
   }
 </style>

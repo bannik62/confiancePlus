@@ -9,6 +9,7 @@
   import { dayMessageFor, resetDayMessageCache } from '../lib/dayMessage.js'
   import Card from '../components/ui/Card.svelte'
   import Tag  from '../components/ui/Tag.svelte'
+  import CountUpInline from '../components/ui/CountUpInline.svelte'
   import AddHabitModal from '../components/habits/AddHabitModal.svelte'
   import EditHabitModal from '../components/habits/EditHabitModal.svelte'
   import {
@@ -25,6 +26,7 @@
   import { loadProfile, profileStore } from '../stores/profile.js'
   import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
   import { gameplayStore } from '../stores/gameplay.js'
+  import { animMs } from '../lib/gameplayUiDefaults.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -363,6 +365,8 @@
   $: earnedFromDraft = baseDraftXp * habitMultDraft
   /** Somme des deux lignes du dessus (cumul profil + aperçu habitudes du jour) */
   $: xpCombinedSum = $profileStore.totalXP + Math.round(earnedFromDraft)
+  $: earnedRounded = Math.round(earnedFromDraft)
+
   /** Humeur du check-in : 1–3 encouragement, 4–7 maintien, 8–10 félicitation (JSON) */
   $: mood       = $dailyLog?.mood ?? 5
   $: encourage  = dayMessageFor(mood, localDateString())
@@ -450,13 +454,17 @@
       <div class="xp-mini-card">
         <div class="xp-mini-block">
           <div class="micro" style="color:var(--muted)">XP TOTAL (ACTUEL)</div>
-          <div class="xp-total-num">{$profileStore.totalXP.toLocaleString('fr-FR')}</div>
+          <div class="xp-total-num">
+            <CountUpInline value={$profileStore.totalXP} duration={animMs($gameplayStore, 'homeTotalXp')} />
+          </div>
         </div>
         <div class="xp-mini-block">
           <div class="micro" style="color:var(--gold)">
             {dayBundleLocked ? 'AUJOURD’HUI (HABITUDES)' : 'AUJOURD’HUI (APERÇU)'}
           </div>
-          <div class="xp-num">+{Math.round(earnedFromDraft)}</div>
+          <div class="xp-num">
+            +<CountUpInline value={earnedRounded} duration={animMs($gameplayStore, 'homeToday')} />
+          </div>
           {#if allDoneDraft && habitMultDraft > 1}
             <Tag color="var(--gold)">×{habitMultDraftLabel} BONUS ⚡</Tag>
           {/if}
@@ -467,7 +475,7 @@
             class="xp-sum-num"
             title="Somme du cumul profil et de l’aperçu habitudes. Indicatif : le cumul inclut peut-être déjà une partie du jour ; check-in, journal, sommeil et RDV sont recalculés au serveur."
           >
-            {xpCombinedSum.toLocaleString('fr-FR')}
+            <CountUpInline value={xpCombinedSum} duration={animMs($gameplayStore, 'homeCombined')} />
           </div>
           <p class="xp-proj-hint micro muted">Indicatif — le serveur recalcule le total réel à l’enregistrement.</p>
         </div>
