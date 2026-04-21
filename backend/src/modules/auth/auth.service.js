@@ -76,6 +76,7 @@ export const register = async ({ email, username, password, avatar, group, invit
     data: { lastLoginAt: new Date() },
   })
   await cristaux.tryGrantConnexionQuotidienne(user.id)
+  await cristaux.tryGrantClosedDayJourneeParfaite(user.id)
   const out = await db.user.findUnique({ where: { id: user.id } })
   return { user: safeUser(out), token: signToken(tokenPayload(out)) }
 }
@@ -161,6 +162,7 @@ export const login = async ({ email, password, loginMode, inviteCode }) => {
     await createDefaultHabitsForUser(refreshed.id)
 
   await cristaux.tryGrantConnexionQuotidienne(refreshed.id)
+  await cristaux.tryGrantClosedDayJourneeParfaite(refreshed.id)
   const out = await db.user.findUnique({ where: { id: refreshed.id } })
 
   return {
@@ -229,6 +231,7 @@ export const activate = async ({ code, email, password, username, avatar }) => {
   if (habitCount === 0) await createDefaultHabitsForUser(updated.id)
 
   await cristaux.tryGrantConnexionQuotidienne(updated.id)
+  await cristaux.tryGrantClosedDayJourneeParfaite(updated.id)
   const out = await db.user.findUnique({ where: { id: updated.id } })
 
   return { user: safeUser(out), token: signToken(tokenPayload(out)) }
@@ -238,6 +241,7 @@ export const activate = async ({ code, email, password, username, avatar }) => {
 
 export const me = async (userId) => {
   await cristaux.tryGrantConnexionQuotidienne(userId)
+  await cristaux.tryGrantClosedDayJourneeParfaite(userId)
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: {

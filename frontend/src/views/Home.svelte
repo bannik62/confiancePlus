@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
-  import { habits, loadHabits } from '../stores/habits.js'
+  import { habits, habitSlots, loadHabits } from '../stores/habits.js'
   import { dailyLog, saveDailyLog, loadToday } from '../stores/checkin.js'
   import { habitsApi } from '../api/habits.js'
   import { localDateString } from '../lib/dateLocal.js'
@@ -43,6 +43,9 @@
   /** Détecte le passage minuit (jour civil local) pour rafraîchir coches + daily log. */
   let habitCalendarAnchor = ''
   let showAddHabitModal = false
+  /** Plafond habitudes actives (niveau) — désactive « + Ajouter » quand plein */
+  $: atHabitCap =
+    $habitSlots.activeHabitCount >= $habitSlots.maxActiveHabits && $habitSlots.maxActiveHabits > 0
   /** Habitude en cours d’édition (modal) */
   let editHabit = null
   /** Suivi éducateur : membre sélectionné depuis l’aperçu classement */
@@ -548,14 +551,29 @@
   {/if}
 
   <!-- Habitudes -->
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px">
     <div class="micro muted">HABITUDES DU JOUR</div>
-    <button 
-      type="button" 
-      class="add-habit-btn"
-      on:click={() => showAddHabitModal = true}
-    >+ Ajouter</button>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+      <span class="micro muted" title="Habitudes actives / places selon ton niveau">
+        {$habitSlots.activeHabitCount}/{$habitSlots.maxActiveHabits} places
+      </span>
+      <button
+        type="button"
+        class="add-habit-btn"
+        disabled={atHabitCap}
+        title={atHabitCap
+          ? 'Nombre max d’habitudes pour ton niveau — désactive une habitude ou monte de niveau.'
+          : 'Ajouter une habitude'}
+        on:click={() => !atHabitCap && (showAddHabitModal = true)}
+      >+ Ajouter</button>
+    </div>
   </div>
+  {#if atHabitCap}
+    <p class="micro muted" style="margin:-4px 0 10px">
+      Tu as atteint le plafond d’habitudes actives pour ton niveau (niveau {$habitSlots.level}). Désactive une
+      habitude dans la liste ou gagne de l’XP pour débloquer de nouvelles places.
+    </p>
+  {/if}
   <p class="habit-legend micro muted">
     Coche si c’est fait. « Impossible » = tu ne peux pas aujourd’hui : la ligne se fige, hors XP, sans pénalité streak — ce n’est pas une case laissée vide.
   </p>
@@ -934,9 +952,15 @@
     letter-spacing: 0.5px;
     transition: all 0.2s;
   }
-  .add-habit-btn:hover {
+  .add-habit-btn:hover:not(:disabled) {
     background: var(--accent);
     color: var(--bg);
+  }
+  .add-habit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: var(--border);
+    color: var(--muted);
   }
 
   .educator-home .cta-groupe {

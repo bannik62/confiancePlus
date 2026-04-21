@@ -28,6 +28,17 @@ export const xpProgress = (totalXP) => {
 export const titleForLevel = (level) =>
   [...GAME.titles].reverse().find((t) => level >= t.from) ?? GAME.titles[0]
 
+/**
+ * Nombre max d’habitudes **actives** pour un niveau (plafonné).
+ * Niveaux 0–5 → 10 ; ensuite +2 par niveau jusqu’à absoluteMax.
+ */
+export const maxActiveHabitsForLevel = (level) => {
+  const { levelAnchor, bonusPerLevel, absoluteMax } = GAME.habitSlots
+  const n = Math.max(0, level - levelAnchor)
+  const raw = 10 + bonusPerLevel * n
+  return Math.min(absoluteMax, raw)
+}
+
 // XP gagné pour une journée donnée
 // habits  : tableau des habitudes complétées ce jour ({xp})
 // allDone : toutes les habitudes actives ont été cochées

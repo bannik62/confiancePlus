@@ -3,7 +3,8 @@
   "version": "1.0.1",
   "type": "module",
   "scripts": {
-    "dev": "prisma generate && node --watch src/server.js",
+    "dev": "npm run generate && node --watch src/server.js",
+    "generate": "prisma generate",
     "start": "node src/server.js",
     "db:generate": "npm run db:generate --prefix ..",
     "db:migrate": "npm run db:migrate --prefix ..",

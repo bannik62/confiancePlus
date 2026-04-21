@@ -17,6 +17,8 @@ export const createHabitSchema = z.object({
   order: z.number().int().default(0),
   /** 1–127 : bits lun→dim ; défaut 127 = tous les jours */
   weekdaysMask: z.number().int().min(1).max(127).optional(),
+  /** Jour civil client (YYYY-MM-DD) pour le même ancrage XP que GET /habits ?date= */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 /** PATCH : champs éditables (xp / origin inchangés via API) */

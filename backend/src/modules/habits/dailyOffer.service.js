@@ -1,6 +1,7 @@
 import { db } from '../../core/db.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
+import { assertActiveHabitSlotAvailable, getHabitSlotInfo } from './habitSlotGuard.js'
 
 /** YYYY-MM-DD → Date midi UTC (@db.Date) */
 const dateFromYMD = (ymd) => {
@@ -84,14 +85,21 @@ export const getOrCreateDailyOffer = async (userId, clientYmd) => {
     },
   })
 
+  const slotInfo = await getHabitSlotInfo(userId, ymd)
+  const slotFull = slotInfo.activeHabitCount >= slotInfo.maxActiveHabits
+
   if (existing) {
-    return { eligible: true, offer: formatOffer(existing) }
+    return { eligible: true, offer: formatOffer(existing), slotFull }
+  }
+
+  if (slotFull) {
+    return { eligible: true, slotFull: true, offer: null }
   }
 
   const pick = await pickTemplateForUser(userId)
   if (!pick.template) {
     if (pick.reason === 'exhausted') {
-      return { eligible: true, exhausted: true, offer: null }
+      return { eligible: true, exhausted: true, offer: null, slotFull: false }
     }
     return { eligible: false, reason: 'no_templates' }
   }
@@ -109,7 +117,7 @@ export const getOrCreateDailyOffer = async (userId, clientYmd) => {
     },
   })
 
-  return { eligible: true, offer: formatOffer(created) }
+  return { eligible: true, offer: formatOffer(created), slotFull: false }
 }
 
 export const dismissDailyOffer = async (userId, clientYmd) => {
@@ -172,6 +180,8 @@ export const acceptDailyOffer = async (userId, clientYmd) => {
       grantedOffre: false,
     }
   }
+
+  await assertActiveHabitSlotAvailable(userId, ymd)
 
   const maxRow = await db.habit.aggregate({
     where: { userId },

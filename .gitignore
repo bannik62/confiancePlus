@@ -5,7 +5,6 @@ dist/
 *.pyc
 .DS_Store
 *:Zone.Identifier
-fait-Ou-aFaire.md
 repomix-output.*
 .cursor
 
