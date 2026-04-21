@@ -453,6 +453,10 @@
       year: 'numeric',
     })
   }
+
+  /** Date du jour dans la case « aujourd’hui » (format court pour petites cases). */
+  const fmtCellTodayDate = (d) =>
+    d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
 </script>
 
 <div class="view">
@@ -514,12 +518,19 @@
                     ? `background:${cellColor(heatByDate[day.ymd]?.intensity ?? 0)}`
                     : ''}
                   title={day.inRange
-                    ? `${day.ymd} — ${heatByDate[day.ymd]?.scheduled ?? 0} RDV`
+                    ? `${day.ymd === todayYmd ? fmtCellTodayDate(day.d) + ' — ' : ''}${day.ymd} — ${heatByDate[day.ymd]?.scheduled ?? 0} RDV`
                     : ''}
                   on:click={() => onCellClick(day)}
                 >
                   {#if day.inRange}
-                    <span class="cell-num">{day.d.getDate()}</span>
+                    {#if day.ymd === todayYmd}
+                      <span class="cell-stack">
+                        <span class="cell-num">{day.d.getDate()}</span>
+                        <span class="cell-date-today">{fmtCellTodayDate(day.d)}</span>
+                      </span>
+                    {:else}
+                      <span class="cell-num">{day.d.getDate()}</span>
+                    {/if}
                   {/if}
                 </button>
               {/each}
@@ -998,7 +1009,7 @@
     min-height: var(--week-col-min);
     border-radius: clamp(3px, 1vw, 6px);
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    padding: 0;
+    padding: 2px;
     cursor: pointer;
     flex-shrink: 0;
     transition: transform 0.1s, box-shadow 0.1s;
@@ -1007,6 +1018,35 @@
     justify-content: center;
     position: relative;
     box-sizing: border-box;
+  }
+  .cell-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    max-width: 100%;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1.05;
+    text-align: center;
+  }
+  .cell-date-today {
+    font-size: clamp(5px, 1.65vmin, 8px);
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--cyan);
+    opacity: 0.98;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    padding: 0 1px;
+  }
+  .gh-cell.has-appt .cell-date-today {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
   .cell-num {
     font-size: clamp(8px, 2.4vmin, 12px);

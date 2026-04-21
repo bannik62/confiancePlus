@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte'
+  import { localDateString, parseYmdLocal } from '../../lib/dateLocal.js'
 
   export let days = []
   /** `'activity'` = réussite + XP combinés · `'mood'` = humeur */
@@ -96,6 +97,21 @@
   const clearTooltip = () => {
     hoveredDay = null
   }
+
+  $: todayYmd = localDateString()
+
+  const ymdOfDay = (day) => {
+    if (!day?.date) return ''
+    const s = String(day.date)
+    return s.length >= 10 ? s.slice(0, 10) : ''
+  }
+
+  /** 2ᵉ ligne pour la case « aujourd’hui » uniquement. */
+  const fmtCellTodayDate = (ymd) => {
+    const d = parseYmdLocal(ymd)
+    if (!d) return ''
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
+  }
 </script>
 
 <div class="heatmap-wrapper" class:heat-mood={colorMode === 'mood'} class:heat-activity={colorMode === 'activity'}>
@@ -124,15 +140,28 @@
         <div class="month-label">{months[i]}</div>
         <div class="days-col">
           {#each monthDays as day, idx}
+            {@const ymd = ymdOfDay(day)}
+            {@const isToday = ymd && ymd === todayYmd}
             <button
               type="button"
               class="day-cell"
+              class:day-today={isToday}
               style="background: {dayCellBackground(colorMode, day)}; animation-delay: {idx * 2}ms"
+              aria-label={isToday ? `Aujourd’hui — ${fmtCellTodayDate(ymd)}` : undefined}
               on:mouseenter={(e) => placeTooltipNearCell(e, day)}
               on:mousemove={(e) => hoveredDay === day && placeTooltipNearCell(e, day)}
               on:mouseleave={clearTooltip}
               on:click={() => dispatch('dayclick', day)}
-            ></button>
+            >
+              {#if isToday}
+                <span class="cell-today-stack">
+                  <span class="cell-today-num">{parseYmdLocal(ymd)?.getDate() ?? ''}</span>
+                  <span class="cell-today-date">{fmtCellTodayDate(ymd)}</span>
+                </span>
+              {:else}
+                <span class="cell-day-num">{parseYmdLocal(ymd)?.getDate() ?? ''}</span>
+              {/if}
+            </button>
           {/each}
         </div>
       </div>
@@ -293,16 +322,78 @@
 
   .day-cell {
     width: 100%;
-    height: clamp(4px, 1.25vw, 7px);
-    min-height: 3px;
+    min-height: clamp(12px, 2.8vw, 18px);
+    height: auto;
     flex-shrink: 0;
-    border-radius: 3px;
+    border-radius: 4px;
     border: none;
     cursor: pointer;
     transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
-    padding: 0;
+    padding: clamp(2px, 0.45vw, 5px) clamp(3px, 0.5vw, 6px);
     opacity: 0;
     animation: fadeIn 0.3s ease forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .cell-day-num {
+    font-size: clamp(7px, 1.85vw, 11px);
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Jour civil actuel : deux lignes (jour + date) + halo. */
+  .day-cell.day-today {
+    z-index: 2;
+    min-height: clamp(26px, 6.5vw, 40px);
+    padding: clamp(3px, 0.5vw, 6px) clamp(2px, 0.4vw, 5px);
+    flex-direction: column;
+    gap: 1px;
+    box-shadow:
+      0 0 6px color-mix(in srgb, var(--cyan) 85%, transparent),
+      0 0 14px color-mix(in srgb, var(--cyan) 40%, transparent),
+      0 0 22px color-mix(in srgb, var(--accent) 28%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent);
+  }
+
+  .cell-today-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    line-height: 1.05;
+    text-align: center;
+    max-width: 100%;
+    pointer-events: none;
+  }
+
+  .cell-today-num {
+    font-size: clamp(8px, 2.1vw, 12px);
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  }
+
+  .cell-today-date {
+    font-size: clamp(5px, 1.35vw, 8px);
+    font-weight: 700;
+    font-family: 'Rajdhani', sans-serif;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 
   @keyframes fadeIn {
@@ -323,6 +414,21 @@
     filter: brightness(1.15) saturate(1.08);
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.22);
     z-index: 1;
+  }
+
+  .heat-activity .day-cell.day-today:hover {
+    box-shadow:
+      0 0 8px var(--accent)66,
+      0 0 12px color-mix(in srgb, var(--cyan) 55%, transparent),
+      0 0 20px color-mix(in srgb, var(--cyan) 32%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
+  }
+
+  .heat-mood .day-cell.day-today:hover {
+    box-shadow:
+      0 0 10px rgba(255, 255, 255, 0.28),
+      0 0 16px color-mix(in srgb, var(--cyan) 40%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
   }
 
   .tooltip {
