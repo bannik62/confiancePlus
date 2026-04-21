@@ -7,6 +7,7 @@ import {
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import * as cristaux from '../cristaux/cristaux.service.js'
+import { assertActiveHabitSlotAvailable, getHabitSlotInfo } from './habitSlotGuard.js'
 
 const forbidEducatorHabitMutations = async (userId) => {
   if (await userIsAssociationOwner(userId))
@@ -29,23 +30,33 @@ const dateFromYMD = (ymd) => {
 
 /** @param {string} [dateStr] — YYYY-MM-DD côté client ; sinon jour UTC serveur */
 export const getHabits = async (userId, dateStr) => {
-  if (await userIsAssociationOwner(userId) || (await userIsAppAdmin(userId))) return []
+  if (await userIsAssociationOwner(userId) || (await userIsAppAdmin(userId))) {
+    return {
+      habits: [],
+      maxActiveHabits: 10,
+      activeHabitCount: 0,
+      level: 0,
+    }
+  }
   const ymd =
     dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
       ? dateStr
       : new Date().toISOString().slice(0, 10)
   const day = dateFromYMD(ymd)
-  const rows = await db.habit.findMany({
-    where: { userId, isActive: true },
-    orderBy: { order: 'asc' },
-    include: { logs: { where: { date: day } } },
-  })
-  const skips = await db.habitDaySkip.findMany({
-    where: { userId, date: day },
-    select: { habitId: true },
-  })
+  const [rows, skips, slotInfo] = await Promise.all([
+    db.habit.findMany({
+      where: { userId, isActive: true },
+      orderBy: { order: 'asc' },
+      include: { logs: { where: { date: day } } },
+    }),
+    db.habitDaySkip.findMany({
+      where: { userId, date: day },
+      select: { habitId: true },
+    }),
+    getHabitSlotInfo(userId, ymd),
+  ])
   const skippedIds = new Set(skips.map((s) => s.habitId))
-  return rows.map((h) => {
+  const habits = rows.map((h) => {
     const weekdaysMask = h.weekdaysMask ?? ALL_WEEKDAYS_MASK
     return {
       ...h,
@@ -54,6 +65,12 @@ export const getHabits = async (userId, dateStr) => {
       skippedForDay:  skippedIds.has(h.id),
     }
   })
+  return {
+    habits,
+    maxActiveHabits: slotInfo.maxActiveHabits,
+    activeHabitCount: slotInfo.activeHabitCount,
+    level: slotInfo.level,
+  }
 }
 
 /**
@@ -104,6 +121,11 @@ export const unskipHabitForDay = async (habitId, userId, dateStr) => {
 
 export const createHabit = async (userId, data) => {
   await forbidEducatorHabitMutations(userId)
+  const ymd =
+    data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)
+      ? data.date
+      : new Date().toISOString().slice(0, 10)
+  await assertActiveHabitSlotAvailable(userId, ymd)
   const weekdaysMask = normalizeWeekdaysMask(data.weekdaysMask)
   return db.habit.create({
     data: {
@@ -190,7 +212,7 @@ export const toggleHabit = async (habitId, userId, dateStr) => {
 
   await db.habitDaySkip.deleteMany({ where: { habitId, userId, date } })
   await db.habitLog.create({ data: { habitId, userId, date } })
-  const jp = await cristaux.tryGrantJourneeParfaite(userId, ymd)
+  const jp = await cristaux.tryGrantClosedDayJourneeParfaite(userId)
   return {
     checked: true,
     cristaux: jp.cristaux,

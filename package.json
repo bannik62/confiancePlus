@@ -10,7 +10,8 @@
     "build:front":  "npm run build --prefix frontend",
     "install:all":  "npm install --prefix frontend && npm install --prefix backend",
 
-    "db:generate":  "docker compose exec -T backend npx prisma generate",
+    "db:generate":  "docker compose exec -T backend npm run generate",
+    "db:generate:local": "npm run generate --prefix backend",
     "db:migrate":   "docker compose exec -T backend npx prisma migrate deploy",
     "db:migrate:deploy": "docker compose exec -T backend npx prisma migrate deploy",
     "db:migrate:dev": "docker compose exec -T backend npx prisma migrate dev",

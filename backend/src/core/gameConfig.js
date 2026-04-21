@@ -26,6 +26,16 @@ export const GAME = {
     exponent: 1.8,
   },
 
+  // ── Places habitudes actives (par niveau) ───────────────────────────────────
+  habitSlots: {
+    /** Jusqu’à ce niveau inclus : base slots (niveaux 0–5 → 10) */
+    levelAnchor: 5,
+    /** +N places par niveau au-delà de levelAnchor */
+    bonusPerLevel: 2,
+    /** Plafond absolu (la formule ne dépasse pas cette valeur) */
+    absoluteMax: 20,
+  },
+
   // ── Streak ──────────────────────────────────────────────────────────────────
   streak: {
     // Nombre de jours consécutifs avec au moins 1 habitude cochée

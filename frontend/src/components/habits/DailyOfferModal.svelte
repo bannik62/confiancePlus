@@ -8,6 +8,8 @@
   export let loading = false
   /** Erreur API (réseau, refus, etc.) */
   export let errorMessage = ''
+  /** Plus de place pour une habitude active (plafond niveau) — désactive « J’accepte » */
+  export let slotFull = false
   /** Refus explicite uniquement (pas de fermeture au clic hors carte) */
   export let onDismiss = async () => {}
   export let onAccept = async () => {}
@@ -56,6 +58,12 @@
           +{template.xpTotal} XP si tu coches cette habitude aujourd’hui
           <span class="hint">(bonus par rapport au +10 habituel)</span>
         </p>
+        {#if slotFull}
+          <p class="err slot-full" role="status">
+            Tu as atteint le nombre max d’habitudes actives pour ton niveau. Désactive une habitude ou monte de
+            niveau pour en ajouter une.
+          </p>
+        {/if}
         {#if errorMessage}
           <p class="err" role="alert">{errorMessage}</p>
         {/if}
@@ -63,7 +71,12 @@
           <button type="button" class="btn ghost" disabled={loading} on:click={() => onDismiss()}>
             {loading ? '…' : 'Je n’en veux pas'}
           </button>
-          <button type="button" class="btn primary" disabled={loading} on:click={() => onAccept()}>
+          <button
+            type="button"
+            class="btn primary"
+            disabled={loading || slotFull}
+            on:click={() => onAccept()}
+          >
             {loading ? '…' : 'J’accepte'}
           </button>
         </div>

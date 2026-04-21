@@ -32,7 +32,7 @@ export const getMemberOverviewForEducator = async (
   const dateStr = habitsDate && /^\d{4}-\d{2}-\d{2}$/.test(habitsDate) ? habitsDate : undefined
   const resolvedHabitsDate = dateStr ?? utcYmd()
 
-  const [habits, stats, calendar, insights] = await Promise.all([
+  const [habitsPayload, stats, calendar, insights] = await Promise.all([
     habitsService.getHabits(memberId, dateStr),
     getMyStats(memberId, { clientToday }),
     getCalendarYear(memberId, y),
@@ -56,6 +56,8 @@ export const getMemberOverviewForEducator = async (
     share && insights
       ? insights
       : { daysAnalyzed: 0, moodBySuccess: null, moodBySleep: null, bestDay: null, worstDay: null }
+
+  const habits = habitsPayload.habits ?? habitsPayload
 
   return {
     member: {

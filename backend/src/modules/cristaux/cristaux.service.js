@@ -1,5 +1,6 @@
+import { Prisma } from '@prisma/client'
 import { db } from '../../core/db.js'
-import { getLocalYmd } from '../../lib/timezoneLocal.js'
+import { getLocalYmd, addDaysToYmd } from '../../lib/timezoneLocal.js'
 import {
   ALL_WEEKDAYS_MASK,
   isHabitDueOnYmd,
@@ -52,10 +53,44 @@ export const tryGrantConnexionQuotidienne = async (userId) => {
 }
 
 /**
- * 1 cristal quand toutes les habitudes actives **dues** ce jour-là ont un log.
+ * Toutes les habitudes actives dues ce jour-là ont un log (hors « impossibles »).
+ */
+const isJourneeParfaiteForYmd = async (userId, ymd) => {
+  const habits = await db.habit.findMany({
+    where: { userId, isActive: true },
+    select: { id: true, weekdaysMask: true },
+  })
+  const due = habits.filter((h) =>
+    isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd),
+  )
+  if (due.length === 0) return false
+
+  const day = dateFromYMD(ymd)
+  const skippedRows = await db.habitDaySkip.findMany({
+    where: { userId, date: day },
+    select: { habitId: true },
+  })
+  const skipped = new Set(skippedRows.map((r) => r.habitId))
+  const dueEffective = due.filter((h) => !skipped.has(h.id))
+  if (dueEffective.length === 0) return false
+
+  const logs = await db.habitLog.findMany({
+    where: {
+      userId,
+      date: day,
+      habitId: { in: dueEffective.map((h) => h.id) },
+    },
+    select: { habitId: true },
+  })
+  return logs.length === dueEffective.length
+}
+
+/**
+ * 1 cristal par jour civil **clos** (strictement avant aujourd’hui local) où la journée était parfaite.
+ * À appeler après connexion /me (et après toggle pour rafraîchir vite le solde).
  * @returns {{ cristaux: number, grantedJourneeParfaite: boolean }}
  */
-export const tryGrantJourneeParfaite = async (userId, ymd) => {
+export const tryGrantClosedDayJourneeParfaite = async (userId) => {
   if (await skipPersonalEconomy(userId)) {
     const u = await db.user.findUnique({
       where: { id: userId },
@@ -66,60 +101,64 @@ export const tryGrantJourneeParfaite = async (userId, ymd) => {
 
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { cristaux: true, lastCristalJourneeParfaiteYmd: true, ianaTimezone: true },
+    select: {
+      cristaux: true,
+      ianaTimezone: true,
+      createdAt: true,
+    },
   })
   if (!user) return { cristaux: 0, grantedJourneeParfaite: false }
 
-  const localToday = getLocalYmd(user.ianaTimezone, new Date())
-  if (ymd !== localToday) {
-    return { cristaux: user.cristaux, grantedJourneeParfaite: false }
-  }
+  const tz = user.ianaTimezone
+  const yesterday = addDaysToYmd(getLocalYmd(tz, new Date()), -1)
 
-  if (user.lastCristalJourneeParfaiteYmd === ymd) {
-    return { cristaux: user.cristaux, grantedJourneeParfaite: false }
-  }
-
-  const habits = await db.habit.findMany({
-    where: { userId, isActive: true },
-    select: { id: true, weekdaysMask: true },
+  const maxGrant = await db.cristalJourneeParfaiteGrant.findFirst({
+    where: { userId },
+    orderBy: { ymd: 'desc' },
+    select: { ymd: true },
   })
-  const due = habits.filter((h) =>
-    isHabitDueOnYmd(h.weekdaysMask ?? ALL_WEEKDAYS_MASK, ymd),
-  )
-  if (due.length === 0) {
+  const startCandidate = maxGrant
+    ? addDaysToYmd(maxGrant.ymd, 1)
+    : getLocalYmd(tz, user.createdAt)
+
+  if (startCandidate > yesterday) {
     return { cristaux: user.cristaux, grantedJourneeParfaite: false }
   }
 
-  const day = dateFromYMD(ymd)
-  const skippedRows = await db.habitDaySkip.findMany({
-    where: { userId, date: day },
-    select: { habitId: true },
-  })
-  const skipped = new Set(skippedRows.map((r) => r.habitId))
-  const dueEffective = due.filter((h) => !skipped.has(h.id))
-  if (dueEffective.length === 0) {
-    return { cristaux: user.cristaux, grantedJourneeParfaite: false }
+  let cristauxBalance = user.cristaux
+  let anyGranted = false
+
+  let d = startCandidate
+  while (d <= yesterday) {
+    if (!(await isJourneeParfaiteForYmd(userId, d))) {
+      d = addDaysToYmd(d, 1)
+      continue
+    }
+    try {
+      const updated = await db.$transaction(async (tx) => {
+        await tx.cristalJourneeParfaiteGrant.create({
+          data: { userId, ymd: d },
+        })
+        return tx.user.update({
+          where: { id: userId },
+          data: {
+            cristaux: { increment: 1 },
+            lastCristalJourneeParfaiteYmd: d,
+          },
+          select: { cristaux: true },
+        })
+      })
+      cristauxBalance = updated.cristaux
+      anyGranted = true
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        // Déjà crédité (course / requête concurrente)
+      } else {
+        throw e
+      }
+    }
+    d = addDaysToYmd(d, 1)
   }
 
-  const logs = await db.habitLog.findMany({
-    where: {
-      userId,
-      date: day,
-      habitId: { in: dueEffective.map((h) => h.id) },
-    },
-    select: { habitId: true },
-  })
-  if (logs.length !== dueEffective.length) {
-    return { cristaux: user.cristaux, grantedJourneeParfaite: false }
-  }
-
-  const updated = await db.user.update({
-    where: { id: userId },
-    data: {
-      cristaux: { increment: 1 },
-      lastCristalJourneeParfaiteYmd: ymd,
-    },
-    select: { cristaux: true },
-  })
-  return { cristaux: updated.cristaux, grantedJourneeParfaite: true }
+  return { cristaux: cristauxBalance, grantedJourneeParfaite: anyGranted }
 }

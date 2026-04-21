@@ -81,6 +81,7 @@
   let dailyOfferTemplate = null
   let dailyOfferLoading = false
   let dailyOfferError = ''
+  let dailyOfferSlotFull = false
 
   async function tryDailyOffer() {
     if (get(isAppAdmin)) return
@@ -88,6 +89,8 @@
     if (showDailyOfferExhausted) return
     try {
       const r = await habitsApi.getDailyOffer()
+      dailyOfferSlotFull = !!r.slotFull
+      if (r.eligible && r.slotFull && !r.offer) return
       if (r.eligible && r.exhausted) {
         try {
           const k = `ht_daily_offer_exhausted_${localDateString()}`
@@ -151,6 +154,7 @@
     showDailyOfferExhausted = false
     dailyOfferTemplate = null
     dailyOfferError = ''
+    dailyOfferSlotFull = false
     try {
       await tick()
       await new Promise((r) => setTimeout(r, 50))
@@ -203,6 +207,7 @@
       showDailyOfferExhausted = false
       dailyOfferTemplate = null
       dailyOfferError = ''
+      dailyOfferSlotFull = false
       resetDayMessageCache()
     }
 
@@ -232,6 +237,7 @@
     showDailyOfferExhausted = false
     dailyOfferTemplate = null
     dailyOfferError = ''
+    dailyOfferSlotFull = false
     resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
@@ -291,6 +297,7 @@
       template={dailyOfferTemplate}
       loading={dailyOfferLoading}
       errorMessage={dailyOfferError}
+      slotFull={dailyOfferSlotFull}
       onDismiss={handleDailyDismiss}
       onAccept={handleDailyAccept}
     />

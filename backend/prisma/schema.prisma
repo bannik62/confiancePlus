@@ -34,8 +34,10 @@ model User {
   cristaux                        Int     @default(0)
   /// Dernier jour civil local où un cristal « connexion » a été attribué (anti-doublon)
   lastCristalConnexionYmd         String?
-  /// Dernier jour civil local où le bonus « journée parfaite » a été attribué
+  /// Dernier jour civil local où le bonus « journée parfaite » a été attribué (cache ; source de vérité : CristalJourneeParfaiteGrant)
   lastCristalJourneeParfaiteYmd   String?
+
+  cristalJourneeParfaiteGrants CristalJourneeParfaiteGrant[]
 
   /// Dernier streak connu après GET /stats/profile (comparaison bannière)
   lastProfileStreakInt Int @default(0)
@@ -71,6 +73,18 @@ model User {
   appointmentCompletions   AppointmentCompletion[]
 
   pushSubscriptions PushSubscription[]
+}
+
+/// 1 ligne par jour civil où le bonus « journée parfaite » a été crédité (idempotence)
+model CristalJourneeParfaiteGrant {
+  userId    String
+  ymd       String   @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ymd])
+  @@index([userId])
 }
 
 /// Clé-valeur (réglages globaux admin, ex. heure de rappel par défaut)

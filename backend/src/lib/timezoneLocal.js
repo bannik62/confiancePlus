@@ -54,3 +54,14 @@ export const getLocalMinute = (iana, d = new Date()) => {
   const n = m != null ? parseInt(m, 10) : NaN
   return Number.isFinite(n) ? n : 0
 }
+
+/** Calendrier civil : YYYY-MM-DD + N jours (midi UTC, aligné habitLogs). */
+export const addDaysToYmd = (ymd, deltaDays) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
+  dt.setUTCDate(dt.getUTCDate() + deltaDays)
+  const yy = dt.getUTCFullYear()
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getUTCDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}

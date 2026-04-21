@@ -1,5 +1,5 @@
 // Service worker — fetch + notifications Web Push
-const CACHE_NAME = 'habitracks-v1'
+const CACHE_NAME = 'habitracks-v2'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
