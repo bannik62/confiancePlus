@@ -32,4 +32,8 @@ export const adminApi = {
   getEmailRecipients: () => api.get('/admin/email/recipients'),
   /** @param {{ mode: 'all' | 'one', userId?: string, subject: string, body: string }} body */
   postEmailSend: (body) => api.post('/admin/email/send', body),
+
+  getGameplay: () => api.get('/admin/gameplay'),
+  putGameplay: (body) => api.put('/admin/gameplay', body),
+  resetGameplay: () => api.delete('/admin/gameplay'),
 }

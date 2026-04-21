@@ -22,6 +22,7 @@
   import { loadGroups, resetGroupState, isAssociationOwner, isEducatorAssociation } from './stores/group.js'
   import { resetDayMessageCache, setRemoteDayMessages } from './lib/dayMessage.js'
   import { loadDayMessagesPublic } from './api/content.js'
+  import { loadGameplay } from './stores/gameplay.js'
   import { hasMoodForToday } from './lib/checkinState.js'
   import { habitsApi } from './api/habits.js'
   import { loadHabits } from './stores/habits.js'
@@ -163,6 +164,11 @@
         setRemoteDayMessages(dm)
       } catch {
         setRemoteDayMessages(null)
+      }
+      try {
+        await loadGameplay()
+      } catch {
+        /* aperçu XP : fallback constantes */
       }
 
       if (get(isAppAdmin)) {

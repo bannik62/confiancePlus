@@ -1,5 +1,5 @@
 import { db } from '../../core/db.js'
-import { GAME } from '../../core/gameConfig.js'
+import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 
@@ -90,6 +90,7 @@ export const listDay = async (userId, dateStr) => {
 export const createMine = async (userId, data) => {
   await assertNotEducatorBlocked(userId)
   const d = dateFromYMD(data.date)
+  const xpReward = getGameConfigSync().appointments.xpRewardOnCreate
   return db.appointment.create({
     data: {
       userId,
@@ -98,7 +99,7 @@ export const createMine = async (userId, data) => {
       notes: data.notes?.trim() || null,
       date: d,
       timeHm: data.timeHm,
-      xpReward: 30,
+      xpReward,
     },
   })
 }
@@ -127,6 +128,7 @@ export const createForMember = async (educatorId, data) => {
     throw { status: 400, message: 'Impossible d’assigner un RDV au propriétaire du groupe.' }
 
   const d = dateFromYMD(data.date)
+  const xpReward = getGameConfigSync().appointments.xpRewardOnCreate
   return db.appointment.create({
     data: {
       userId: data.memberUserId,
@@ -136,7 +138,7 @@ export const createForMember = async (educatorId, data) => {
       notes: data.notes?.trim() || null,
       date: d,
       timeHm: data.timeHm,
-      xpReward: 30,
+      xpReward,
     },
   })
 }
@@ -208,6 +210,7 @@ export const complete = async (userId, appointmentId, body) => {
         'Ce RDV est marqué non fait : il ne peut plus être validé ni rapporter d’XP. Tu peux supprimer le RDV depuis l’agenda si besoin.',
     }
 
+  const GAME = getGameConfigSync()
   const maxSlots = GAME.appointments.maxRewardingCompletionsPerDay
   const maxDayXp = GAME.appointments.maxXpFromAppointmentsPerDay
 

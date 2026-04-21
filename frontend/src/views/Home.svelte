@@ -23,7 +23,8 @@
   import { mergeUser } from '../stores/auth.js'
   import { appointmentsApi } from '../api/appointments.js'
   import { loadProfile, profileStore } from '../stores/profile.js'
-  import { habitDayMultiplier } from '../lib/xpHabitBonus.js'
+  import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
+  import { gameplayStore } from '../stores/gameplay.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -353,7 +354,11 @@
     dayBundleLocked ? !!h.logs?.length : !!habitDraft[h.id],
   ).length
   $: allDoneDraft = doneDraft === total && total > 0
-  $: habitMultDraft = habitDayMultiplier(allDoneDraft, total)
+  $: habitMultDraft = habitDayMultiplier(
+    allDoneDraft,
+    total,
+    $gameplayStore?.xp?.bonusPerTask ?? HABIT_BONUS_PER_TASK,
+  )
   $: habitMultDraftLabel = habitMultDraft.toFixed(1).replace(/\.0$/, '')
   $: earnedFromDraft = baseDraftXp * habitMultDraft
   /** Somme des deux lignes du dessus (cumul profil + aperçu habitudes du jour) */

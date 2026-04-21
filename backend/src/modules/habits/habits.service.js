@@ -1,4 +1,5 @@
 import { db } from '../../core/db.js'
+import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 import {
   ALL_WEEKDAYS_MASK,
   isHabitDueOnYmd,
@@ -127,12 +128,13 @@ export const createHabit = async (userId, data) => {
       : new Date().toISOString().slice(0, 10)
   await assertActiveHabitSlotAvailable(userId, ymd)
   const weekdaysMask = normalizeWeekdaysMask(data.weekdaysMask)
+  const defaultXp = getGameConfigSync().xp.newHabitDefault
   return db.habit.create({
     data: {
       name: data.name,
       icon: data.icon,
       order: data.order ?? 0,
-      xp: 10,
+      xp: defaultXp,
       origin: 'USER',
       weekdaysMask,
       userId,

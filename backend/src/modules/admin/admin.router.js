@@ -10,6 +10,7 @@ import {
   pushTestSchema,
   adminEmailSendSchema,
   adminEmailDefaultsSchema,
+  gameplayConfigSchema,
 } from './admin.schema.js'
 import * as service from './admin.service.js'
 
@@ -148,6 +149,30 @@ router.get('/email/recipients', async (req, res, next) => {
 router.post('/email/send', validate(adminEmailSendSchema), async (req, res, next) => {
   try {
     res.json(await service.sendAdminEmail(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/gameplay', async (req, res, next) => {
+  try {
+    res.json(await service.getGameplaySettings())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/gameplay', validate(gameplayConfigSchema), async (req, res, next) => {
+  try {
+    res.json(await service.putGameplaySettings(req.user.id, req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/gameplay', async (req, res, next) => {
+  try {
+    res.json(await service.resetGameplaySettings(req.user.id))
   } catch (e) {
     next(e)
   }

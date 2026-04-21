@@ -12,6 +12,8 @@ export const GAME = {
     checkInBonus:   5,    // XP pour avoir fait son check-in du jour
     journalBonus:   5,    // XP pour avoir rempli le journal
     sleepBonus:     3,    // XP pour avoir renseigné la qualité du sommeil
+    /** XP par défaut à la création manuelle d’une habitude (sans valeur perso) */
+    newHabitDefault: 10,
   },
 
   // ── Courbe de niveaux ───────────────────────────────────────────────────────
@@ -28,6 +30,8 @@ export const GAME = {
 
   // ── Places habitudes actives (par niveau) ───────────────────────────────────
   habitSlots: {
+    /** Places de base jusqu’à levelAnchor (ex. 10 pour niveaux 0–5) */
+    baseSlots: 10,
     /** Jusqu’à ce niveau inclus : base slots (niveaux 0–5 → 10) */
     levelAnchor: 5,
     /** +N places par niveau au-delà de levelAnchor */
@@ -42,6 +46,8 @@ export const GAME = {
     maxRewardingCompletionsPerDay: 2,
     /** Plafond d’XP issue des RDV pour un même jour civil (somme des xpEarned). */
     maxXpFromAppointmentsPerDay: 60,
+    /** XP à la création d’un RDV (affichage / plafond par RDV côté validation). */
+    xpRewardOnCreate: 30,
   },
 
   // ── Streak ──────────────────────────────────────────────────────────────────

@@ -3,6 +3,11 @@ import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '../../core/db.js'
 import {
+  getGameConfigSync,
+  refreshGameConfigCache,
+  GAME_DEFAULT,
+} from '../../core/gameConfigRuntime.js'
+import {
   getPushSettingsAdmin,
   setDefaultReminderHour as setDefaultReminderHourSvc,
   sendTestGiftNotification,
@@ -412,4 +417,37 @@ export const sendAdminEmail = async (actorId, { mode, userId, subject, body }) =
     total: recipients.length,
     failed,
   }
+}
+
+const GAMEPLAY_KEY = 'gameConfig'
+
+/** Réglages gameplay effectifs + défaut code + indicateur surcharge DB. */
+export const getGameplaySettings = async () => {
+  const row = await db.appSetting.findUnique({ where: { key: GAMEPLAY_KEY } })
+  return {
+    config: getGameConfigSync(),
+    defaults: structuredClone(GAME_DEFAULT),
+    hasDbOverride: !!(row?.value?.trim()),
+  }
+}
+
+/** Remplace la config gameplay (JSON validé côté route). */
+export const putGameplaySettings = async (actorId, body) => {
+  const json = JSON.stringify(body)
+  await db.appSetting.upsert({
+    where: { key: GAMEPLAY_KEY },
+    create: { key: GAMEPLAY_KEY, value: json },
+    update: { value: json },
+  })
+  await refreshGameConfigCache()
+  await logAudit(actorId, 'GAMEPLAY_CONFIG_UPDATE', null, {})
+  return getGameplaySettings()
+}
+
+/** Supprime la surcharge : retour aux valeurs du fichier `gameConfig.js`. */
+export const resetGameplaySettings = async (actorId) => {
+  await db.appSetting.deleteMany({ where: { key: GAMEPLAY_KEY } })
+  await refreshGameConfigCache()
+  await logAudit(actorId, 'GAMEPLAY_CONFIG_RESET', null, {})
+  return getGameplaySettings()
 }
