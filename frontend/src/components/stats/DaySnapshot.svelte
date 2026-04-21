@@ -1,10 +1,35 @@
 <script>
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, onMount } from 'svelte'
   import Card from '../ui/Card.svelte'
   
   export let day = null
   
   const dispatch = createEventDispatcher()
+
+  /** Empêche le scroll de la page derrière le modal (sinon le geste fait défiler l’arrière-plan). */
+  onMount(() => {
+    const y = window.scrollY || document.documentElement.scrollTop || 0
+    const body = document.body
+    const html = document.documentElement
+    body.style.overflow = 'hidden'
+    html.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${y}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+
+    return () => {
+      body.style.overflow = ''
+      html.style.overflow = ''
+      body.style.position = ''
+      body.style.top = ''
+      body.style.left = ''
+      body.style.right = ''
+      body.style.width = ''
+      window.scrollTo(0, y)
+    }
+  })
   
   const moodN = (m) => {
     const n = Number(m)
@@ -48,9 +73,16 @@
 </script>
 
 {#if day}
-  <div class="overlay" on:click={() => dispatch('close')}></div>
+  <div
+    class="overlay"
+    on:click={() => dispatch('close')}
+    on:touchmove|preventDefault
+  ></div>
   <div class="modal">
-    <Card style="max-width: 400px; width: 90%; position: relative">
+    <!-- scroll sur un bloc sans transform (sinon le scroll tactile casse souvent sur iOS / WebKit) -->
+    <div class="modal-scroll">
+    <div class="modal-inner">
+    <Card style="position: relative">
       <button class="close-btn" on:click={() => dispatch('close')}>✕</button>
       
       <div class="header">
@@ -135,6 +167,8 @@
         <span class="xp-value">+{totalXp}</span>
       </div>
     </Card>
+    </div>
+    </div>
   </div>
 {/if}
 
@@ -152,21 +186,41 @@
   
   .modal {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     z-index: 1001;
-    animation: slideIn 0.25s ease;
+    left: 50%;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    transform: translateX(-50%);
+    width: min(440px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+    animation: modalIn 0.22s ease;
+    /* Pas d’overflow ici : combiné à transform, ça bloque le scroll sur mobile. */
+  }
+
+  .modal-scroll {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+  }
+
+  .modal-inner {
+    width: 100%;
+    min-width: 0;
   }
   
-  @keyframes slideIn {
+  @keyframes modalIn {
     from {
       opacity: 0;
-      transform: translate(-50%, -40%);
+      transform: translateX(-50%) translateY(12px);
     }
     to {
       opacity: 1;
-      transform: translate(-50%, -50%);
+      transform: translateX(-50%) translateY(0);
     }
   }
   
@@ -271,6 +325,8 @@
     background: var(--bg);
     border-radius: 8px;
     border-left: 3px solid var(--accent);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   
   .habits-list {
@@ -281,28 +337,39 @@
   
   .habit-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
-    padding: 8px;
+    padding: 8px 10px;
     background: var(--bg);
     border-radius: 8px;
+    min-width: 0;
   }
   
   .habit-icon {
     font-size: 18px;
+    line-height: 1.3;
+    flex-shrink: 0;
   }
   
   .habit-name {
     flex: 1;
+    min-width: 0;
     font-size: 13px;
+    line-height: 1.35;
     color: var(--text);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   
   .habit-xp {
+    flex-shrink: 0;
     font-size: 12px;
     color: var(--gold);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
+    white-space: nowrap;
+    align-self: center;
+    padding-top: 1px;
   }
   
   .no-habits {
