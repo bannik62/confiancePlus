@@ -37,6 +37,10 @@
   let pushTestBusy = false
   let pushTestMessage = ''
 
+  /** Saisie crédit cristaux par user id (admin) */
+  let crystalGrantInput = {}
+  let grantCristauxBusyId = ''
+
   /** E-mail (Gmail serveur) */
   let emailMode = 'all'
   let emailUserId = ''
@@ -155,6 +159,7 @@
       USER_DELETE: 'Suppression compte',
       USER_SUSPEND: 'Suspension compte',
       USER_UNSUSPEND: 'Réactivation compte',
+      USER_GRANT_CRISTAUX: 'Cristaux — crédit manuel',
       DAY_MESSAGES_REPLACE: 'Messages du jour (remplacement)',
       DAILY_HABIT_TEMPLATES_REPLACE: 'Habitudes du jour (pool)',
       PUSH_SETTINGS_UPDATE: 'Notifications — heure rappel par défaut',
@@ -344,6 +349,33 @@
       await Promise.all([loadUsers(), loadAudit()])
     } catch (e) {
       err = e.message || 'Action impossible'
+    }
+  }
+
+  const grantCristauxForUser = async (u) => {
+    const raw = String(crystalGrantInput[u.id] ?? '').trim()
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n) || n < 1) {
+      err = 'Indique un nombre entier de cristaux (≥ 1).'
+      return
+    }
+    if (n > 50000) {
+      err = 'Plafond : 50 000 cristaux par opération.'
+      return
+    }
+    err = ''
+    grantCristauxBusyId = u.id
+    try {
+      const r = await adminApi.postGrantCristaux(u.id, { amount: n })
+      const newBal = typeof r?.cristaux === 'number' ? r.cristaux : null
+      if (newBal != null)
+        users = users.map((x) => (x.id === u.id ? { ...x, cristaux: newBal } : x))
+      crystalGrantInput = { ...crystalGrantInput, [u.id]: '' }
+      await loadAudit()
+    } catch (e) {
+      err = e.message || 'Crédit impossible'
+    } finally {
+      grantCristauxBusyId = ''
     }
   }
 
@@ -596,8 +628,29 @@
                 <span>Créé : {new Date(u.createdAt).toLocaleString('fr-FR')}</span>
                 <span>Dernière connexion : {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('fr-FR') : '—'}</span>
               </div>
+              <div class="crystal-row" title="Solde cristaux (monnaie in-app)">
+                <span class="crystal-balance">💎 {u.cristaux ?? 0}</span>
+              </div>
             </div>
             <div class="cell actions">
+              <div class="crystal-grant" aria-label="Créditer des cristaux">
+                <input
+                  type="number"
+                  min="1"
+                  max="50000"
+                  class="crystal-in"
+                  placeholder="+"
+                  bind:value={crystalGrantInput[u.id]}
+                />
+                <button
+                  type="button"
+                  class="btn-crystal"
+                  disabled={grantCristauxBusyId === u.id}
+                  on:click={() => grantCristauxForUser(u)}
+                >
+                  {grantCristauxBusyId === u.id ? '…' : 'Créditer'}
+                </button>
+              </div>
               {#if u.id !== $authStore.user?.id}
                 {#if u.isSuspended}
                   <button type="button" class="btn-susp" on:click={() => toggleSuspend(u)}>Réactiver</button>
@@ -695,7 +748,7 @@
     {/if}
     <label class="email-lbl">
       <span>Titre (objet)</span>
-      <input type="text" class="email-subj" maxlength="500" bind:value={emailSubject} placeholder="[Confiance+] …" />
+      <input type="text" class="email-subj" maxlength="500" bind:value={emailSubject} placeholder="[Habitracks] …" />
     </label>
     <label class="email-lbl">
       <span>Corps du message</span>
@@ -1473,7 +1526,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    min-width: 100px;
+    min-width: 11rem;
   }
   .btn-susp {
     border: 1px solid var(--border);
@@ -1549,6 +1602,52 @@
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     line-height: 1.35;
+  }
+  .crystal-row {
+    margin-top: 6px;
+    font-size: 0.82rem;
+  }
+  .crystal-balance {
+    font-weight: 800;
+    color: var(--cyan);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .crystal-grant {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .crystal-in {
+    width: 4.5rem;
+    padding: 5px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .btn-crystal {
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--cyan)66;
+    background: var(--cyan)18;
+    color: var(--cyan);
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    white-space: nowrap;
+  }
+  .btn-crystal:hover:not(:disabled) {
+    border-color: var(--cyan);
+    background: var(--cyan)28;
+  }
+  .btn-crystal:disabled {
+    opacity: 0.55;
+    cursor: wait;
   }
   .btn-del {
     border: 1px solid var(--red)55;

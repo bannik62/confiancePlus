@@ -11,6 +11,9 @@ export const adminApi = {
   deleteUser: (id) => api.delete(`/admin/users/${encodeURIComponent(id)}`),
   patchUserSuspension: (id, suspended) =>
     api.patch(`/admin/users/${encodeURIComponent(id)}/suspension`, { suspended }),
+  /** @param {{ amount: number }} body */
+  postGrantCristaux: (id, body) =>
+    api.post(`/admin/users/${encodeURIComponent(id)}/cristaux/grant`, body),
   audit: (params = {}) => {
     const q = new URLSearchParams()
     if (params.limit != null) q.set('limit', String(params.limit))
