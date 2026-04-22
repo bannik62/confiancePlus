@@ -8,7 +8,7 @@
 
 <header>
   <div class="brand">
-    <div class="label">CONFIANCE+</div>
+    <div class="label">HABITRACKS</div>
     <div class="name">⚡ {$authStore.user?.username ?? ''}</div>
   </div>
 
@@ -19,6 +19,14 @@
         <Tag color="var(--cyan)">{$profileStore.title.icon}</Tag>
       {/if}
       <span class="cristaux" title="Cristaux">💎 {$authStore.user?.cristaux ?? 0}</span>
+      {#if ($authStore.user?.jokerStreak ?? 0) > 0}
+        <span
+          class="joker-badge"
+          title="Joker de série × {$authStore.user?.jokerStreak} — protège ta flamme au sauvetage"
+        >
+          🃏 {$authStore.user?.jokerStreak}
+        </span>
+      {/if}
       <span class="streak">🔥 {$profileStore.streak}</span>
       <button class="avatar" on:click={() => tab.set('profil')}>
         {$authStore.user?.avatar ?? '🦊'}
@@ -58,6 +66,30 @@
   .right { text-align: right; min-width: 160px; }
   .tags  { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 5px; }
   .cristaux { font-size: 12px; color: var(--cyan); font-weight: 700; }
+  .joker-badge {
+    font-size: 12px;
+    font-weight: 800;
+    color: #f0abfc;
+    text-shadow:
+      0 0 8px rgba(168, 85, 247, 0.95),
+      0 0 14px rgba(236, 72, 153, 0.65);
+    animation: jokerGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes jokerGlow {
+    0%,
+    100% {
+      text-shadow:
+        0 0 6px rgba(168, 85, 247, 0.85),
+        0 0 12px rgba(236, 72, 153, 0.45);
+      filter: drop-shadow(0 0 3px rgba(192, 132, 252, 0.7));
+    }
+    50% {
+      text-shadow:
+        0 0 10px rgba(236, 72, 153, 0.95),
+        0 0 18px rgba(168, 85, 247, 0.75);
+      filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.85));
+    }
+  }
   .streak { font-size: 12px; color: var(--gold); }
   .avatar {
     width: 34px; height: 34px;

@@ -8,7 +8,7 @@ export const globalLeaderboard= writable([])   // classement global tous users
 export const activeGroup      = writable(null) // groupe actif sélectionné
 
 /** Après login « groupe avec code » : priorité sur le groupe correspondant au code */
-const POST_LOGIN_GROUP_KEY = 'confianceplus_postLoginGroupId'
+const POST_LOGIN_GROUP_KEY = 'habitracks_postLoginGroupId'
 
 export const rememberPostLoginActiveGroup = (groupId) => {
   try {
