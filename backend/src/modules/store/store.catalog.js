@@ -12,7 +12,7 @@ export const STORE_ITEMS = [
     sku:             STORE_SKUS.JOKER_STREAK,
     name:            'Joker de série',
     description:
-      'Conserve un joker pour le jour où ta flamme chute : au sauvetage, utilise-le à la place de 5 cristaux.',
+      'En réserve dans ton stock : au lendemain d’un jour raté, quand un sauvetage de série est proposé, tu consommes 1 joker pour rattraper ta flamme. Achète-le ici avec tes cristaux.',
     icon:            '🃏',
     priceCristaux:   8,
   },

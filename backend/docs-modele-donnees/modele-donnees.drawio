@@ -4,7 +4,7 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="t1" value="&lt;b&gt;MCD — Confiance+&lt;/b&gt;&lt;br&gt;Modèle conceptuel (entités / liaisons). Complète les cardinalités au besoin." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                <mxCell id="t1" value="&lt;b&gt;MCD — Habitracks&lt;/b&gt;&lt;br&gt;Modèle conceptuel (entités / liaisons). Complète les cardinalités au besoin." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="40" y="20" width="520" height="44" as="geometry"/>
                 </mxCell>
                 <mxCell id="2" value="Utilisateur" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" parent="1" vertex="1">

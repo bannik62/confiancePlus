@@ -21,10 +21,10 @@ export const statsApi = {
   },
   getCalendar:       (year) => api.get(`/stats/calendar/${year}`),
   getInsights:       (days = 30) => api.get(`/stats/insights?days=${days}`),
-  /** Sauvetage streak (M1 : cristaux). Réponse = profil à jour (streak, cristaux, XP…). */
+  /** Sauvetage streak : 1 joker de série. Réponse = profil à jour. */
   postStreakRecover: (opts = {}) =>
     api.post('/stats/streak-recover', {
       clientToday: localDateString(),
-      payment:       opts.payment ?? 'CRISTAUX',
+      payment:       opts.payment ?? 'JOKER',
     }),
 }

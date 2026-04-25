@@ -50,6 +50,8 @@
   import StreakNoticeBanner from './components/modules/StreakNoticeBanner.svelte'
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
+  import AppModal from './components/ui/AppModal.svelte'
+  import { resetAppModal } from './stores/modal.js'
 
   const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
   const TABS_STUDENT = [
@@ -204,6 +206,7 @@
     const resetSessionUi = () => {
       authStore.set({ user: null, session: 0 })
       resetProfile()
+      resetAppModal()
       resetGroupState()
       bootKey = null
       dailyOfferBootKeyDone = null
@@ -244,6 +247,7 @@
     dailyOfferTemplate = null
     dailyOfferError = ''
     dailyOfferSlotFull = false
+    resetAppModal()
     resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
@@ -322,6 +326,7 @@
     </main>
 
     <BottomNav TABS={bottomTabs} />
+    <AppModal />
   {/if}
 {/if}
 

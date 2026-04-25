@@ -109,6 +109,7 @@ export const listUsers = async ({ page = 0, limit = 30 }) => {
         createdAt: true,
         lastLoginAt: true,
         avatar: true,
+        cristaux: true,
         _count: { select: { pushSubscriptions: true } },
       },
     }),
@@ -119,6 +120,32 @@ export const listUsers = async ({ page = 0, limit = 30 }) => {
     pushSubscriptionCount: _count.pushSubscriptions,
   }))
   return { users, total, page: p, limit: l }
+}
+
+/**
+ * Crédite des cristaux à un utilisateur (admin). Audit + retour du nouveau solde.
+ */
+export const grantUserCristaux = async (actorId, targetId, amount) => {
+  const target = await db.user.findUnique({
+    where: { id: targetId },
+    select: { id: true, username: true, cristaux: true },
+  })
+  if (!target) throw { status: 404, message: 'Utilisateur introuvable' }
+
+  const updated = await db.user.update({
+    where: { id: targetId },
+    data: { cristaux: { increment: amount } },
+    select: { cristaux: true },
+  })
+
+  await logAudit(actorId, 'USER_GRANT_CRISTAUX', targetId, {
+    amount,
+    username: target.username,
+    previousBalance: target.cristaux,
+    newBalance: updated.cristaux,
+  })
+
+  return { ok: true, userId: targetId, cristaux: updated.cristaux }
 }
 
 export const deleteUser = async (actorId, targetId) => {
@@ -383,12 +410,14 @@ export const sendAdminEmail = async (actorId, { mode, userId, subject, body }) =
     const txt = applyTemplate(body, u)
     try {
       const displayHeading =
-        subj.replace(/^\[Confiance\+\]\s*/i, '').trim() || 'Message'
+        subj
+          .replace(/^\[(?:Confiance\+|Habitracks)\]\s*/i, '')
+          .trim() || 'Message'
       const html = buildBrandedHtml({
         heading: displayHeading,
         innerHtml: textToParagraphsHtml(txt),
         ctaUrl: config.FRONTEND_URL,
-        ctaLabel: 'Ouvrir Confiance+',
+        ctaLabel: 'Ouvrir Habitracks',
         preheader: txt.replace(/\r\n/g, '\n').slice(0, 120),
       })
       await sendMail({

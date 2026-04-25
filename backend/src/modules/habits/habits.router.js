@@ -100,10 +100,18 @@ router.patch('/:id',           validate(updateHabitSchema), async (req, res, nex
   catch (e) { next(e) }
 })
 
-router.delete('/:id',          async (req, res, next) => {
-  try { await service.deleteHabit(req.params.id, req.user.id); res.sendStatus(204) }
-  catch (e) { next(e) }
-})
+router.delete(
+  '/:id',
+  validate(listHabitsQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      await service.deleteHabit(req.params.id, req.user.id, req.query.date)
+      res.sendStatus(204)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.patch('/:id/toggle',    validate(toggleSchema), async (req, res, next) => {
   try { res.json(await service.toggleHabit(req.params.id, req.user.id, req.body.date)) }

@@ -5,9 +5,6 @@ import { ymdFromDbDate } from './xpAggregate.js'
 /** Fenêtre chargée (jours civils) + pas max dans la chaîne — perf, aligné demande « 10 j ». */
 export const STREAK_CHAIN_MAX_DAYS = 10
 
-/** Coût sauvetage streak (M1 : cristaux uniquement). */
-export const STREAK_RECOVER_CRISTAUX_COST = 5
-
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
 const dateNoonUtc = (ymd) => {

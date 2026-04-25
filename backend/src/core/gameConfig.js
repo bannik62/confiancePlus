@@ -6,7 +6,7 @@ export const GAME = {
 
   // ── XP par action ───────────────────────────────────────────────────────────
   xp: {
-    habitBase:      20,   // XP de base si l'habitude n'a pas de valeur custom
+    habitBase:      10,   // XP de repli si l’habitude n’a pas de champ `xp` en base (aligné habitudes perso)
     /** Coefficient × nombre d’habitudes dues le jour (si toutes cochées) → multiplicateur sur l’XP habitudes ; min 1 */
     bonusPerTask:     0.2,
     checkInBonus:   5,    // XP pour avoir fait son check-in du jour
@@ -66,4 +66,21 @@ export const GAME = {
     { from: 35, label: 'Champion',  icon: '🏆' },
     { from: 50, label: 'Légende',   icon: '💎' },
   ],
+
+  // ── UI (durées animations, ms) — surchargeable via Admin → gameplay ────────
+  ui: {
+    animations: {
+      countUpDefault: 1100,
+      homeTotalXp: 1200,
+      homeToday: 750,
+      homeCombined: 900,
+      statsCountUp: 850,
+      statsBarsCss: 650,
+      statsLeaderboardXp: 1000,
+      statsLeaderboardTag: 700,
+      insightsTitle: 900,
+      insightsBody: 700,
+      profilTotalXp: 1200,
+    },
+  },
 }

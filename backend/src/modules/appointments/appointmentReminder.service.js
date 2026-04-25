@@ -97,7 +97,7 @@ export const runAppointmentReminderTick = async () => {
         now.toFormat('yyyy-MM-dd') === veilleYmd &&
         now.hour >= config.APPOINTMENT_REMINDER_DAY_BEFORE_HOUR
       ) {
-        const subj = `[Confiance+] Demain : ${title}`
+        const subj = `[Habitracks] Demain : ${title}`
         const text = `Bonjour ${u.username},
 
 Rappel : tu as un rendez-vous demain (${apptYmd}) à ${appt.timeHm}.
@@ -105,7 +105,7 @@ ${appt.notes ? `Notes : ${appt.notes}\n` : ''}
 Agenda : ${agendaUrl}
 
 À demain,
-L’équipe Confiance+`
+L’équipe Habitracks`
         const innerHtml = [
           emailBodyP(`Bonjour ${escapeHtml(u.username)},`),
           emailBodyP(
@@ -140,7 +140,7 @@ L’équipe Confiance+`
     if (!appt.emailReminderHourBeforeSentAt) {
       const rdv = apptDateTimeInZone(apptYmd, appt.timeHm, iana)
       if (rdv.isValid && now >= rdv.minus({ hours: 1 }) && now < rdv) {
-        const subj = `[Confiance+] Dans 1 h : ${title}`
+        const subj = `[Habitracks] Dans 1 h : ${title}`
         const text = `Bonjour ${u.username},
 
 Ton rendez-vous « ${title} » a lieu à ${appt.timeHm} (aujourd’hui).
@@ -148,7 +148,7 @@ ${appt.notes ? `Notes : ${appt.notes}\n` : ''}
 Agenda : ${agendaUrl}
 
 À tout de suite,
-L’équipe Confiance+`
+L’équipe Habitracks`
         const innerHtml = [
           emailBodyP(`Bonjour ${escapeHtml(u.username)},`),
           emailBodyP(

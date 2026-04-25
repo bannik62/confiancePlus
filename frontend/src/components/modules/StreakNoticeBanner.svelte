@@ -2,6 +2,7 @@
   import { profileStore } from '../../stores/profile.js'
   import { authStore, mergeUser } from '../../stores/auth.js'
   import { statsApi } from '../../api/stats.js'
+  import { tab } from '../../stores/tab.js'
 
   let dismissed = false
 
@@ -19,6 +20,8 @@
 
   let recoverLoading = false
   let recoverError = ''
+
+  $: hasJoker = ($authStore.user?.jokerStreak ?? 0) >= 1
 
   /** @param {any} n */
   const messageFor = (n) => {
@@ -55,22 +58,6 @@
     dismissed = true
   }
 
-  async function payRecover() {
-    recoverError = ''
-    recoverLoading = true
-    try {
-      const data = await statsApi.postStreakRecover({ payment: 'CRISTAUX' })
-      applyProfileAfterRecover(data)
-    } catch (e) {
-      recoverError =
-        typeof e?.message === 'string' && e.message.length
-          ? e.message
-          : 'Impossible de sauver la série pour le moment.'
-    } finally {
-      recoverLoading = false
-    }
-  }
-
   async function payRecoverJoker() {
     recoverError = ''
     recoverLoading = true
@@ -85,6 +72,11 @@
     } finally {
       recoverLoading = false
     }
+  }
+
+  function goToShop() {
+    dismissed = true
+    tab.set('shop')
   }
 </script>
 
@@ -104,31 +96,38 @@
     {#if notice.kind === 'broken' && notice.recoverAvailable}
       <div class="recover">
         <p class="recoverHint">
-          Rattrape <strong>hier</strong> une fois par jour : soit
-          <strong>{notice.recoverCostCristaux ?? 5} cristaux</strong>, soit
-          <strong>1 joker de série</strong> si tu en as un.
+          Rattrape <strong>hier</strong> une fois par jour avec <strong>1 joker de série</strong>
+          {#if hasJoker}
+            (tu en as un — tu peux l’utiliser ci-dessous).
+          {:else}
+            — achète-en un dans la <strong>boutique</strong> avec tes cristaux.
+          {/if}
         </p>
         {#if recoverError}
           <p class="err" role="alert">{recoverError}</p>
         {/if}
         <div class="recoverActions">
-          <button
-            type="button"
-            class="btn primary"
-            disabled={recoverLoading || ($authStore.user?.cristaux ?? 0) < (notice.recoverCostCristaux ?? 5)}
-            on:click={payRecover}
-          >
-            {recoverLoading ? '…' : `Payer ${notice.recoverCostCristaux ?? 5} cristaux`}
-          </button>
-          <button
-            type="button"
-            class="btn ghost"
-            disabled={recoverLoading || ($authStore.user?.jokerStreak ?? 0) < 1}
-            title={($authStore.user?.jokerStreak ?? 0) < 1 ? 'Achète un joker dans la boutique' : 'Utilise 1 joker'}
-            on:click={payRecoverJoker}
-          >
-            {recoverLoading ? '…' : 'Utiliser 1 joker'}
-          </button>
+          {#if hasJoker}
+            <button
+              type="button"
+              class="btn primary"
+              disabled={recoverLoading}
+              title="Consommer 1 joker pour réparer la série d’hier"
+              on:click={payRecoverJoker}
+            >
+              {recoverLoading ? '…' : 'Utiliser 1 joker'}
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="btn primary"
+              disabled={recoverLoading}
+              title="Ouvre la boutique pour acheter un joker de série"
+              on:click={goToShop}
+            >
+              Aller à la boutique
+            </button>
+          {/if}
           <button type="button" class="btn link" disabled={recoverLoading} on:click={() => (dismissed = true)}>
             Annuler
           </button>
@@ -225,11 +224,6 @@
     background: var(--cyan, #3ad);
     color: #0a0a12;
     font-weight: 600;
-  }
-  .btn.ghost {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: var(--line, rgba(255, 255, 255, 0.12));
-    color: var(--muted, #aaa);
   }
   .btn.link {
     background: transparent;

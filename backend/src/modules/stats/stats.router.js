@@ -29,8 +29,11 @@ router.post('/streak-recover', async (req, res, next) => {
     const clientToday =
       typeof req.body?.clientToday === 'string' ? req.body.clientToday : undefined
     const payment = req.body?.payment
-    if (payment !== 'CRISTAUX' && payment !== 'JOKER') {
-      return res.status(400).json({ message: 'Paiement invalide (CRISTAUX ou JOKER).' })
+    if (payment !== 'JOKER') {
+      return res.status(400).json({
+        error:
+          'Paiement invalide : le sauvetage se fait avec 1 joker de série (boutique). Les cristaux ne sont plus acceptés.',
+      })
     }
     res.json(await service.recoverStreak(req.user.id, { clientToday, payment }))
   }

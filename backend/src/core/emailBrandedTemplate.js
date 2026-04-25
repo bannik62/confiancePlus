@@ -4,7 +4,7 @@
  */
 import { config } from './config.js'
 
-/** Couleurs fixes (équivalents CSS du thème Confiance+) */
+/** Couleurs fixes (équivalents CSS du thème Habitracks) */
 const C = {
   bgOuter: '#030712',
   bgCard: '#0e0e2a',
@@ -101,7 +101,7 @@ export const buildBrandedHtml = ({
         <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;" cellspacing="0" cellpadding="0" border="0">
           <tr>
             <td style="background:linear-gradient(90deg,${C.headerGradStart},${C.headerGradEnd});border-radius:14px 14px 0 0;padding:18px 22px;border:1px solid ${C.border};border-bottom:none;">
-              <div style="font-size:10px;letter-spacing:3px;color:${C.gold};font-family:'Segoe UI',system-ui,sans-serif;font-weight:800;">CONFIANCE+</div>
+              <div style="font-size:10px;letter-spacing:3px;color:${C.gold};font-family:'Segoe UI',system-ui,sans-serif;font-weight:800;">HABITRACKS</div>
               <div style="font-size:11px;color:${C.muted};margin-top:6px;font-family:system-ui,sans-serif;">Suivi d’habitudes</div>
             </td>
           </tr>
@@ -115,7 +115,7 @@ export const buildBrandedHtml = ({
               </div>
               ${ctaBlock}
               <p style="margin:22px 0 0;font-size:12px;line-height:1.5;color:${C.muted};font-family:system-ui,sans-serif;border-top:1px solid ${C.border};padding-top:18px;">
-                Ce message concerne ton compte Confiance+.<br/>
+                Ce message concerne ton compte Habitracks.<br/>
                 <a href="${escapeHtml(base)}" style="color:${C.cyan};text-decoration:underline;">${escapeHtml(base)}</a>
               </p>
             </td>

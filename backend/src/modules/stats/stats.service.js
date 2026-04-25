@@ -9,7 +9,6 @@ import {
   ymdMinusDays,
   STREAK_CHAIN_MAX_DAYS,
   planYesterdayStreakRecovery,
-  STREAK_RECOVER_CRISTAUX_COST,
   buildHabitSkipsByYmd,
 } from '../../core/streakService.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
@@ -111,7 +110,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: {
-      id: true, username: true, avatar: true,
+      id: true, username: true, avatar: true, cristaux: true, jokerStreak: true,
       habits: {
         select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
       },
@@ -194,6 +193,8 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         level,
         title,
         streak,
+        cristaux: user.cristaux ?? 0,
+        jokerStreak: user.jokerStreak ?? 0,
         groupNames,
         perfReactionHearts: rx.perfReactionHearts,
         perfReactionSkeptics: rx.perfReactionSkeptics,
@@ -313,9 +314,7 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
         habitSkipsByYmd,
       })
       const recoverAvailable =
-        plan != null &&
-        streakStateRow.lastStreakRecoverAnchorYmd !== anchor &&
-        (user.cristaux >= STREAK_RECOVER_CRISTAUX_COST || user.jokerStreak >= 1)
+        plan != null && streakStateRow.lastStreakRecoverAnchorYmd !== anchor
       streakNotice = {
         kind:            'broken',
         reason: diagnoseStreakBreakReason({
@@ -328,8 +327,6 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
         previousStreak: prevStreakForBanner,
         streak,
         recoverAvailable,
-        recoverCostCristaux: STREAK_RECOVER_CRISTAUX_COST,
-        recoverWithJoker:    user.jokerStreak >= 1,
       }
     } else if (streak === 1 && prevStreakForBanner === 0) {
       streakNotice = { kind: 'started', streak }
@@ -356,15 +353,22 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
 }
 
 /**
- * Sauvetage streak : **hier** seulement ; paiement **CRISTAUX** (5) ou **JOKER** (1 en stock).
+ * Sauvetage streak : **hier** seulement ; paiement **JOKER** uniquement (1 en stock — la boutique).
  */
 export const recoverStreak = async (userId, { clientToday, payment } = {}) => {
   if (await userIsAppAdmin(userId))
     throw { status: 403, message: 'Compte administrateur : pas de sauvetage streak.' }
   if (await userIsAssociationOwner(userId))
     throw { status: 403, message: 'Compte éducateur : pas de sauvetage streak.' }
-  if (payment !== 'CRISTAUX' && payment !== 'JOKER')
-    throw { status: 400, message: 'Paiement invalide (CRISTAUX ou JOKER).' }
+  if (payment === 'CRISTAUX') {
+    throw {
+      status: 400,
+      message:
+        'Le sauvetage en cristaux n’est plus disponible. Achète un joker de série dans la boutique, puis réessaie.',
+    }
+  }
+  if (payment !== 'JOKER')
+    throw { status: 400, message: 'Paiement invalide : indique JOKER (1 joker de série en stock).' }
 
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
@@ -379,11 +383,8 @@ export const recoverStreak = async (userId, { clientToday, payment } = {}) => {
     if (u.lastStreakRecoverAnchorYmd === anchor) {
       throw { status: 409, message: 'Tu as déjà utilisé un sauvetage aujourd’hui.' }
     }
-    if (payment === 'CRISTAUX' && u.cristaux < STREAK_RECOVER_CRISTAUX_COST) {
-      throw { status: 400, message: 'Pas assez de cristaux.' }
-    }
-    if (payment === 'JOKER' && u.jokerStreak < 1) {
-      throw { status: 400, message: 'Tu n’as pas de joker de série.' }
+    if (u.jokerStreak < 1) {
+      throw { status: 400, message: 'Tu n’as pas de joker de série. Achète-en un dans la boutique.' }
     }
 
     await tx.dailyVisit.upsert({
@@ -432,15 +433,10 @@ export const recoverStreak = async (userId, { clientToday, payment } = {}) => {
       }
     }
 
-    const payData =
-      payment === 'CRISTAUX'
-        ? { cristaux: { decrement: STREAK_RECOVER_CRISTAUX_COST } }
-        : { jokerStreak: { decrement: 1 } }
-
     await tx.user.update({
       where: { id: userId },
       data: {
-        ...payData,
+        jokerStreak: { decrement: 1 },
         lastStreakRecoverAnchorYmd: anchor,
       },
     })

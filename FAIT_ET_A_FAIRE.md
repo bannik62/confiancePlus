@@ -18,7 +18,7 @@
 - **Habitudes** : réponse `PATCH /habits/:id/toggle` avec `cristaux` + `grantedJourneeParfaite` si un bonus jour clos est crédité sur cette requête.
 - **Offre du jour** : +1 cristal à l’acceptation (transaction) ; **condition** : au moins **une** habitude déjà cochée ce jour avant acceptation (sinon 400).
 - **Front** : Topbar 💎 + `mergeUser` ; sync après save coches (`Home.svelte`) et après accept offre (`App.svelte`).
-- **Déploiement** : branche `prod` / GitHub `confiancePlus` — UI Topbar poussée (ne pas oublier `prisma migrate deploy` + `prisma generate` côté prod / Docker).
+- **Déploiement** : branche `prod` / GitHub `habitracks` — UI Topbar poussée (ne pas oublier `prisma migrate deploy` + `prisma generate` côté prod / Docker).
 - **Rappels RDV e-mail** : `GMAIL_USER` + `GMAIL_APP_PASSWORD` (comme zerok-billing) ; job chaque minute — **veille** du RDV après `APPOINTMENT_REMINDER_DAY_BEFORE_HOUR` (défaut 18) heure locale assignée ; **1 h avant** le créneau (fuseau `ianaTimezone`). Champs `emailReminder*` sur `Appointment` ; reset si date/heure modifiées.
 - **Admin — e-mail** : section dans `Admin.svelte` ; modèle par défaut (`AppSetting` `admin_email_default_*`) ; envoi **tous** (e-mail renseigné, non suspendus) ou **un** utilisateur ; `POST /admin/email/send` ; placeholders `{{username}}`, `{{email}}`.
 

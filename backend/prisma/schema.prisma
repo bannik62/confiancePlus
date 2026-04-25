@@ -235,7 +235,7 @@ model Habit {
   userId    String
   name      String
   icon      String
-  xp        Int         @default(20)
+  xp        Int         @default(10)
   order     Int         @default(0)
   origin    HabitOrigin @default(DEFAULT)
   isActive  Boolean     @default(true)

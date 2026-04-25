@@ -253,6 +253,15 @@
               <Tag color="var(--gold)">LVL {m.level}</Tag>
               <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
               <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
+              <span class="lb-items" role="group" aria-label="Items">
+                <span class="lb-items-lbl" aria-hidden="true">Items</span>
+                <span class="lb-items-vals">
+                  <span class="lb-cristaux" title="Cristaux">💎 {m.cristaux ?? 0}</span>
+                  {#if (m.jokerStreak ?? 0) > 0}
+                    <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
+                  {/if}
+                </span>
+              </span>
               {#if m.streak > 0}
                 <Tag color="var(--red)">🔥 {m.streak}</Tag>
               {:else}
@@ -336,6 +345,15 @@
             {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
             <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
             <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
+            <span class="lb-items" role="group" aria-label="Items">
+              <span class="lb-items-lbl" aria-hidden="true">Items</span>
+              <span class="lb-items-vals">
+                <span class="lb-cristaux" title="Cristaux">💎 {m.cristaux ?? 0}</span>
+                {#if (m.jokerStreak ?? 0) > 0}
+                  <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
+                {/if}
+              </span>
+            </span>
             {#if m.streak > 0}
               <Tag color="var(--red)">🔥 {m.streak}</Tag>
             {:else}
@@ -433,6 +451,58 @@
   .streak-hint {
     line-height: 1.35;
     max-width: 100%;
+  }
+  .lb-items {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: 100%;
+    padding: 5px 11px;
+    border-radius: 11px;
+    box-sizing: border-box;
+    background: linear-gradient(
+      148deg,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      color-mix(in srgb, var(--cyan) 14%, transparent)
+    );
+    border: 1px solid color-mix(in srgb, var(--cyan) 42%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 2px 14px rgba(0, 0, 0, 0.14);
+  }
+  .lb-items-lbl {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--text) 58%, transparent);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 800;
+    flex-shrink: 0;
+    opacity: 0.92;
+  }
+  .lb-items-vals {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .lb-joker {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #f0abfc;
+    text-shadow:
+      0 0 6px rgba(168, 85, 247, 0.75),
+      0 0 12px rgba(236, 72, 153, 0.4);
+    white-space: nowrap;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .lb-cristaux {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--cyan);
+    white-space: nowrap;
+    font-family: 'Rajdhani', sans-serif;
   }
 
   .group-chips {

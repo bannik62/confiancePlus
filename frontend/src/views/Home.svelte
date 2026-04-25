@@ -24,6 +24,7 @@
   import { mergeUser } from '../stores/auth.js'
   import { appointmentsApi } from '../api/appointments.js'
   import { loadProfile, profileStore } from '../stores/profile.js'
+  import { openAppModal } from '../stores/modal.js'
   import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
   import { gameplayStore } from '../stores/gameplay.js'
   import { animMs } from '../lib/gameplayUiDefaults.js'
@@ -229,6 +230,7 @@
 
   const saveFullDay = async () => {
     saving = true
+    const levelBeforeSave = get(profileStore).level ?? 0
     try {
       journalDirty = false
       const dayPayload = { journal }
@@ -252,6 +254,20 @@
       }
       if (lastCristaux !== undefined) mergeUser({ cristaux: lastCristaux })
       await loadHabits()
+      const prof = await loadProfile({ streakBanner: false })
+      await tick()
+      const levelAfter = prof?.level ?? get(profileStore).level ?? 0
+      if (prof && levelAfter > levelBeforeSave) {
+        const badge = prof.title?.icon ?? '🎉'
+        const titleName = prof.title?.label?.trim?.() ? ` — ${prof.title.label}` : ''
+        openAppModal({
+          variant: 'celebration',
+          icon: badge,
+          title: 'Niveau supérieur !',
+          body: `Félicitations : tu passes au niveau ${levelAfter}${titleName}.`,
+          primaryLabel: 'Super',
+        })
+      }
       dayBundleLocked = true
       sessionStorage.setItem(dayLockStorageKey(), '1')
       habitDraft = {}
@@ -329,7 +345,8 @@
   }
 
   const deleteUserHabit = async (h) => {
-    if (!confirm(`Retirer « ${h.name} » de ta liste ?`)) return
+    if (dayBundleLocked || h.dailyOfferLockedDelete) return
+    if (!confirm(`Retirer « ${h.name} » de ta liste ? (définitif pour toutes les dates)`)) return
     try {
       const snapshot = { ...habitDraft }
       await habitsApi.delete(h.id)
@@ -730,14 +747,24 @@
           <button
             type="button"
             class="habit-action-btn text"
-            title={h.origin === 'DAILY_OFFER' ? 'Jours de l’habitude du jour' : 'Modifier'}
+            disabled={dayBundleLocked}
+            title={dayBundleLocked
+              ? 'Déverrouille la journée avec le bouton MODIFIER en bas pour éditer.'
+              : h.origin === 'DAILY_OFFER'
+                ? 'Jours de l’habitude du jour'
+                : 'Modifier l’habitude'}
             aria-label={h.origin === 'DAILY_OFFER' ? 'Choisir les jours (habitude du jour)' : 'Modifier l’habitude'}
             on:click|stopPropagation={() => { editHabit = h }}
           >Modifier</button>
           <button
             type="button"
             class="habit-action-btn text danger"
-            title="Retirer cette habitude de ta liste"
+            disabled={dayBundleLocked || h.dailyOfferLockedDelete}
+            title={dayBundleLocked
+              ? 'Déverrouille la journée avec le bouton MODIFIER en bas pour retirer une habitude.'
+              : h.dailyOfferLockedDelete
+                ? 'Habitude du jour : retrait possible à partir de demain (anti-abus cristaux).'
+                : 'Retirer cette habitude de ta liste (toutes les dates — pas seulement aujourd’hui).'}
             aria-label="Supprimer l’habitude"
             on:click|stopPropagation={() => deleteUserHabit(h)}
           >Retirer</button>
@@ -957,9 +984,16 @@
     background: color-mix(in srgb, var(--red) 14%, var(--surface));
     color: var(--red);
   }
-  .habit-action-btn.skip-action:disabled {
+  .habit-action-btn.skip-action:disabled,
+  .habit-action-btn.text:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+  .habit-action-btn.text.danger:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    color: color-mix(in srgb, var(--muted) 88%, var(--red));
+    border-color: color-mix(in srgb, var(--border-btn) 85%, var(--muted));
   }
   .habit,
   .habit--waived {

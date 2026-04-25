@@ -48,7 +48,10 @@ export const getHabits = async (userId, dateStr) => {
     db.habit.findMany({
       where: { userId, isActive: true },
       orderBy: { order: 'asc' },
-      include: { logs: { where: { date: day } } },
+      include: {
+        logs: { where: { date: day } },
+        dailyOfferCreated: { select: { offerDate: true } },
+      },
     }),
     db.habitDaySkip.findMany({
       where: { userId, date: day },
@@ -58,12 +61,22 @@ export const getHabits = async (userId, dateStr) => {
   ])
   const skippedIds = new Set(skips.map((s) => s.habitId))
   const habits = rows.map((h) => {
-    const weekdaysMask = h.weekdaysMask ?? ALL_WEEKDAYS_MASK
+    const { dailyOfferCreated, ...rest } = h
+    const weekdaysMask = rest.weekdaysMask ?? ALL_WEEKDAYS_MASK
+    let dailyOfferLockedDelete = false
+    if (
+      rest.origin === 'DAILY_OFFER' &&
+      dailyOfferCreated?.offerDate
+    ) {
+      const offerYmd = dailyOfferCreated.offerDate.toISOString().slice(0, 10)
+      dailyOfferLockedDelete = offerYmd === ymd
+    }
     return {
-      ...h,
+      ...rest,
       weekdaysMask,
       isDue:          isHabitDueOnYmd(weekdaysMask, ymd),
       skippedForDay:  skippedIds.has(h.id),
+      dailyOfferLockedDelete,
     }
   })
   return {
@@ -170,14 +183,32 @@ export const updateHabit = async (habitId, userId, data) => {
   return db.habit.update({ where: { id: habitId }, data: patch })
 }
 
-export const deleteHabit = async (habitId, userId) => {
+/** @param {string} [clientYmd] — jour civil comme GET /habits ?date= (pour verrou suppression offre du jour). */
+export const deleteHabit = async (habitId, userId, clientYmd) => {
   await forbidEducatorHabitMutations(userId)
-  const habit = await assertOwner(habitId, userId)
-  if (habit.origin === 'DAILY_OFFER')
-    throw {
-      status: 403,
-      message: 'Les habitudes « du jour » ne peuvent pas être supprimées.',
+  const habit = await db.habit.findUnique({
+    where: { id: habitId },
+    include: { dailyOfferCreated: { select: { offerDate: true } } },
+  })
+  if (!habit || habit.userId !== userId)
+    throw { status: 403, message: 'Accès refusé' }
+
+  const ymd =
+    clientYmd && /^\d{4}-\d{2}-\d{2}$/.test(clientYmd)
+      ? clientYmd
+      : new Date().toISOString().slice(0, 10)
+
+  if (habit.origin === 'DAILY_OFFER' && habit.dailyOfferCreated?.offerDate) {
+    const offerYmd = habit.dailyOfferCreated.offerDate.toISOString().slice(0, 10)
+    if (offerYmd === ymd) {
+      throw {
+        status: 403,
+        message:
+          'Cette habitude du jour ne peut pas être retirée le jour de son acceptation. Réessaie demain (même fuseau horaire).',
+      }
     }
+  }
+
   return db.habit.update({ where: { id: habitId }, data: { isActive: false } })
 }
 

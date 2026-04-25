@@ -26,10 +26,21 @@ export const xpProgress = (totalXP) => {
   }
 }
 
-// Titre et icône associés à un niveau
+// Titre et icône associés à un niveau (barème `GAME.titles` : défaut gameConfig.js, surcharge Admin).
+// On prend le palier avec le plus grand `from` tel que `level >= from` — indépendant de l’ordre du
+// tableau après merge JSON (l’ancien reverse().find() supposait un tri croissant par `from`).
 export const titleForLevel = (level) => {
   const GAME = getGameConfigSync()
-  return [...GAME.titles].reverse().find((t) => level >= t.from) ?? GAME.titles[0]
+  const list = GAME.titles
+  if (!list?.length) return { from: 0, label: 'Débutant', icon: '🌱' }
+  let best = null
+  for (const t of list) {
+    if (level < t.from) continue
+    if (!best || t.from > best.from) best = t
+  }
+  if (best) return best
+  const sorted = [...list].sort((a, b) => a.from - b.from)
+  return sorted[0]
 }
 
 /**

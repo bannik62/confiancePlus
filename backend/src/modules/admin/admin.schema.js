@@ -14,6 +14,11 @@ export const userSuspensionSchema = z.object({
   suspended: z.boolean(),
 })
 
+/** Crédit manuel de cristaux (tests / récompenses) — entier positif plafonné. */
+export const adminGrantCristauxSchema = z.object({
+  amount: z.coerce.number().int().min(1).max(50_000),
+})
+
 export const pushSettingsSchema = z.object({
   defaultReminderHour: z.coerce.number().int().min(0).max(23),
 })
@@ -93,4 +98,21 @@ export const gameplayConfigSchema = z.object({
     )
     .min(1)
     .max(30),
+  ui: z
+    .object({
+      animations: z.object({
+        countUpDefault: z.coerce.number().int().min(0).max(30000),
+        homeTotalXp: z.coerce.number().int().min(0).max(30000),
+        homeToday: z.coerce.number().int().min(0).max(30000),
+        homeCombined: z.coerce.number().int().min(0).max(30000),
+        statsCountUp: z.coerce.number().int().min(0).max(30000),
+        statsBarsCss: z.coerce.number().int().min(0).max(30000),
+        statsLeaderboardXp: z.coerce.number().int().min(0).max(30000),
+        statsLeaderboardTag: z.coerce.number().int().min(0).max(30000),
+        insightsTitle: z.coerce.number().int().min(0).max(30000),
+        insightsBody: z.coerce.number().int().min(0).max(30000),
+        profilTotalXp: z.coerce.number().int().min(0).max(30000),
+      }),
+    })
+    .optional(),
 })

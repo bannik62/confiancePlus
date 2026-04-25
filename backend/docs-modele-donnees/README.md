@@ -1,4 +1,4 @@
-# Modélisation des données — Confiance+ (habit-tracker)
+# Modélisation des données — Habitracks (habit-tracker)
 
 Ce dossier regroupe les **trois niveaux Merise** appliqués au domaine métier de l’application.
 

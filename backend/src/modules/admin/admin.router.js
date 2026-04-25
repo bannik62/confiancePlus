@@ -5,6 +5,7 @@ import { validate } from '../../middlewares/validate.js'
 import {
   dayMessagesReplaceSchema,
   userSuspensionSchema,
+  adminGrantCristauxSchema,
   dailyHabitTemplatesReplaceSchema,
   pushSettingsSchema,
   pushTestSchema,
@@ -41,6 +42,14 @@ router.delete('/users/:id', async (req, res, next) => {
 router.patch('/users/:id/suspension', validate(userSuspensionSchema), async (req, res, next) => {
   try {
     res.json(await service.setUserSuspended(req.user.id, req.params.id, req.body.suspended))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/users/:id/cristaux/grant', validate(adminGrantCristauxSchema), async (req, res, next) => {
+  try {
+    res.json(await service.grantUserCristaux(req.user.id, req.params.id, req.body.amount))
   } catch (e) {
     next(e)
   }
