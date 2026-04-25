@@ -2,8 +2,30 @@
   import { authStore }    from '../../stores/auth.js'
   import { profileStore } from '../../stores/profile.js'
   import { tab }          from '../../stores/tab.js'
+  import { gameplayStore } from '../../stores/gameplay.js'
+  import { openItemsModal } from '../../stores/itemsModal.js'
   import XPBar            from '../ui/XPBar.svelte'
   import Tag              from '../ui/Tag.svelte'
+
+  $: streakTrophyImg = (() => {
+    const rw = $gameplayStore?.streak?.rewards
+    const h = Array.isArray(rw) && rw[0] ? rw[0].heroImage : null
+    return typeof h === 'string' && h.trim() ? h.trim() : '/badges/fireStreackBadge/1000002186.png'
+  })()
+
+  const openMyItems = () => {
+    const u = $authStore.user
+    if (!u) return
+    openItemsModal({
+      title: 'Tes objets',
+      username: u.username,
+      avatar: u.avatar,
+      cristaux: u.cristaux ?? 0,
+      jokerStreak: u.jokerStreak ?? 0,
+      streak7TrophyCount: u.streak7TrophyCount ?? 0,
+      trophyImageSrc: streakTrophyImg,
+    })
+  }
 </script>
 
 <header>
@@ -17,21 +39,29 @@
       {#if $profileStore.title}
         <Tag color="var(--cyan)">{$profileStore.title.icon}</Tag>
       {/if}
-      <span class="cristaux" title="Cristaux">💎 {$authStore.user?.cristaux ?? 0}</span>
-      {#if ($authStore.user?.jokerStreak ?? 0) > 0}
-        <span
-          class="joker-badge"
-          title="Joker de série × {$authStore.user?.jokerStreak} — protège ta flamme au sauvetage"
-        >
-          🃏 {$authStore.user?.jokerStreak}
-        </span>
-      {/if}
-      {#if ($authStore.user?.streak7TrophyCount ?? 0) > 0}
-        <span class="streak7-badge" title="Trophées série 7 jours">
-          <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="streak7-ico" />
-          <span class="streak7-n">×{$authStore.user.streak7TrophyCount}</span>
-        </span>
-      {/if}
+      <button
+        type="button"
+        class="topbar-items-trigger"
+        on:click|stopPropagation={openMyItems}
+        aria-haspopup="dialog"
+        aria-label="Voir tes objets : cristaux, jokers, trophées série"
+      >
+        <span class="items-lbl" aria-hidden="true">Items</span>
+        <span class="cristaux" title="Cristaux">💎 {$authStore.user?.cristaux ?? 0}</span>
+        {#if ($authStore.user?.jokerStreak ?? 0) > 0}
+          <span
+            class="joker-badge"
+            title="Joker de série × {$authStore.user?.jokerStreak} — protège ta flamme au sauvetage"
+          >
+            🃏 {$authStore.user?.jokerStreak}
+          </span>
+        {/if}
+        {#if ($authStore.user?.streak7TrophyCount ?? 0) > 0}
+          <span class="streak7-badge" title="Trophées série — détail dans la fenêtre Objets">
+            <img src={streakTrophyImg} alt="" class="streak7-ico" />
+          </span>
+        {/if}
+      </button>
       <span class="streak">🔥 {$profileStore.streak}</span>
       <button class="avatar" on:click={() => tab.set('profil')}>
         {$authStore.user?.avatar ?? '🦊'}
@@ -93,27 +123,57 @@
     flex-wrap: wrap;
     min-width: 0;
   }
-  .cristaux { font-size: 12px; color: var(--cyan); font-weight: 700; }
+  .topbar-items-trigger {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 4px 10px 4px 8px;
+    border-radius: 11px;
+    border: 1px solid color-mix(in srgb, var(--cyan) 38%, var(--border));
+    background: linear-gradient(
+      148deg,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      color-mix(in srgb, var(--cyan) 12%, transparent)
+    );
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+  }
+  .topbar-items-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .items-lbl {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 800;
+    color: color-mix(in srgb, var(--text) 55%, transparent);
+    flex-shrink: 0;
+  }
+  .cristaux { font-size: 14px; color: var(--cyan); font-weight: 700; }
   .streak7-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    font-size: 11px;
+    gap: 4px;
+    font-size: 13px;
     font-weight: 800;
     color: var(--gold);
     font-family: 'Rajdhani', sans-serif;
   }
   .streak7-ico {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     display: block;
   }
-  .streak7-n {
-    line-height: 1;
-  }
   .joker-badge {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 800;
     color: #f0abfc;
     text-shadow:
@@ -136,7 +196,7 @@
       filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.85));
     }
   }
-  .streak { font-size: 12px; color: var(--gold); }
+  .streak { font-size: 14px; color: var(--gold); }
   .avatar {
     width: 34px; height: 34px;
     border-radius: 10px;

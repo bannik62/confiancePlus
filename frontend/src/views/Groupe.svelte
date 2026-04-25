@@ -1,6 +1,8 @@
 <script>
   import { onMount } from 'svelte'
   import { authStore } from '../stores/auth.js'
+  import { gameplayStore } from '../stores/gameplay.js'
+  import { openItemsModal } from '../stores/itemsModal.js'
   import {
     groups, activeGroup, groupLeaderboard, globalLeaderboard,
     myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard, loadGroups,
@@ -118,6 +120,24 @@
   const closePeerHabits = () => {
     peerOpen = false
     peerError = ''
+  }
+
+  $: lbStreakTrophyImg = (() => {
+    const rw = $gameplayStore?.streak?.rewards
+    const h = Array.isArray(rw) && rw[0] ? rw[0].heroImage : null
+    return typeof h === 'string' && h.trim() ? h.trim() : '/badges/fireStreackBadge/1000002186.png'
+  })()
+
+  const openMemberItems = (m) => {
+    openItemsModal({
+      title: m.username ? `Objets — ${m.username}` : 'Objets',
+      username: m.username,
+      avatar: m.avatar,
+      cristaux: m.cristaux ?? 0,
+      jokerStreak: m.jokerStreak ?? 0,
+      streak7TrophyCount: m.streak7TrophyCount ?? 0,
+      trophyImageSrc: lbStreakTrophyImg,
+    })
   }
 
   const openPeerHabits = async (m) => {
@@ -258,7 +278,13 @@
               {/if}
               <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
               <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
-              <span class="lb-items" role="group" aria-label="Items">
+              <button
+                type="button"
+                class="lb-items"
+                aria-haspopup="dialog"
+                aria-label="Objets de {m.username ?? 'membre'}"
+                on:click|stopPropagation={() => openMemberItems(m)}
+              >
                 <span class="lb-items-lbl" aria-hidden="true">Items</span>
                 <span class="lb-items-vals">
                   <span class="lb-cristaux" title="Cristaux">💎 {m.cristaux ?? 0}</span>
@@ -266,13 +292,12 @@
                     <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
                   {/if}
                   {#if (m.streak7TrophyCount ?? 0) > 0}
-                    <span class="lb-streak7" title="Trophées série 7 jours">
-                      <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="lb-streak7-img" />
-                      <span class="lb-streak7-n">×{m.streak7TrophyCount}</span>
+                    <span class="lb-streak7" title="Trophées série — collection dans la fenêtre Objets">
+                      <img src={lbStreakTrophyImg} alt="" class="lb-streak7-img" />
                     </span>
                   {/if}
                 </span>
-              </span>
+              </button>
               {#if m.streak > 0}
                 <Tag color="var(--red)">🔥 {m.streak}</Tag>
               {:else}
@@ -360,7 +385,13 @@
             {/if}
             <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
             <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
-            <span class="lb-items" role="group" aria-label="Items">
+            <button
+              type="button"
+              class="lb-items"
+              aria-haspopup="dialog"
+              aria-label="Objets de {m.username ?? 'membre'}"
+              on:click|stopPropagation={() => openMemberItems(m)}
+            >
               <span class="lb-items-lbl" aria-hidden="true">Items</span>
               <span class="lb-items-vals">
                 <span class="lb-cristaux" title="Cristaux">💎 {m.cristaux ?? 0}</span>
@@ -368,13 +399,12 @@
                   <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
                 {/if}
                 {#if (m.streak7TrophyCount ?? 0) > 0}
-                  <span class="lb-streak7" title="Trophées série 7 jours">
-                    <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="lb-streak7-img" />
-                    <span class="lb-streak7-n">×{m.streak7TrophyCount}</span>
+                  <span class="lb-streak7" title="Trophées série — collection dans la fenêtre Objets">
+                    <img src={lbStreakTrophyImg} alt="" class="lb-streak7-img" />
                   </span>
                 {/if}
               </span>
-            </span>
+            </button>
             {#if m.streak > 0}
               <Tag color="var(--red)">🔥 {m.streak}</Tag>
             {:else}
@@ -470,9 +500,9 @@
     line-height: 1.25;
   }
   .perf-react-pill {
-    font-size: 0.72rem;
+    font-size: 0.82rem;
     font-weight: 800;
-    padding: 3px 8px;
+    padding: 4px 9px;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.05);
@@ -484,14 +514,24 @@
     line-height: 1.35;
     max-width: 100%;
   }
+  button.lb-items {
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+  button.lb-items:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
   .lb-items {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     flex-wrap: wrap;
     max-width: 100%;
-    padding: 5px 11px;
-    border-radius: 11px;
+    padding: 6px 13px;
+    border-radius: 12px;
     box-sizing: border-box;
     background: linear-gradient(
       148deg,
@@ -504,7 +544,7 @@
       0 2px 14px rgba(0, 0, 0, 0.14);
   }
   .lb-items-lbl {
-    font-size: 9px;
+    font-size: 10.5px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--text) 58%, transparent);
@@ -516,11 +556,11 @@
   .lb-items-vals {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
   }
   .lb-joker {
-    font-size: 0.78rem;
+    font-size: 0.88rem;
     font-weight: 800;
     color: #f0abfc;
     text-shadow:
@@ -532,24 +572,21 @@
   .lb-streak7 {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
     white-space: nowrap;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 800;
-    font-size: 0.72rem;
+    font-size: 0.86rem;
     color: var(--gold);
   }
   .lb-streak7-img {
-    width: 1.1rem;
-    height: 1.1rem;
+    width: 1.55rem;
+    height: 1.55rem;
     object-fit: contain;
     display: block;
   }
-  .lb-streak7-n {
-    line-height: 1;
-  }
   .lb-cristaux {
-    font-size: 0.78rem;
+    font-size: 0.88rem;
     font-weight: 800;
     color: var(--cyan);
     white-space: nowrap;

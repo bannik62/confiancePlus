@@ -54,7 +54,9 @@
   import BottomNav from './components/modules/BottomNav.svelte'
   import AuthGuard from './components/modules/AuthGuard.svelte'
   import AppModal from './components/ui/AppModal.svelte'
+  import UserItemsModal from './components/ui/UserItemsModal.svelte'
   import { resetAppModal } from './stores/modal.js'
+  import { resetItemsModal } from './stores/itemsModal.js'
 
   const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
   const TABS_STUDENT = [
@@ -262,6 +264,7 @@
       authStore.set({ user: null, session: 0 })
       resetProfile()
       resetAppModal()
+      resetItemsModal()
       resetGroupState()
       bootKey = null
       dailyOfferBootKeyDone = null
@@ -303,6 +306,7 @@
     dailyOfferError = ''
     dailyOfferSlotFull = false
     resetAppModal()
+    resetItemsModal()
     resetGroupState()
     resetDailyLog()
     resetDayMessageCache()
@@ -382,6 +386,7 @@
 
     <BottomNav TABS={bottomTabs} />
     <AppModal />
+    <UserItemsModal />
   {/if}
 {/if}
 
