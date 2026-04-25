@@ -6,6 +6,7 @@
   import { loadGameplay as refreshPublicGameplay } from '../stores/gameplay.js'
   import { DEFAULT_UI_ANIMATIONS } from '../lib/gameplayUiDefaults.js'
   import Card from '../components/ui/Card.svelte'
+  import AdminEmojiField from '../components/ui/AdminEmojiField.svelte'
 
   let users = []
   let total = 0
@@ -1095,7 +1096,7 @@
             <div class="gp-title-row">
               <input type="number" class="gp-t-from" bind:value={row.from} title="Niveau min" />
               <input type="text" class="gp-t-label" bind:value={row.label} maxlength="40" placeholder="Libellé" />
-              <input type="text" class="gp-t-icon" bind:value={row.icon} maxlength="16" placeholder="Icône" />
+              <AdminEmojiField bind:value={row.icon} wide ariaLabel="Icône du palier" placeholder="🌱" />
               <button type="button" class="btn-del" disabled={gpEdit.titles.length <= 1} on:click={() => removeGameplayTitleRow(ti)}>×</button>
             </div>
           {/each}
@@ -1316,7 +1317,7 @@
       <div class="daily-grid">
         {#each dailyTemplates as t, idx}
           <div class="daily-row">
-            <input class="daily-ico" bind:value={t.icon} maxlength="16" aria-label="Icône" placeholder="🙂" />
+            <AdminEmojiField bind:value={t.icon} ariaLabel="Icône" placeholder="🙂" />
             <input class="daily-title" bind:value={t.title} maxlength="120" placeholder="Intitulé" />
             <input
               class="daily-xp"
@@ -1740,16 +1741,6 @@
     border: 1px solid var(--border);
     border-radius: 8px;
   }
-  .daily-ico {
-    width: 3rem;
-    text-align: center;
-    padding: 6px 8px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 1.1rem;
-  }
   .daily-title {
     flex: 1 1 160px;
     min-width: 120px;
@@ -2050,16 +2041,6 @@
     background: var(--surface);
     color: var(--text);
     font-size: 0.85rem;
-  }
-  .gp-t-icon {
-    width: 3.5rem;
-    text-align: center;
-    padding: 6px 8px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 1rem;
   }
   .gp-actions {
     display: flex;

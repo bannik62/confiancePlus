@@ -251,6 +251,11 @@
             </div>
             <div class="tags-row">
               <Tag color="var(--gold)">LVL {m.level}</Tag>
+              {#if m.title}
+                <span class="lb-title-tag">
+                  <Tag color="var(--green)">{m.title.icon} {m.title.label}</Tag>
+                </span>
+              {/if}
               <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
               <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
               <span class="lb-items" role="group" aria-label="Items">
@@ -342,7 +347,11 @@
           {/if}
           <div class="tags-row">
             <Tag color="var(--gold)">LVL {m.level}</Tag>
-            {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
+            {#if m.title}
+              <span class="lb-title-tag">
+                <Tag color="var(--green)">{m.title.icon} {m.title.label}</Tag>
+              </span>
+            {/if}
             <span class="perf-react-pill" title="Réactions ❤️ reçues sur les perfs">❤️ {m.perfReactionHearts ?? 0}</span>
             <span class="perf-react-pill" title="Réactions 🤔 reçues sur les perfs">🤔 {m.perfReactionSkeptics ?? 0}</span>
             <span class="lb-items" role="group" aria-label="Items">
@@ -437,6 +446,17 @@
   .info { flex: 1; min-width: min(100%, 140px); }
   .uname { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; }
   .tags-row { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+  .lb-title-tag {
+    max-width: min(100%, 16rem);
+    line-height: 1.25;
+  }
+  .lb-title-tag :global(.tag) {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.25;
+  }
   .perf-react-pill {
     font-size: 0.72rem;
     font-weight: 800;

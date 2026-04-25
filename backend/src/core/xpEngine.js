@@ -1,4 +1,4 @@
-import { getGameConfigSync } from './gameConfigRuntime.js'
+import { getGameConfigSync, GAME_DEFAULT } from './gameConfigRuntime.js'
 
 // XP total requis pour atteindre un niveau donné
 export const xpForLevel = (level) => {
@@ -31,7 +31,7 @@ export const xpProgress = (totalXP) => {
 // tableau après merge JSON (l’ancien reverse().find() supposait un tri croissant par `from`).
 export const titleForLevel = (level) => {
   const GAME = getGameConfigSync()
-  const list = GAME.titles
+  const list = GAME.titles?.length ? GAME.titles : GAME_DEFAULT.titles
   if (!list?.length) return { from: 0, label: 'Débutant', icon: '🌱' }
   let best = null
   for (const t of list) {

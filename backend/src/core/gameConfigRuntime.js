@@ -32,6 +32,11 @@ export const refreshGameConfigCache = async () => {
     }
     const parsed = JSON.parse(row.value)
     activeConfig = deepMerge(structuredClone(GAME_DEFAULT), parsed)
+    // Une surcharge DB peut contenir `titles: []` (ou absent puis mal sérialisé) : le deepMerge
+    // remplace alors tout le tableau et titleForLevel retombe sur « Débutant ». On rétablit le fichier.
+    if (!Array.isArray(activeConfig.titles) || activeConfig.titles.length === 0) {
+      activeConfig.titles = structuredClone(GAME_DEFAULT.titles)
+    }
   } catch {
     activeConfig = structuredClone(GAME_DEFAULT)
   }

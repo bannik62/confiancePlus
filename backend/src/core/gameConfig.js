@@ -57,14 +57,14 @@ export const GAME = {
     badgeAt: [7, 14, 30, 60, 100, 365],
   },
 
-  // ── Titres par niveau ───────────────────────────────────────────────────────
+  // ── Titres par niveau (fil jardin ; dernier : boucle / accomplissement) ───────
   titles: [
-    { from: 0,  label: 'Débutant',  icon: '🌱' },
-    { from: 5,  label: 'Engagé',    icon: '⚡' },
-    { from: 10, label: 'Régulier',  icon: '🔥' },
-    { from: 20, label: 'Déterminé', icon: '🛡️' },
-    { from: 35, label: 'Champion',  icon: '🏆' },
-    { from: 50, label: 'Légende',   icon: '💎' },
+    { from: 0,  label: 'Semeur d’habitudes',       icon: '🌱' },
+    { from: 5,  label: 'Cultivateur de constance', icon: '⚡' },
+    { from: 10, label: 'Jardinier de gestes',      icon: '🔥' },
+    { from: 20, label: 'Récolteur des saisons',    icon: '🛡️' },
+    { from: 35, label: 'Gardien du verger',        icon: '🏆' },
+    { from: 50, label: 'Ce qui est en haut est en bas', icon: '💎' },
   ],
 
   // ── UI (durées animations, ms) — surchargeable via Admin → gameplay ────────

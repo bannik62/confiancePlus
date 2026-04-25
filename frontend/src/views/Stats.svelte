@@ -156,7 +156,11 @@
                     /></span
                   >
                 </Tag>
-                {#if m.title}<Tag color="var(--cyan)">{m.title.icon}</Tag>{/if}
+                {#if m.title}
+                  <span class="lb-title-tag">
+                    <Tag color="var(--green)">{m.title.icon} {m.title.label}</Tag>
+                  </span>
+                {/if}
                 <span class="lb-items" role="group" aria-label="Items">
                   <span class="lb-items-lbl" aria-hidden="true">Items</span>
                   <span class="lb-items-vals">
@@ -474,6 +478,17 @@
     gap: 5px;
     margin-top: 4px;
     align-items: center;
+  }
+  .lb-title-tag {
+    max-width: min(100%, 16rem);
+    line-height: 1.25;
+  }
+  .lb-title-tag :global(.tag) {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.25;
   }
   .lb-items {
     display: inline-flex;
