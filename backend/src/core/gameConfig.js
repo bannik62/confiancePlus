@@ -55,6 +55,17 @@ export const GAME = {
     // Nombre de jours consécutifs avec au moins 1 habitude cochée
     // Paliers affichant un badge spécial dans le profil
     badgeAt: [7, 14, 30, 60, 100, 365],
+    /** Récompenses affichées (modale + claim) — `heroImage` = chemin sous /public */
+    rewards: [
+      {
+        at: 7,
+        key: 'streak_7',
+        icon: '🔥',
+        title: '7 jours de flamme !',
+        body: 'Tu enchaînes 7 jours d’affilée. Réclame ton trophée : il apparaîtra dans tes objets.',
+        heroImage: '/badges/fireStreackBadge/1000002186.png',
+      },
+    ],
   },
 
   // ── Titres par niveau (fil jardin ; dernier : boucle / accomplissement) ───────

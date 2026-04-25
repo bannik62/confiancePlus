@@ -28,6 +28,9 @@
     if (v === 'warning') return 'var-warning'
     return 'var-info'
   }
+
+  const onPrimaryClick = () => void runPrimaryAndClose()
+  const onSecondaryClick = () => void runSecondaryAndClose()
 </script>
 
 {#if $appModal.open}
@@ -46,16 +49,22 @@
       <button type="button" class="app-modal-x" on:click={() => closeAppModal()} aria-label="Fermer">
         ×
       </button>
-      <div class="app-modal-icon" aria-hidden="true">{$appModal.icon}</div>
+      {#if $appModal.heroImage}
+        <div class="app-modal-hero" aria-hidden="true">
+          <img src={$appModal.heroImage} alt="" class="app-modal-hero-img" />
+        </div>
+      {:else}
+        <div class="app-modal-icon" aria-hidden="true">{$appModal.icon}</div>
+      {/if}
       <h2 id="app-modal-title" class="app-modal-title">{$appModal.title}</h2>
       <p class="app-modal-body">{$appModal.body}</p>
       <div class="app-modal-actions">
         {#if $appModal.secondaryLabel}
-          <button type="button" class="app-modal-btn secondary" on:click={runSecondaryAndClose}>
+          <button type="button" class="app-modal-btn secondary" on:click={onSecondaryClick}>
             {$appModal.secondaryLabel}
           </button>
         {/if}
-        <button type="button" class="app-modal-btn primary" on:click={runPrimaryAndClose}>
+        <button type="button" class="app-modal-btn primary" on:click={onPrimaryClick}>
           {$appModal.primaryLabel}
         </button>
       </div>
@@ -135,6 +144,17 @@
     line-height: 1;
     text-align: center;
     margin-bottom: 10px;
+  }
+  .app-modal-hero {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .app-modal-hero-img {
+    width: min(140px, 52vw);
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
   }
   .app-modal-title {
     margin: 0 0 10px;

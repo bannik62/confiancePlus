@@ -27,4 +27,10 @@ export const statsApi = {
       clientToday: localDateString(),
       payment:       opts.payment ?? 'JOKER',
     }),
+  /** Réclame un trophée palier série (ex. key streak_7). Réponse = profil à jour. */
+  postStreakMilestoneClaim: (body = {}) =>
+    api.post('/stats/streak-milestone-claim', {
+      clientToday: localDateString(),
+      key:           body.key,
+    }),
 }

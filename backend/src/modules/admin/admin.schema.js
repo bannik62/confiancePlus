@@ -87,6 +87,20 @@ export const gameplayConfigSchema = z.object({
   }),
   streak: z.object({
     badgeAt: z.array(z.coerce.number().int().min(1)).min(1).max(30),
+    rewards: z
+      .array(
+        z.object({
+          at: z.coerce.number().int().min(1).max(100000),
+          key: z.string().min(1).max(40),
+          icon: z.string().min(1).max(16),
+          title: z.string().min(1).max(80),
+          body: z.string().min(1).max(500),
+          /** Vide = pas d’image hero (le client peut masquer ou utiliser un défaut visuel). */
+          heroImage: z.string().max(200).optional(),
+        }),
+      )
+      .min(1)
+      .max(20),
   }),
   titles: z
     .array(

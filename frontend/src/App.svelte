@@ -16,6 +16,9 @@
   import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
   import { authStore, checkSession, clearAuth, isAppAdmin, mergeUser } from './stores/auth.js'
+  import { profileStore } from './stores/profile.js'
+  import { openAppModal, appModal } from './stores/modal.js'
+  import { statsApi } from './api/stats.js'
   import { tab }      from './stores/tab.js'
   import { loadToday, loadTodayResilient, resetDailyLog } from './stores/checkin.js'
   import { loadProfile, resetProfile } from './stores/profile.js'
@@ -86,6 +89,56 @@
   let dailyOfferError = ''
   let dailyOfferSlotFull = false
 
+  const streakMilestoneSnoozeKey = () => {
+    const uid = get(authStore).user?.id
+    if (!uid) return null
+    return `ht_streak7_snooze_${uid}_${localDateString()}`
+  }
+
+  function maybeOpenStreakMilestoneModal() {
+    if (get(isAppAdmin)) return
+    if (get(appModal).open) return
+    try {
+      const k = streakMilestoneSnoozeKey()
+      if (k && sessionStorage.getItem(k)) return
+    } catch {
+      /* private mode */
+    }
+    const off = get(profileStore).streakMilestoneOffer
+    if (!off) return
+    openAppModal({
+      variant: 'celebration',
+      icon: off.icon ?? '🔥',
+      heroImage: off.heroImage || null,
+      title: off.title,
+      body: off.body,
+      primaryLabel: 'Recevoir le trophée',
+      secondaryLabel: 'Plus tard',
+      onSecondary: () => {
+        try {
+          const k = streakMilestoneSnoozeKey()
+          if (k) sessionStorage.setItem(k, '1')
+        } catch {
+          /* ignore */
+        }
+      },
+      onPrimary: async () => {
+        const data = await statsApi.postStreakMilestoneClaim({ key: off.key })
+        if (data && typeof data.streak7TrophyCount === 'number') {
+          mergeUser({ streak7TrophyCount: data.streak7TrophyCount })
+        }
+        await loadProfile({ streakBanner: false })
+      },
+    })
+  }
+
+  async function tryDailyOfferChain() {
+    await tryDailyOffer()
+    if (get(isAppAdmin)) return
+    if (showDailyOffer || showDailyOfferExhausted) return
+    maybeOpenStreakMilestoneModal()
+  }
+
   async function tryDailyOffer() {
     if (get(isAppAdmin)) return
     if (showDailyOffer && dailyOfferTemplate) return
@@ -122,6 +175,7 @@
       await habitsApi.dismissDailyOffer()
       showDailyOffer = false
       dailyOfferTemplate = null
+      maybeOpenStreakMilestoneModal()
     } catch (e) {
       dailyOfferError =
         typeof e?.message === 'string' && e.message.length
@@ -141,6 +195,7 @@
       await loadHabits()
       showDailyOffer = false
       dailyOfferTemplate = null
+      maybeOpenStreakMilestoneModal()
     } catch (e) {
       dailyOfferError =
         typeof e?.message === 'string' && e.message.length
@@ -253,11 +308,11 @@
     resetDayMessageCache()
   }
 
-  /** Après sessionReady + check-in du jour : le modal peut s’ouvrir ; l’éligibilité vient du backend. */
+  /** Après sessionReady + check-in du jour : daily puis trophée série 7 (sans chevaucher le daily). */
   $: if (sessionReady && checkinDone && bootKey && $authStore.user?.id && !$isAppAdmin) {
     if (dailyOfferBootKeyDone !== bootKey) {
       dailyOfferBootKeyDone = bootKey
-      queueMicrotask(() => void tryDailyOffer())
+      queueMicrotask(() => void tryDailyOfferChain())
     }
   }
 
@@ -270,7 +325,7 @@
     } catch {
       /* saveDailyLog a déjà mis à jour le store ; ne pas écraser si le GET échoue */
     }
-    void tryDailyOffer()
+    void tryDailyOfferChain()
   }
 
 </script>

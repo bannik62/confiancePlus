@@ -256,6 +256,7 @@ export const me = async (userId) => {
       lastLoginAt: true,
       cristaux: true,
       jokerStreak: true,
+      streak7TrophyCount: true,
     },
   })
   return user

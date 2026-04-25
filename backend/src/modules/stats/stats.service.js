@@ -15,8 +15,85 @@ import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
 import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
+import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Streak engagement seul (claim palier sans refaire tout le profil). */
+const computeEngagementStreakValue = async (userId, anchor) => {
+  const dateWhere = aggregationWindowDateWhere(anchor)
+  const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
+  const [habits, logs, skipRows, visitRows] = await Promise.all([
+    db.habit.findMany({
+      where: { userId },
+      select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
+    }),
+    db.habitLog.findMany({
+      where: { userId, date: dateWhere },
+      include: { habit: { select: { xp: true } } },
+    }),
+    db.habitDaySkip.findMany({
+      where: { userId, date: dateWhere },
+      select: { habitId: true, date: true },
+    }),
+    db.dailyVisit.findMany({
+      where: { userId, ymd: { gte: streakMinYmd, lte: anchor } },
+      select: { ymd: true },
+    }),
+  ])
+  const habitSkipsByYmd = buildHabitSkipsByYmd(skipRows)
+  const streakLogs = logs.filter((l) => {
+    const y = ymdFromDbDate(l.date)
+    return y >= streakMinYmd && y <= anchor
+  })
+  return computeEngagementStreak({
+    anchorYmd:         anchor,
+    visitYmds:         visitRows.map((v) => v.ymd),
+    habits,
+    habitLogsInWindow: streakLogs,
+    habitSkipsByYmd,
+  })
+}
+
+/** Récompenses streak triées par `at` (gameplay fichier + surcharge admin). */
+const normalizedStreakRewards = () => {
+  const GAME = getGameConfigSync()
+  const raw = GAME.streak?.rewards
+  if (!Array.isArray(raw) || raw.length === 0) return []
+  const out = []
+  for (const x of raw) {
+    const at = Number(x?.at)
+    const key = String(x?.key ?? '').trim()
+    if (!key || !Number.isFinite(at) || at < 1) continue
+    out.push({
+      at,
+      key,
+      title: String(x?.title ?? ''),
+      body:  String(x?.body ?? ''),
+      icon:  String(x?.icon ?? '🔥'),
+      heroImage:
+        typeof x?.heroImage === 'string' && x.heroImage.trim() ? x.heroImage.trim() : null,
+    })
+  }
+  out.sort((a, b) => a.at - b.at || a.key.localeCompare(b.key))
+  return out
+}
+
+/** Premier palier réclamable : streak ≥ at et seuil `at` strictement au-dessus du dernier palier déjà réclamé. */
+const buildStreakMilestoneOffer = (streak, maxClaimedBefore) => {
+  const rewards = normalizedStreakRewards()
+  if (!rewards.length) return null
+  const r = rewards.find((x) => streak >= x.at && x.at > maxClaimedBefore)
+  if (!r) return null
+  return {
+    key:       r.key,
+    at:        r.at,
+    title:     r.title,
+    body:      r.body,
+    icon:      r.icon,
+    heroImage: r.heroImage,
+  }
+}
 
 /** Aligné sur les logs d’habitudes (@db.Date, midi UTC) */
 const dateFromYMD = (ymd) => {
@@ -110,7 +187,12 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: {
-      id: true, username: true, avatar: true, cristaux: true, jokerStreak: true,
+      id: true,
+      username: true,
+      avatar: true,
+      cristaux: true,
+      jokerStreak: true,
+      streak7TrophyCount: true,
       habits: {
         select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
       },
@@ -195,6 +277,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         streak,
         cristaux: user.cristaux ?? 0,
         jokerStreak: user.jokerStreak ?? 0,
+        streak7TrophyCount: user.streak7TrophyCount ?? 0,
         groupNames,
         perfReactionHearts: rx.perfReactionHearts,
         perfReactionSkeptics: rx.perfReactionSkeptics,
@@ -236,23 +319,37 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
   const dateWhere = aggregationWindowDateWhere(anchor)
   const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
 
-  const streakStateRow = await db.user.findUniqueOrThrow({
+  const baseRow = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
-      lastProfileStreakInt:       true,
-      lastStreakBannerYmd:        true,
+      id: true,
+      username: true,
+      avatar: true,
+      createdAt: true,
+      cristaux: true,
+      jokerStreak: true,
+      streak7TrophyCount: true,
+      streakMilestoneMaxClaimedAt: true,
+      lastProfileStreakInt: true,
+      lastStreakBannerYmd: true,
       lastStreakRecoverAnchorYmd: true,
     },
   })
-  const prevStreakForBanner = streakStateRow.lastProfileStreakInt
-  const lastBannerYmd       = streakStateRow.lastStreakBannerYmd
+  const prevStreakForBanner = baseRow.lastProfileStreakInt
+  const lastBannerYmd       = baseRow.lastStreakBannerYmd
+  const streakStateRow      = { lastStreakRecoverAnchorYmd: baseRow.lastStreakRecoverAnchorYmd }
+  const maxClaimedFromDb    = baseRow.streakMilestoneMaxClaimedAt ?? 0
+  const user                = {
+    id:                 baseRow.id,
+    username:           baseRow.username,
+    avatar:             baseRow.avatar,
+    createdAt:          baseRow.createdAt,
+    cristaux:           baseRow.cristaux,
+    jokerStreak:        baseRow.jokerStreak,
+    streak7TrophyCount:  baseRow.streak7TrophyCount ?? 0,
+  }
 
   await recordDailyVisit(userId, anchor)
-
-  const user = await db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { id: true, username: true, avatar: true, createdAt: true, cristaux: true, jokerStreak: true },
-  })
 
   const habits = await db.habit.findMany({
     where: { userId },
@@ -338,18 +435,69 @@ export const getMyProfile = async (userId, { clientToday, streakBanner = false }
     }
   }
 
+  const resetMilestoneProgress = streak === 0 && maxClaimedFromDb > 0
+  const maxForOffer = resetMilestoneProgress ? 0 : maxClaimedFromDb
+  const streakMilestoneOffer = buildStreakMilestoneOffer(streak, maxForOffer)
+
   await db.user.update({
     where: { id: userId },
     data: {
       lastProfileStreakInt: streak,
       ...(streakBanner && streakNotice ? { lastStreakBannerYmd: anchor } : {}),
+      ...(resetMilestoneProgress ? { streakMilestoneMaxClaimedAt: 0 } : {}),
     },
   })
 
   const progress = xpProgress(totalXP)
   const title = titleForLevel(progress.level)
 
-  return { ...user, totalXP, ...progress, title, streak, streakNotice }
+  return {
+    ...user,
+    totalXP,
+    ...progress,
+    title,
+    streak,
+    streakNotice,
+    streakMilestoneOffer,
+  }
+}
+
+/**
+ * Réclame un palier série défini dans `gameplay.streak.rewards` (+1 trophée affiché dans Items).
+ */
+export const claimStreakMilestone = async (userId, { clientToday, key } = {}) => {
+  if (await userIsAppAdmin(userId))
+    throw { status: 403, message: 'Compte administrateur : pas de trophée joueur.' }
+  if (await userIsAssociationOwner(userId))
+    throw { status: 403, message: 'Compte éducateur : pas de trophée série.' }
+
+  const rewards = normalizedStreakRewards()
+  const wantKey = String(key ?? '').trim()
+  const r = rewards.find((x) => x.key === wantKey)
+  if (!r) throw { status: 400, message: 'Palier inconnu ou désactivé.' }
+
+  const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
+  await recordDailyVisit(userId, anchor)
+  const streak = await computeEngagementStreakValue(userId, anchor)
+  const u = await db.user.findUnique({
+    where: { id: userId },
+    select: { streakMilestoneMaxClaimedAt: true },
+  })
+  if (!u) throw { status: 404, message: 'Utilisateur introuvable.' }
+  const maxC = u.streakMilestoneMaxClaimedAt ?? 0
+  if (streak < r.at || maxC >= r.at) {
+    throw { status: 400, message: 'Aucun trophée à réclamer pour le moment.' }
+  }
+
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      streak7TrophyCount:           { increment: 1 },
+      streakMilestoneMaxClaimedAt: r.at,
+    },
+  })
+
+  return getMyProfile(userId, { clientToday, streakBanner: false })
 }
 
 /**

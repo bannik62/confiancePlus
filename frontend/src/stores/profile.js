@@ -11,6 +11,9 @@ const DEFAULT = {
   totalXP:  0,
   streak:   0,
   title:    null,
+  streak7TrophyCount: 0,
+  /** @type {null | { key: string, at: number, title: string, body: string, icon: string, heroImage?: string | null }} */
+  streakMilestoneOffer: null,
   /** @type {null | { kind: string, reason?: string, previousStreak?: number, streak: number }} */
   streakNotice: null,
 }

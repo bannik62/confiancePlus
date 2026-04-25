@@ -265,6 +265,12 @@
                   {#if (m.jokerStreak ?? 0) > 0}
                     <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
                   {/if}
+                  {#if (m.streak7TrophyCount ?? 0) > 0}
+                    <span class="lb-streak7" title="Trophées série 7 jours">
+                      <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="lb-streak7-img" />
+                      <span class="lb-streak7-n">×{m.streak7TrophyCount}</span>
+                    </span>
+                  {/if}
                 </span>
               </span>
               {#if m.streak > 0}
@@ -360,6 +366,12 @@
                 <span class="lb-cristaux" title="Cristaux">💎 {m.cristaux ?? 0}</span>
                 {#if (m.jokerStreak ?? 0) > 0}
                   <span class="lb-joker" title="Joker(s) de série en stock">🃏 {m.jokerStreak}</span>
+                {/if}
+                {#if (m.streak7TrophyCount ?? 0) > 0}
+                  <span class="lb-streak7" title="Trophées série 7 jours">
+                    <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="lb-streak7-img" />
+                    <span class="lb-streak7-n">×{m.streak7TrophyCount}</span>
+                  </span>
                 {/if}
               </span>
             </span>
@@ -516,6 +528,25 @@
       0 0 12px rgba(236, 72, 153, 0.4);
     white-space: nowrap;
     font-family: 'Rajdhani', sans-serif;
+  }
+  .lb-streak7 {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 800;
+    font-size: 0.72rem;
+    color: var(--gold);
+  }
+  .lb-streak7-img {
+    width: 1.1rem;
+    height: 1.1rem;
+    object-fit: contain;
+    display: block;
+  }
+  .lb-streak7-n {
+    line-height: 1;
   }
   .lb-cristaux {
     font-size: 0.78rem;

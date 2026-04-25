@@ -48,6 +48,11 @@ model User {
   /// Jokers « sauvetage de série » en stock (achetés en boutique, consommés au recover)
   jokerStreak                  Int     @default(0)
 
+  /// Trophées série (modales paliers — total affiché dans Items)
+  streak7TrophyCount           Int     @default(0)
+  /// Plus grand seuil `at` déjà réclamé pour la série en cours (0 = aucun). Remis à 0 quand streak = 0.
+  streakMilestoneMaxClaimedAt Int     @default(0)
+
   /// E-mails lorsqu’un pair réagit à une perf d’habitude (❤️ / 🤔)
   perfReactionEmailsEnabled Boolean @default(true)
 

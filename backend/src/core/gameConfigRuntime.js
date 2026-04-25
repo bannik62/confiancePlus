@@ -37,6 +37,11 @@ export const refreshGameConfigCache = async () => {
     if (!Array.isArray(activeConfig.titles) || activeConfig.titles.length === 0) {
       activeConfig.titles = structuredClone(GAME_DEFAULT.titles)
     }
+    const rw = activeConfig.streak?.rewards
+    if (!Array.isArray(rw) || rw.length === 0) {
+      if (!activeConfig.streak) activeConfig.streak = structuredClone(GAME_DEFAULT.streak)
+      else activeConfig.streak.rewards = structuredClone(GAME_DEFAULT.streak.rewards)
+    }
   } catch {
     activeConfig = structuredClone(GAME_DEFAULT)
   }

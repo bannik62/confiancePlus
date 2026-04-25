@@ -67,11 +67,37 @@
 
   const cloneGameplay = (c) => JSON.parse(JSON.stringify(c))
 
+  const DEFAULT_STREAK_REWARDS = [
+    {
+      at: 7,
+      key: 'streak_7',
+      icon: '🔥',
+      title: '7 jours de flamme !',
+      body: 'Tu enchaînes 7 jours d’affilée. Réclame ton trophée : il apparaîtra dans tes objets.',
+      heroImage: '/badges/fireStreackBadge/1000002186.png',
+    },
+  ]
+
+  const DEFAULT_STREAK_BADGE_AT = [7, 14, 30, 60, 100, 365]
+
+  /** Paliers profil + récompenses modale / claim — alignés sur `gameConfig.js`. */
+  const ensureStreakGameplay = (gp) => {
+    if (!gp) return
+    if (!gp.streak) gp.streak = {}
+    if (!Array.isArray(gp.streak.badgeAt) || !gp.streak.badgeAt.length) {
+      gp.streak.badgeAt = [...DEFAULT_STREAK_BADGE_AT]
+    }
+    if (!Array.isArray(gp.streak.rewards) || !gp.streak.rewards.length) {
+      gp.streak.rewards = JSON.parse(JSON.stringify(DEFAULT_STREAK_REWARDS))
+    }
+  }
+
   /** Complète `ui.animations` pour les configs anciennes ou partielles */
   const ensureGameplayUi = (gp) => {
     if (!gp?.ui) gp.ui = { animations: { ...DEFAULT_UI_ANIMATIONS } }
     if (!gp.ui.animations) gp.ui.animations = {}
     gp.ui.animations = { ...DEFAULT_UI_ANIMATIONS, ...gp.ui.animations }
+    ensureStreakGameplay(gp)
   }
 
   /** Aide gameplay : ouverture au clic (téléphone sans hover). */
@@ -116,7 +142,9 @@
     xpRdvCreate:
       'Valeur stockée sur chaque nouveau RDV : affichage dans l’agenda et plafond théorique par validation (sous réserve des plafonds journaliers).',
     streakBlock:
-      'Jours de série consécutive à partir desquels un palier de badge peut être mis en avant dans le profil. Saisie : nombres séparés par des virgules (ex. 7, 14, 30).',
+      'Paliers affichés dans le profil (badges de série) : nombres séparés par des virgules (ex. 7, 14, 30). Indépendant des trophées réclamables ci‑dessous, qui pilotent la modale et le claim côté serveur.',
+    rewardsBlock:
+      'Chaque ligne est un palier réclamable : quand la série (jours consécutifs avec au moins une habitude cochée) atteint « seuil (jours) », le joueur peut réclamer ce trophée une fois par « épisode » de série (remise à zéro si la série retombe à 0). Le champ « clé » doit rester stable et unique : le serveur valide la réclamation avec cette clé. « Image » : chemin sous /public (ex. /badges/…/fichier.png).',
     titlesBlock:
       'Libellé et emoji affichés selon le niveau : on prend la ligne dont « depuis » est le plus grand seuil inférieur ou égal au niveau actuel. L’ordre des lignes dans la liste n’a pas d’importance.',
     animationsUiBlock:
@@ -517,9 +545,60 @@
       return
     }
     gpEdit.streak.badgeAt = badges
+    ensureStreakGameplay(gpEdit)
+    if (!Array.isArray(gpEdit.streak.rewards) || !gpEdit.streak.rewards.length) {
+      gpErr = 'Ajoute au moins une récompense série (tableau des paliers trophée).'
+      return
+    }
+    const seenRewardAt = new Set()
+    const seenRewardKey = new Set()
+    for (const rw of gpEdit.streak.rewards) {
+      const at = Number(rw.at)
+      const key = String(rw.key ?? '').trim()
+      if (!key || !Number.isFinite(at) || at < 1) {
+        gpErr = 'Chaque récompense série : clé non vide, seuil (jours) ≥ 1.'
+        return
+      }
+      if (seenRewardKey.has(key)) {
+        gpErr = 'Les clés des récompenses série doivent être uniques.'
+        return
+      }
+      seenRewardKey.add(key)
+      if (seenRewardAt.has(at)) {
+        gpErr = 'Les seuils « jours » des récompenses série doivent être uniques.'
+        return
+      }
+      seenRewardAt.add(at)
+      const icon = String(rw.icon ?? '')
+      const title = String(rw.title ?? '')
+      const body = String(rw.body ?? '')
+      if (icon.length < 1 || icon.length > 16) {
+        gpErr = 'Chaque récompense : icône entre 1 et 16 caractères.'
+        return
+      }
+      if (title.length < 1 || title.length > 80) {
+        gpErr = 'Chaque récompense : titre entre 1 et 80 caractères.'
+        return
+      }
+      if (body.length < 1 || body.length > 500) {
+        gpErr = 'Chaque récompense : texte entre 1 et 500 caractères.'
+        return
+      }
+      const hi = String(rw.heroImage ?? '').trim()
+      if (hi.length > 200) {
+        gpErr = 'Chaque récompense : chemin image ≤ 200 caractères (ou vide).'
+        return
+      }
+    }
+    const toSave = cloneGameplay(gpEdit)
+    for (const rw of toSave.streak.rewards) {
+      const hi = String(rw.heroImage ?? '').trim()
+      if (hi) rw.heroImage = hi
+      else delete rw.heroImage
+    }
     gpBusy = true
     try {
-      const r = await adminApi.putGameplay(gpEdit)
+      const r = await adminApi.putGameplay(toSave)
       gpHasDb = !!r.hasDbOverride
       gpEdit = cloneGameplay(r.config)
       ensureGameplayUi(gpEdit)
@@ -563,6 +642,27 @@
   const removeGameplayTitleRow = (idx) => {
     if (!gpEdit?.titles || gpEdit.titles.length <= 1) return
     gpEdit.titles = gpEdit.titles.filter((_, i) => i !== idx)
+  }
+
+  const addGameplayStreakRewardRow = () => {
+    if (!gpEdit?.streak) return
+    if (!Array.isArray(gpEdit.streak.rewards)) gpEdit.streak.rewards = []
+    gpEdit.streak.rewards = [
+      ...gpEdit.streak.rewards,
+      {
+        at: 7,
+        key: `streak_${Date.now()}`,
+        icon: '🔥',
+        title: 'Nouveau palier',
+        body: 'Description du trophée affichée dans la modale.',
+        heroImage: '/badges/fireStreackBadge/1000002186.png',
+      },
+    ]
+  }
+
+  const removeGameplayStreakRewardRow = (idx) => {
+    if (!gpEdit?.streak?.rewards || gpEdit.streak.rewards.length <= 1) return
+    gpEdit.streak.rewards = gpEdit.streak.rewards.filter((_, i) => i !== idx)
   }
 
   const sendPushTest = async () => {
@@ -1077,6 +1177,64 @@
         <label class="gp-full">
           <input type="text" class="gp-streak-input" bind:value={streakBadgesStr} placeholder="7,14,30,…" />
         </label>
+      </div>
+
+      <div class="gp-section">
+        <div class="gp-h">
+          <span>Streak — paliers trophée (modale &amp; réclamation)</span>
+          <button
+            type="button"
+            class="gp-tip"
+            aria-label="Aide : paliers trophée série"
+            aria-expanded={gpTipKey === 'rewardsBlock'}
+            aria-controls="gp-tip-panel"
+            on:click|stopPropagation={() => toggleGpTip('rewardsBlock')}
+          >i</button>
+        </div>
+        <p class="muted" style="margin:0 0 10px;font-size:0.82rem">
+          Seuils distincts des paliers « badges » ci‑dessus. Ordre côté serveur : par seuil croissant.
+        </p>
+        <div class="gp-streak-rewards">
+          {#each gpEdit.streak.rewards as rw, ri}
+            <div class="gp-reward-block">
+              <div class="gp-reward-row">
+                <label class="gp-r-compact">
+                  <span class="gp-r-lbl">Seuil (jours)</span>
+                  <input type="number" min="1" max="100000" bind:value={rw.at} />
+                </label>
+                <label class="gp-r-grow">
+                  <span class="gp-r-lbl">Clé</span>
+                  <input type="text" bind:value={rw.key} maxlength="40" placeholder="streak_7" />
+                </label>
+                <div class="gp-r-icon-wrap">
+                  <span class="gp-r-lbl">Icône</span>
+                  <AdminEmojiField bind:value={rw.icon} wide={false} ariaLabel="Icône palier" placeholder="🔥" />
+                </div>
+                <button
+                  type="button"
+                  class="btn-del gp-r-del"
+                  disabled={gpEdit.streak.rewards.length <= 1}
+                  on:click={() => removeGameplayStreakRewardRow(ri)}
+                >×</button>
+              </div>
+              <label class="gp-r-full">
+                <span class="gp-r-lbl">Titre modale</span>
+                <input type="text" bind:value={rw.title} maxlength="80" />
+              </label>
+              <label class="gp-r-full">
+                <span class="gp-r-lbl">Texte</span>
+                <textarea rows="2" maxlength="500" bind:value={rw.body}></textarea>
+              </label>
+              <label class="gp-r-full">
+                <span class="gp-r-lbl">Image (chemin /public)</span>
+                <input type="text" bind:value={rw.heroImage} maxlength="200" placeholder="/badges/…/fichier.png" />
+              </label>
+            </div>
+          {/each}
+        </div>
+        <button type="button" class="btn-secondary" style="margin-top:8px" on:click={addGameplayStreakRewardRow}>
+          + Palier trophée
+        </button>
       </div>
 
       <div class="gp-section">
@@ -2012,6 +2170,90 @@
     color: var(--text);
     font-size: 0.85rem;
     font-family: inherit;
+  }
+  .gp-streak-rewards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .gp-reward-block {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .gp-reward-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .gp-r-lbl {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .gp-r-compact {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+  }
+  .gp-r-compact input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .gp-r-grow {
+    flex: 1 1 140px;
+    min-width: 120px;
+  }
+  .gp-r-grow input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  .gp-r-icon-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .gp-r-del {
+    align-self: flex-end;
+    margin-bottom: 2px;
+  }
+  .gp-r-full {
+    display: block;
+    width: 100%;
+  }
+  .gp-r-full input,
+  .gp-r-full textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  .gp-r-full textarea {
+    resize: vertical;
+    min-height: 2.5rem;
   }
   .gp-titles {
     display: flex;

@@ -26,6 +26,12 @@
           🃏 {$authStore.user?.jokerStreak}
         </span>
       {/if}
+      {#if ($authStore.user?.streak7TrophyCount ?? 0) > 0}
+        <span class="streak7-badge" title="Trophées série 7 jours">
+          <img src="/badges/fireStreackBadge/1000002186.png" alt="" class="streak7-ico" />
+          <span class="streak7-n">×{$authStore.user.streak7TrophyCount}</span>
+        </span>
+      {/if}
       <span class="streak">🔥 {$profileStore.streak}</span>
       <button class="avatar" on:click={() => tab.set('profil')}>
         {$authStore.user?.avatar ?? '🦊'}
@@ -88,6 +94,24 @@
     min-width: 0;
   }
   .cristaux { font-size: 12px; color: var(--cyan); font-weight: 700; }
+  .streak7-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--gold);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .streak7-ico {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    display: block;
+  }
+  .streak7-n {
+    line-height: 1;
+  }
   .joker-badge {
     font-size: 12px;
     font-weight: 800;

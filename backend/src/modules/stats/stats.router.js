@@ -40,6 +40,16 @@ router.post('/streak-recover', async (req, res, next) => {
   catch (e) { next(e) }
 })
 
+router.post('/streak-milestone-claim', async (req, res, next) => {
+  try {
+    const clientToday =
+      typeof req.body?.clientToday === 'string' ? req.body.clientToday : undefined
+    const key = req.body?.key
+    res.json(await service.claimStreakMilestone(req.user.id, { clientToday, key }))
+  }
+  catch (e) { next(e) }
+})
+
 router.get('/leaderboard', async (req, res, next) => {
   try {
     const clientToday =

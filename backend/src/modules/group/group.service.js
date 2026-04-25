@@ -84,7 +84,12 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
     include: {
       user: {
         select: {
-          id: true, username: true, avatar: true, cristaux: true, jokerStreak: true,
+          id: true,
+          username: true,
+          avatar: true,
+          cristaux: true,
+          jokerStreak: true,
+          streak7TrophyCount: true,
           habits: {
             select: { id: true, weekdaysMask: true, createdAt: true, isActive: true },
           },
@@ -170,6 +175,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
         streak,
         cristaux: user.cristaux ?? 0,
         jokerStreak: user.jokerStreak ?? 0,
+        streak7TrophyCount: user.streak7TrophyCount ?? 0,
         perfReactionHearts: rx.perfReactionHearts,
         perfReactionSkeptics: rx.perfReactionSkeptics,
       }
