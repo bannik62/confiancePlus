@@ -15,14 +15,19 @@
 <style>
   nav {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: linear-gradient(180deg, transparent, var(--bg)dd);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid var(--accent)33;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    /* Fond lisible (évite l’effet « barre invisible » sur fond sombre / emulateur) */
+    background: linear-gradient(180deg, rgba(7, 7, 26, 0.55), var(--bg) 42%, var(--bg) 100%);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--accent)44;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
     display: flex;
     justify-content: space-around;
-    padding: 8px var(--app-gutter-x) 12px;
-    z-index: 100;
+    padding: 8px var(--app-gutter-x) max(12px, env(safe-area-inset-bottom, 0px));
+    /* Au-dessus du contenu ; sous AppModal (240+) et modales plein écran (1000+) */
+    z-index: 230;
   }
   button {
     background: transparent;

@@ -14,7 +14,6 @@
 
   <div class="right">
     <div class="tags">
-      <Tag color="var(--gold)">LVL {$profileStore.level}</Tag>
       {#if $profileStore.title}
         <Tag color="var(--cyan)">{$profileStore.title.icon}</Tag>
       {/if}
@@ -32,7 +31,11 @@
         {$authStore.user?.avatar ?? '🦊'}
       </button>
     </div>
-    <XPBar current={$profileStore.current} required={$profileStore.required} />
+    <XPBar
+      current={$profileStore.current}
+      required={$profileStore.required}
+      embedLevel={$profileStore.level}
+    />
   </div>
 </header>
 
@@ -44,10 +47,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     position: sticky;
     top: 0;
     z-index: 100;
     box-shadow: 0 2px 20px var(--accent)33;
+  }
+  .brand {
+    flex-shrink: 0;
+    min-width: 0;
   }
   .label {
     font-size: 10px;
@@ -63,8 +71,22 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .right { text-align: right; min-width: 160px; }
-  .tags  { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 5px; }
+  .right {
+    text-align: right;
+    min-width: 0;
+    flex: 1;
+    max-width: min(420px, 100%);
+    margin-left: 12px;
+  }
+  .tags {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
   .cristaux { font-size: 12px; color: var(--cyan); font-weight: 700; }
   .joker-badge {
     font-size: 12px;

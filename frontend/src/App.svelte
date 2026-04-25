@@ -346,10 +346,20 @@
     color: var(--text);
     font-family: 'Exo 2', sans-serif;
     min-height: 100vh;
+    min-height: 100dvh;
+  }
+  :global(#app) {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   main {
     padding: 14px var(--app-gutter-x);
-    padding-bottom: 80px;
+    /*
+     * Nav fixe en bas : hauteur réelle ~72–96px + home indicator.
+     * Marge généreuse pour que le dernier contenu (ex. CTA) ne soit jamais sous la barre
+     * — indépendamment du reflet WebKit (souvent un souci de calque / padding, pas seulement le reflet).
+     */
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
   }
 </style>

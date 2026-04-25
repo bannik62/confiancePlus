@@ -638,6 +638,34 @@
     </Card>
   {/if}
 
+  <!-- Sommeil + journal : au-dessus des habitudes, sous les RDV (ou sous les stats s’il n’y a pas de RDV) -->
+  <Card style="margin-bottom:13px">
+    <div class="micro" style="color:var(--cyan); margin-bottom:10px">🌙 QUALITÉ DE SOMMEIL</div>
+    <div class="sleep-grid">
+      {#each Array.from({ length: 10 }, (_, i) => i + 1) as n}
+        <button
+          type="button"
+          class="sleep-btn"
+          class:sel={n <= sleep}
+          style="--c:{n <= 4 ? 'var(--red)' : n <= 7 ? 'var(--gold)' : 'var(--green)'}"
+          disabled={dayBundleLocked}
+          on:click={() => selectSleep(n)}
+        >{n}</button>
+      {/each}
+    </div>
+  </Card>
+
+  <Card style="margin-bottom:13px">
+    <div class="micro" style="color:var(--accent); margin-bottom:10px">✨ MOMENT MÉMORABLE</div>
+    <textarea
+      class:locked={dayBundleLocked}
+      bind:value={journal}
+      readonly={dayBundleLocked}
+      on:input={onJournalInput}
+      placeholder="Une chose qui t'a marqué aujourd'hui..."
+    ></textarea>
+  </Card>
+
   <!-- Habitudes -->
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px">
     <div class="micro muted">HABITUDES DU JOUR</div>
@@ -773,37 +801,8 @@
     {/each}
   </div>
 
-  <!-- Sommeil -->
-  <Card style="margin-bottom:13px; margin-top:13px">
-    <div class="micro" style="color:var(--cyan); margin-bottom:10px">🌙 QUALITÉ DE SOMMEIL</div>
-    <div class="sleep-grid">
-      {#each Array.from({ length: 10 }, (_, i) => i + 1) as n}
-        <button
-          type="button"
-          class="sleep-btn"
-          class:sel={n <= sleep}
-          style="--c:{n <= 4 ? 'var(--red)' : n <= 7 ? 'var(--gold)' : 'var(--green)'}"
-          disabled={dayBundleLocked}
-          on:click={() => selectSleep(n)}
-        >{n}</button>
-      {/each}
-    </div>
-  </Card>
-
-  <!-- Journal -->
-  <Card style="margin-bottom:13px">
-    <div class="micro" style="color:var(--accent); margin-bottom:10px">✨ MOMENT MÉMORABLE</div>
-    <textarea
-      class:locked={dayBundleLocked}
-      bind:value={journal}
-      readonly={dayBundleLocked}
-      on:input={onJournalInput}
-      placeholder="Une chose qui t'a marqué aujourd'hui..."
-    ></textarea>
-  </Card>
-
   <!-- Une sauvegarde = journal + sommeil + coches habitudes ; puis mode lecture seule jusqu’à Modifier -->
-  <div class="day-actions">
+  <div class="day-actions day-actions--cta-glow">
     {#if dayBundleLocked}
       <button type="button" class="edit-btn wide" on:click={unlockDay}>MODIFIER</button>
     {:else}
@@ -1065,15 +1064,98 @@
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;
   }
-  .save-btn {
-    margin-top: 10px;
-    background: var(--grad-cta);
-    border: none; border-radius: 10px; color: #fff;
-    font-weight: 900; font-size: 13px; padding: 9px 22px;
-    cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
-    box-shadow: 0 0 20px var(--accent)55;
+  /*
+   * Reflet WebKit sous Sauvegarder / Modifier (téléphones ≤480px + grands écrans ≥1367px).
+   * Espace scroll sous le CTA quand le reflet est actif ; Firefox sans reflet → padding réduit.
+   */
+  .day-actions--cta-glow {
+    padding-bottom: max(40px, calc(28px + env(safe-area-inset-bottom, 0px)));
   }
-  .save-btn:disabled { opacity: 0.55; cursor: wait; }
+  @supports not (-webkit-box-reflect: below 0 linear-gradient(transparent, transparent)) {
+    .day-actions--cta-glow {
+      padding-bottom: max(16px, calc(8px + env(safe-area-inset-bottom, 0px)));
+    }
+  }
+  .save-btn,
+  .day-actions .edit-btn.wide {
+    margin-top: 10px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, #ffffff 22%, transparent);
+    color: #fff;
+    font-weight: 900;
+    font-size: 13px;
+    padding: 10px 22px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 1px;
+    outline: none;
+    /* Double calque ; pas de filter: au hover (bug WebKit + reflet) */
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 46%),
+      var(--grad-cta);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.45),
+      0 1px 0 rgba(255, 255, 255, 0.1) inset,
+      0 0 20px color-mix(in srgb, var(--accent) 55%, transparent),
+      0 0 28px color-mix(in srgb, var(--gold) 25%, transparent);
+    transition:
+      box-shadow 0.35s ease,
+      border-color 0.35s ease,
+      transform 0.12s ease,
+      opacity 0.2s ease;
+    -webkit-box-reflect: below 10px linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.4));
+  }
+  .save-btn:hover:not(:disabled),
+  .day-actions .edit-btn.wide:hover {
+    color: #fff;
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 50%),
+      var(--grad-cta);
+    border-color: color-mix(in srgb, #ffffff 38%, transparent);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 1px 0 rgba(255, 255, 255, 0.14) inset,
+      0 0 26px color-mix(in srgb, var(--accent) 65%, transparent),
+      0 0 36px color-mix(in srgb, var(--gold) 38%, transparent);
+  }
+  .save-btn:active:not(:disabled),
+  .day-actions .edit-btn.wide:active {
+    transform: scale(0.96);
+  }
+  .save-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+    -webkit-box-reflect: none;
+  }
+  /*
+   * Largeur « au-delà du portrait téléphone » : paysage, tablette, Surface, Fold…
+   * (le souci nav n’est pas toujours le reflet — souvent calques / padding — mais sans reflet ici on évite un conflit WebKit.)
+   * ≤480px : reflet OK · 481–1366px : pas de reflet · ≥1367px : reflet OK.
+   */
+  @media (min-width: 481px) and (max-width: 1366px) {
+    .day-actions--cta-glow {
+      padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    }
+    .save-btn:not(:disabled),
+    .day-actions .edit-btn.wide {
+      -webkit-box-reflect: none;
+    }
+  }
+  @media (max-width: 520px) {
+    .save-btn,
+    .day-actions .edit-btn.wide {
+      border-width: 1.5px;
+      border-color: color-mix(in srgb, var(--accent-light) 45%, var(--accent) 55%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.65),
+        0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent) inset,
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 0 22px color-mix(in srgb, var(--accent) 58%, transparent),
+        0 0 34px color-mix(in srgb, var(--gold) 32%, transparent);
+    }
+  }
   .day-actions { margin-top: 6px; }
   .wide { width: 100%; }
   .edit-btn.wide { margin-top: 0; }
