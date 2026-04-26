@@ -441,21 +441,43 @@
 </div>
 {:else}
 <div class="view view--home-pop">
-  <!-- Message du jour + accès boutique (bouton à droite, responsive) -->
+  <!-- Message du jour + Shop (bouton à droite dans la carte, responsive) -->
   <div class="dayMessageRow">
     <Card style="flex:1; min-width:0; border-left: 3px solid var(--cyan)">
-      <div class="sup" style="color:var(--cyan)">MESSAGE DU JOUR</div>
-      <p class="msg">{encourage || 'Bonne journée — un pas après l’autre.'}</p>
-      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-        <Tag color="var(--cyan)">Humeur {mood}/10</Tag>
-        {#if $dailyLog?.moodReason}
-          <em class="reason">"{$dailyLog.moodReason}"</em>
-        {/if}
+      <div class="dayMessageCardInner">
+        <div class="dayMessageBody">
+          <div class="sup" style="color:var(--cyan)">MESSAGE DU JOUR</div>
+          <p class="msg">{encourage || 'Bonne journée — un pas après l’autre.'}</p>
+          <div class="dayMessageTags">
+            <Tag color="var(--cyan)">Humeur {mood}/10</Tag>
+            {#if $dailyLog?.moodReason}
+              <em class="reason">"{$dailyLog.moodReason}"</em>
+            {/if}
+          </div>
+        </div>
+        <div class="dayMessageShopCol">
+          <button type="button" class="shop-u" aria-label="Ouvrir la boutique" on:click={() => tab.set('shop')}>
+            <span class="shop-u-inner">
+              <span class="shop-u-svgs" aria-hidden="true">
+                <svg class="shop-u-spark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+                  <path
+                    fill="#fff"
+                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                  />
+                </svg>
+                <svg class="shop-u-spark shop-u-svg-s" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path
+                    fill="#fff"
+                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                  />
+                </svg>
+              </span>
+              <span class="shop-u-label">Shop</span>
+            </span>
+          </button>
+        </div>
       </div>
     </Card>
-    <aside class="shopAside" aria-label="Boutique">
-      <button type="button" class="shopBtn" on:click={() => tab.set('shop')}>Shop</button>
-    </aside>
   </div>
 
   <!-- Stats mini -->
@@ -1602,11 +1624,31 @@
   }
 
   .dayMessageRow {
+    margin-bottom: 13px;
+  }
+  .dayMessageCardInner {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 13px;
+    align-items: stretch;
+    gap: 14px;
+    min-width: 0;
+  }
+  .dayMessageShopCol {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dayMessageBody {
+    flex: 1;
+    min-width: 0;
+  }
+  .dayMessageTags {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
   }
   .dayMessageRow > :global(.card) {
     background: linear-gradient(
@@ -1622,48 +1664,97 @@
       0 0 72px rgba(124, 58, 237, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
-  .shopAside {
-    flex: 0 0 auto;
-    padding-top: 2px;
-    align-self: flex-start;
-  }
-  .shopBtn {
+  /* Shop — style inspiré Uiverse (Spacious74), adapté à la carte */
+  .shop-u {
     appearance: none;
-    min-height: 44px;
-    min-width: 88px;
-    padding: 10px 18px;
-    border-radius: 12px;
-    font: inherit;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--text);
+    margin: 0;
+    padding: 0;
+    border: solid 4px #161616;
+    border-top: none;
+    border-radius: 20px;
+    position: relative;
     cursor: pointer;
-    border: 1px solid rgba(6, 182, 212, 0.42);
-    background: linear-gradient(165deg, rgba(6, 182, 212, 0.14) 0%, var(--bg) 100%);
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    min-width: 5.5rem;
     box-shadow:
-      0 0 0 1px rgba(6, 182, 212, 0.12),
-      0 4px 20px rgba(6, 182, 212, 0.14);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+      0px 4px 10px #00000062,
+      0px 10px 40px -10px #000000a6,
+      0px 12px 45px -15px #00000071;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
-  .shopBtn:hover {
-    border-color: rgba(6, 182, 212, 0.55);
-    box-shadow:
-      0 0 0 1px rgba(6, 182, 212, 0.18),
-      0 6px 26px rgba(6, 182, 212, 0.2);
-    transform: translateY(-1px);
+  .shop-u:focus-visible {
+    outline: 2px solid rgba(6, 182, 212, 0.85);
+    outline-offset: 3px;
   }
-  .shopBtn:active {
-    transform: translateY(0);
+  .shop-u:hover {
+    filter: brightness(1.06);
+  }
+  .shop-u:active {
+    box-shadow: none;
+  }
+  /* Étoiles + libellé dans la même zone .inner (dégradé), étoiles à gauche */
+  .shop-u-inner {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 18px 12px 12px;
+    font-size: clamp(1rem, 2.8vw, 1.35rem);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    font-family: 'Rajdhani', sans-serif;
+    border-bottom: solid 3px #374e72;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #5771a5, #000);
+    color: #fff;
+    text-shadow: 1px 1px #000, 0 0 9px #fff;
+  }
+  .shop-u-svgs {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    width: 2rem;
+    min-width: 2rem;
+    height: 1.75rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .shop-u-svgs > * {
+    filter: drop-shadow(0 0 6px #fff) drop-shadow(1px 1px 0px #000);
+  }
+  .shop-u-svgs .shop-u-svg-s {
+    position: absolute;
+    left: 16px;
+    top: -2px;
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+  .shop-u-label {
+    flex: 0 1 auto;
+    line-height: 1;
   }
   @media (max-width: 480px) {
-    .dayMessageRow {
+    .dayMessageCardInner {
       flex-direction: column;
       align-items: stretch;
+      gap: 10px;
     }
-    .shopAside {
-      padding-top: 0;
+    .dayMessageShopCol {
+      justify-content: stretch;
     }
-    .shopBtn {
+    .shop-u {
       width: 100%;
     }
   }
