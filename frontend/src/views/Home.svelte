@@ -708,7 +708,8 @@
   </Card>
   </div>
 
-  <!-- Habitudes -->
+  <!-- Habitudes (fond opaque : l’aurora ne traverse pas les interstices entre les lignes) -->
+  <div class="habits-panel">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px">
     <div class="micro muted">HABITUDES DU JOUR</div>
     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
@@ -841,6 +842,7 @@
         </div>
       </div>
     {/each}
+  </div>
   </div>
 
   <!-- Une sauvegarde = journal + sommeil + coches habitudes ; puis mode lecture seule jusqu’à Modifier -->
@@ -1005,6 +1007,14 @@
     filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.65)) drop-shadow(0 0 14px rgba(245, 158, 11, 0.55));
   }
 
+  .habits-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 14px 12px;
+    margin-bottom: 4px;
+    isolation: isolate;
+  }
   .habit-list  { display: flex; flex-direction: column; gap: 8px; }
   .habit-row {
     display: flex;

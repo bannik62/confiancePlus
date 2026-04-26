@@ -207,20 +207,21 @@
         <Tag color="var(--red)">🔥 {profile.streak} jours</Tag>
         <Tag color="var(--green)">{profile.title.icon} {profile.title.label}</Tag>
       </div>
+      <button type="button" class="logout logout--hero" on:click={clearAuth}>Se déconnecter</button>
     </div>
 
-    <Card style="margin-bottom:12px">
+    <Card solid>
       <XPBar current={profile.current} required={profile.required} label="NIVEAU {profile.level} → {profile.level + 1}" />
     </Card>
 
-    <Card style="margin-bottom:12px">
+    <Card solid>
       <div class="micro muted">XP TOTAL</div>
       <div class="total-xp">
         <CountUpInline value={profile.totalXP} duration={animMs($gameplayStore, 'profilTotalXp')} /> XP
       </div>
     </Card>
 
-    <Card style="margin-bottom:12px">
+    <Card solid>
       <div class="micro muted">COMPTE</div>
       <p class="acct-hint">
         E-mail de connexion : <strong>{$authStore.user?.email ?? '—'}</strong>
@@ -300,7 +301,7 @@
     </Card>
 
     {#if typeof Notification !== 'undefined'}
-      <Card style="margin-bottom:12px">
+      <Card solid>
         <div class="micro muted">NOTIFICATIONS</div>
         <p class="pwa-lead" style="margin:8px 0">
           Rappel vers l’heure définie par l’équipe (défaut 14 h, fuseau Europe/Paris) si des habitudes du jour ne sont
@@ -328,12 +329,12 @@
     {/if}
 
     {#if standalone}
-      <Card style="margin-bottom:12px">
+      <Card solid>
         <div class="micro muted">APPLICATION</div>
         <p class="pwa-ok">Application installée — accès direct depuis ton écran d’accueil.</p>
       </Card>
     {:else}
-      <Card style="margin-bottom:12px">
+      <Card solid>
         <div class="micro muted">INSTALLER L’APP</div>
         <p class="pwa-lead">
           {#if isBraveBrowser}
@@ -351,8 +352,6 @@
         <p class="pwa-sub muted">Guide selon ton appareil (iPhone, Android, ordinateur).</p>
       </Card>
     {/if}
-
-    <button class="logout" on:click={clearAuth}>Se déconnecter</button>
   {:else}
     <div class="loading">Chargement…</div>
   {/if}
@@ -403,16 +402,86 @@
 {/if}
 
 <style>
-  .view   { display: flex; flex-direction: column; gap: 0; }
-  .hero   { text-align: center; margin-bottom: 20px; }
-  .ava    { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg,var(--accent),var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 12px; box-shadow: 0 0 20px var(--accent)55; }
+  .view {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .hero {
+    position: relative;
+    text-align: center;
+    margin-bottom: 0;
+    padding: 18px 16px 52px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    background-color: var(--surface);
+    background-clip: padding-box;
+    isolation: isolate;
+    box-sizing: border-box;
+  }
+  .ava {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    margin: 0 auto 12px;
+    box-shadow: 0 0 20px var(--accent)55;
+  }
   .uname  { font-size: 22px; font-weight: 900; font-family: 'Rajdhani', sans-serif; background: linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .tags   { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
   .micro  { font-size: 10px; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 4px; }
   .muted  { color: var(--muted); }
   .total-xp { font-size: 28px; font-weight: 900; color: var(--gold); }
-  .logout { width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--red)44; border-radius: 12px; color: var(--red); font-size: 13px; padding: 12px; cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 1px; }
-  .loading { color: var(--muted); text-align: center; padding: 40px; }
+  .logout {
+    width: 100%;
+    margin-top: 0;
+    background: var(--surface);
+    background-color: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--red) 50%, var(--border));
+    border-radius: 12px;
+    color: var(--red);
+    font-size: 13px;
+    padding: 12px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 1px;
+    isolation: isolate;
+    box-sizing: border-box;
+  }
+  .logout:hover {
+    border-color: color-mix(in srgb, var(--red) 65%, var(--border));
+    box-shadow: 0 0 14px color-mix(in srgb, var(--red) 25%, transparent);
+  }
+  .logout--hero {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    margin-top: 0;
+    padding: 8px 12px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .loading {
+    color: var(--muted);
+    text-align: center;
+    padding: 28px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    background-color: var(--surface);
+    isolation: isolate;
+    box-sizing: border-box;
+  }
 
   .pwa-ok   { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
   .pwa-lead { margin: 8px 0 12px; font-size: 14px; line-height: 1.45; color: var(--text); }
@@ -459,8 +528,12 @@
     padding: 20px;
     border-radius: 18px;
     background: var(--surface-modal);
+    background-color: var(--surface-modal);
+    background-clip: padding-box;
     border: 1px solid var(--border);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    isolation: isolate;
+    box-sizing: border-box;
   }
   .install-modal-title {
     margin: 0 0 14px;
@@ -536,7 +609,8 @@
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--border);
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--input-bg);
+    background-color: var(--input-bg);
     color: var(--text);
     font-size: 15px;
   }

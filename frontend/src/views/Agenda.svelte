@@ -803,10 +803,17 @@
   .view {
     display: flex;
     flex-direction: column;
-    padding-bottom: 12px;
+    padding: 12px 0 16px;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    isolation: isolate;
   }
   .head {
     margin-bottom: 12px;
+    padding: 6px clamp(12px, 3.5vw, 22px) 2px;
+    box-sizing: border-box;
   }
   .sup {
     font-size: 10px;

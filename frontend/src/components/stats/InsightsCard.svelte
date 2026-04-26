@@ -13,7 +13,7 @@
 </script>
 
 {#if insights && insights.daysAnalyzed > 0}
-  <Card style="margin-bottom:12px">
+  <Card solid>
     <div class="micro purple">
       💡 INSIGHTS (<CountUpInline
         value={insights.daysAnalyzed}
@@ -139,14 +139,14 @@
   .insights-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
   
   .insight-item {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 10px;
+    padding: 12px 12px 12px 11px;
     background: var(--bg);
     border-radius: 10px;
     border-left: 3px solid var(--accent);

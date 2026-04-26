@@ -74,6 +74,7 @@
     <p class="banner-err" role="alert">{loadError}</p>
   {/if}
 
+  <div class="shop-articles-block">
   <div class="section-label">Articles</div>
 
   <ul class="article-list">
@@ -100,6 +101,7 @@
       </li>
     {/each}
   </ul>
+  </div>
 
   {#if items.length === 0 && !loadError}
     <p class="muted center">Aucun article pour le moment.</p>
@@ -114,25 +116,40 @@
   .shop-view {
     max-width: 560px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    box-sizing: border-box;
   }
   .shop-head {
-    margin-bottom: 18px;
+    margin-bottom: 0;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    background-color: var(--surface);
+    background-clip: padding-box;
+    isolation: isolate;
+    box-sizing: border-box;
   }
   .back {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 0;
-    margin-bottom: 6px;
+    padding: 8px 10px;
+    margin: 0 0 8px -4px;
     border: none;
-    background: none;
+    border-radius: 10px;
+    background: transparent;
     color: var(--muted, #888);
     font: inherit;
     font-size: 14px;
     cursor: pointer;
+    transition: color 0.15s, background 0.15s;
   }
   .back:hover {
     color: var(--cyan);
+    background: color-mix(in srgb, var(--cyan) 12%, var(--surface));
   }
   h1 {
     margin: 0 0 6px;
@@ -153,7 +170,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 22px;
+    margin-bottom: 0;
   }
   .wallet-chip {
     display: flex;
@@ -163,8 +180,12 @@
     border-radius: 14px;
     border: 1px solid var(--border);
     background: var(--surface);
+    background-color: var(--surface);
+    background-clip: padding-box;
     min-width: 0;
     flex: 1 1 200px;
+    isolation: isolate;
+    box-sizing: border-box;
   }
   .wallet-chip.cri {
     border-color: color-mix(in srgb, var(--cyan) 40%, transparent);
@@ -202,13 +223,29 @@
     font-weight: 700;
   }
 
+  .shop-articles-block {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
   .section-label {
     font-size: 11px;
     letter-spacing: 0.14em;
     font-weight: 800;
     color: var(--muted);
-    margin-bottom: 10px;
+    margin-bottom: 0;
     font-family: 'Rajdhani', sans-serif;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    background: var(--surface);
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    isolation: isolate;
   }
 
   .article-list {
@@ -217,7 +254,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 18px;
   }
 
   .article-card {
@@ -229,7 +266,11 @@
     border-radius: 16px;
     border: 1px solid var(--border);
     background: var(--surface);
+    background-color: var(--surface);
+    background-clip: padding-box;
     transition: border-color 0.15s, box-shadow 0.15s;
+    isolation: isolate;
+    box-sizing: border-box;
   }
   .article-card:hover {
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -279,7 +320,9 @@
     padding: 4px 10px;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
-    background: color-mix(in srgb, var(--cyan) 8%, var(--bg));
+    background: var(--surface);
+    background-color: var(--surface);
+    isolation: isolate;
   }
 
   .art-action {
@@ -325,14 +368,16 @@
   .banner-err {
     padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(220, 80, 80, 0.12);
+    background: color-mix(in srgb, var(--surface) 88%, rgba(220, 80, 80, 0.35));
     border: 1px solid rgba(220, 80, 80, 0.35);
     color: #f0a8a8;
     font-size: 13px;
-    margin-bottom: 14px;
+    margin-bottom: 0;
+    isolation: isolate;
+    box-sizing: border-box;
   }
   .banner-err.soft {
-    margin-top: 12px;
+    margin-top: 0;
     margin-bottom: 0;
   }
   .muted.center {

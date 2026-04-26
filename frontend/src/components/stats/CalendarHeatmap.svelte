@@ -134,6 +134,8 @@
     </button>
   </div>
 
+  <!-- Fond opaque : l’aurora ne traverse pas les interstices entre les cases -->
+  <div class="heatmap-calendar-panel">
   <div class="heatmap-grid">
     {#each daysByMonth as monthDays, i}
       <div class="month-col">
@@ -166,6 +168,27 @@
         </div>
       </div>
     {/each}
+  </div>
+
+  <div class="legend">
+    <span class="legend-label">Moins</span>
+    <div class="legend-boxes">
+      {#if colorMode === 'activity'}
+        <div class="legend-box" style="background: var(--border)"></div>
+        <div class="legend-box" style="background: var(--stats-low)"></div>
+        <div class="legend-box" style="background: var(--accent-dark)"></div>
+        <div class="legend-box" style="background: var(--accent)"></div>
+        <div class="legend-box" style="background: var(--gold)"></div>
+      {:else}
+        <div class="legend-box leg-empty" title="Pas d'humeur"></div>
+        <div class="legend-box" style="background: var(--red)" title="1–3"></div>
+        <div class="legend-box" style="background: #d97706" title="4–5"></div>
+        <div class="legend-box" style="background: var(--cyan)" title="6–7"></div>
+        <div class="legend-box" style="background: var(--green)" title="8–10"></div>
+      {/if}
+    </div>
+    <span class="legend-label">Plus</span>
+  </div>
   </div>
 
   {#if hoveredDay}
@@ -217,25 +240,6 @@
     </div>
   {/if}
 
-  <div class="legend">
-    <span class="legend-label">Moins</span>
-    <div class="legend-boxes">
-      {#if colorMode === 'activity'}
-        <div class="legend-box" style="background: var(--border)"></div>
-        <div class="legend-box" style="background: var(--stats-low)"></div>
-        <div class="legend-box" style="background: var(--accent-dark)"></div>
-        <div class="legend-box" style="background: var(--accent)"></div>
-        <div class="legend-box" style="background: var(--gold)"></div>
-      {:else}
-        <div class="legend-box leg-empty" title="Pas d'humeur"></div>
-        <div class="legend-box" style="background: var(--red)" title="1–3"></div>
-        <div class="legend-box" style="background: #d97706" title="4–5"></div>
-        <div class="legend-box" style="background: var(--cyan)" title="6–7"></div>
-        <div class="legend-box" style="background: var(--green)" title="8–10"></div>
-      {/if}
-    </div>
-    <span class="legend-label">Plus</span>
-  </div>
 </div>
 
 <style>
@@ -249,6 +253,14 @@
     background: var(--surface);
     border-radius: 14px;
     border: 1px solid var(--border);
+  }
+
+  .heatmap-calendar-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px clamp(6px, 1.5vw, 12px) 12px;
+    isolation: isolate;
   }
 
   .mode-switch {

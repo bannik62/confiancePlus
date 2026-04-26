@@ -1,12 +1,17 @@
 <script>
   import { tab } from '../../stores/tab.js'
+  import { authStore } from '../../stores/auth.js'
+
   export let TABS = []
+
+  const tabIcon = (t) =>
+    t.key === 'profil' ? ($authStore.user?.avatar ?? t.ico) : t.ico
 </script>
 
 <nav>
   {#each TABS as t}
     <button class:active={$tab === t.key} on:click={() => tab.set(t.key)}>
-      <span class="ico">{t.ico}</span>
+      <span class="ico">{tabIcon(t)}</span>
       <span class="lbl">{t.label}</span>
     </button>
   {/each}

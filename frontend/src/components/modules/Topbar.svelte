@@ -1,7 +1,6 @@
 <script>
   import { authStore }    from '../../stores/auth.js'
   import { profileStore } from '../../stores/profile.js'
-  import { tab }          from '../../stores/tab.js'
   import { gameplayStore } from '../../stores/gameplay.js'
   import { openItemsModal } from '../../stores/itemsModal.js'
   import { openLevelGuideModal } from '../../stores/levelGuideModal.js'
@@ -51,9 +50,10 @@
         class="topbar-items-trigger"
         on:click|stopPropagation={openMyItems}
         aria-haspopup="dialog"
-        aria-label="Voir tes objets : cristaux, jokers, trophées série"
+        aria-label="Voir tes objets et ta série : {$profileStore.streak} jours, cristaux, jokers, trophées série"
       >
         <span class="items-lbl" aria-hidden="true">Items</span>
+        <span class="streak-inline" title="Série (jours consécutifs)">🔥 {$profileStore.streak}</span>
         <span class="cristaux" title="Cristaux">💎 {$authStore.user?.cristaux ?? 0}</span>
         {#if ($authStore.user?.jokerStreak ?? 0) > 0}
           <span
@@ -68,10 +68,6 @@
             <img src={streakTrophyImg} alt="" class="streak7-ico" />
           </span>
         {/if}
-      </button>
-      <span class="streak">🔥 {$profileStore.streak}</span>
-      <button class="avatar" on:click={() => tab.set('profil')}>
-        {$authStore.user?.avatar ?? '🦊'}
       </button>
     </div>
     <XPBar
@@ -196,6 +192,15 @@
     color: color-mix(in srgb, var(--text) 55%, transparent);
     flex-shrink: 0;
   }
+  .streak-inline {
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold);
+    font-family: 'Rajdhani', sans-serif;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
   .cristaux { font-size: 14px; color: var(--cyan); font-weight: 700; }
   .streak7-badge {
     display: inline-flex;
@@ -235,13 +240,5 @@
         0 0 18px rgba(168, 85, 247, 0.75);
       filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.85));
     }
-  }
-  .streak { font-size: 14px; color: var(--gold); }
-  .avatar {
-    width: 34px; height: 34px;
-    border-radius: 10px;
-    background: var(--grad-avatar);
-    border: none; cursor: pointer; font-size: 18px;
-    box-shadow: 0 0 20px var(--accent)55;
   }
 </style>

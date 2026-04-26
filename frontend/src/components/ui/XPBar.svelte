@@ -68,6 +68,8 @@
     background: var(--border);
     border-radius: 4px;
     overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--gold) 58%, transparent);
   }
   .fill {
     height: 100%;
@@ -87,6 +89,8 @@
     border-radius: 12px;
     background: var(--border);
     overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--gold) 58%, transparent);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   .embed-fill {

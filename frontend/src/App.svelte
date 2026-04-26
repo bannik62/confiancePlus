@@ -56,6 +56,7 @@
   import AppModal from './components/ui/AppModal.svelte'
   import UserItemsModal from './components/ui/UserItemsModal.svelte'
   import LevelGuideModal from './components/ui/LevelGuideModal.svelte'
+  import AuroraBackground from './components/effects/AuroraBackground.svelte'
   import { resetAppModal } from './stores/modal.js'
   import { resetItemsModal } from './stores/itemsModal.js'
   import { resetLevelGuideModal } from './stores/levelGuideModal.js'
@@ -66,14 +67,14 @@
     { key: 'agenda', ico: '📅', label: 'Agenda'       },
     { key: 'groupe', ico: '👥', label: 'Classement'   },
     { key: 'stats',  ico: '📊', label: 'Stats'        },
-    { key: 'profil', ico: '⚙️', label: 'Profil'       },
+    { key: 'profil', ico: '👤', label: 'Profil'       },
   ]
   const TABS_EDUCATOR = [
     { key: 'home',   ico: '📋', label: 'Suivi'      },
     { key: 'agenda', ico: '📅', label: 'Agenda'     },
     { key: 'groupe', ico: '👥', label: 'Classement' },
     { key: 'stats',  ico: '📊', label: 'Stats'      },
-    { key: 'profil', ico: '⚙️', label: 'Profil'     },
+    { key: 'profil', ico: '👤', label: 'Profil'     },
   ]
   $: bottomTabs = $isEducatorAssociation ? TABS_EDUCATOR : TABS_STUDENT
 
@@ -379,6 +380,7 @@
   {#if !checkinDone}
     <CheckIn on:done={onCheckinDone} />
   {:else}
+    <AuroraBackground />
     <Topbar />
     <StreakNoticeBanner />
 

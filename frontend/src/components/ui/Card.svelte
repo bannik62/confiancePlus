@@ -1,9 +1,11 @@
 <script>
   export let glow = false
   export let style = ''
+  /** Fond bien opaque + stacking (ex. aurora derrière l’onglet Stats) */
+  export let solid = false
 </script>
 
-<div class="card" class:glow {style}>
+<div class="card" class:glow class:solid {style}>
   <slot />
 </div>
 
@@ -13,6 +15,11 @@
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 16px;
+  }
+  .solid {
+    isolation: isolate;
+    background-color: var(--surface);
+    background-clip: padding-box;
   }
   .glow {
     border-color: var(--accent)88;

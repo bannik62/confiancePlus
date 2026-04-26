@@ -140,7 +140,7 @@
   {#if loadingEducator}
     <div class="loading">Chargement…</div>
   {:else if educatorOverview}
-    <Card glow style="margin-bottom:12px">
+    <Card solid glow style="margin-bottom:12px">
       <div class="micro purple">STATS GROUPE — ASSOCIATION</div>
       <div class="edu-title">{educatorOverview.group.name}</div>
       <p class="hint">
@@ -154,7 +154,7 @@
       </p>
     </Card>
 
-    <Card>
+    <Card solid>
       <div class="micro purple">CLASSEMENT MEMBRES</div>
       <div class="board">
         {#each educatorOverview.leaderboard as m, i}
@@ -230,7 +230,7 @@
       class="stats-learner"
       style="--stat-bar-ms:{animMs($gameplayStore, 'statsBarsCss')}ms"
     >
-    <Card glow style="margin-bottom:12px">
+    <Card solid glow>
       <div class="micro purple">📊 TAUX DE RÉUSSITE — 7 JOURS</div>
       <div class="bars">
         {#each byDay as d}
@@ -253,7 +253,7 @@
       </div>
     </Card>
 
-    <Card>
+    <Card solid>
       <div class="micro purple">🏆 PAR HABITUDE (7 jours)</div>
       {#each byHabit as h}
         <div class="habit-row">
@@ -280,8 +280,8 @@
 
     <InsightsCard {insights} />
 
-    <div style="margin-top:16px">
-      <Card>
+    <div class="stats-cal-wrap">
+      <Card solid>
         <div class="micro purple" style="margin-bottom:12px">📅 CALENDRIER {currentYear}</div>
         {#if loadingCalendar}
           <div class="loading">Chargement...</div>
@@ -379,6 +379,12 @@
   }
   .stats-learner {
     width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .stats-cal-wrap {
     min-width: 0;
   }
   .stats-learner .bar {

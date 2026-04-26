@@ -164,7 +164,7 @@
 {:else}
 
 <!-- ── Onglets ─────────────────────────────────────────────────────────── -->
-<div class="tabs">
+<div class="tabs" class:tabs-rank={tab === 'global'}>
   <button class:active={tab === 'groupe'} on:click={() => tab = 'groupe'}>
     👥 Mon groupe
   </button>
@@ -357,6 +357,7 @@
 <!-- ════════════════════════════════════════════════════════════════════════ -->
 {:else if tab === 'global'}
 
+  <div class="global-rank">
   <div class="micro muted section-label">CLASSEMENT GLOBAL — {$globalLeaderboard.length} joueurs</div>
 
   <div class="board">
@@ -432,6 +433,7 @@
       </div>
     {/each}
   </div>
+  </div>
 {/if}
 
 <PeerHabitsModal
@@ -460,6 +462,13 @@
     font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 1px;
   }
   .tabs button.active { background: var(--accent); color: #fff; }
+  /* Onglet classement global : barre d’onglets opaque (même lecture qu’une carte) */
+  .tabs.tabs-rank {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-sizing: border-box;
+    isolation: isolate;
+  }
 
   /* ── Rows ── */
   .board { display: flex; flex-direction: column; gap: 8px; }
@@ -469,6 +478,37 @@
     padding: 12px 14px; display: flex; align-items: center; gap: 12px;
     flex-wrap: wrap;
     transition: all 0.15s;
+  }
+  /* Classement global : lignes + fond de bloc bien opaques sur l’aurora */
+  .global-rank {
+    isolation: isolate;
+  }
+  .global-rank .section-label {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    isolation: isolate;
+  }
+  .global-rank .row-member {
+    isolation: isolate;
+    background-color: var(--surface);
+    background-clip: padding-box;
+  }
+  .global-rank .xp-stack .micro {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-sizing: border-box;
+    isolation: isolate;
   }
   .row-member.top { border-color: var(--gold)66; box-shadow: 0 0 14px var(--gold)44; }
   .row-member.me  { border-color: var(--accent)99; box-shadow: 0 0 10px var(--accent)44; }
