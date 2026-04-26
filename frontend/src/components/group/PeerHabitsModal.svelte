@@ -9,6 +9,7 @@
   /** @type {string} */
   export let title = 'Habitudes'
   /** @type {{
+   *   userId?: string,
    *   username?: string,
    *   avatar?: string,
    *   habits?: Array<Record<string, unknown>>,
@@ -44,46 +45,135 @@
     wasOpen = open
   }
 
-  /** @type {string | null} */
-  let reactionBusyId = null
   let reactionErr = ''
+  /** Copie locale pour réactions optimistes ; vidée à la fermeture. */
+  /** @type {Record<string, unknown> | null} */
+  let draftData = null
+  /** @type {Map<string, 'HEART' | 'SKEPTIC' | null>} */
+  let baselineMyReaction = new Map()
+  /** @type {Map<string, { habitId: string, ymd: string, kind: 'HEART' | 'SKEPTIC' | null }>} */
+  let pendingByKey = new Map()
+  let reactionFlushBusy = false
+  let closeInFlight = false
 
   $: canReact =
     !!data?.userId &&
     !!$authStore.user?.id &&
     $authStore.user.id !== data.userId
 
-  $: ymdForTab = tab === 'today' ? data?.peerTodayYmd : data?.peerYesterdayYmd
+  /** Affichage : brouillon local après chargement, sinon props. */
+  $: display = draftData ?? data
+
+  $: ymdForTab = tab === 'today' ? display?.peerTodayYmd : display?.peerYesterdayYmd
+
+  const reactionKey = (habitId, ymd) => `${habitId}|${ymd}`
+
+  /** @param {Record<string, unknown> | null} d */
+  const fillBaseline = (d) => {
+    baselineMyReaction = new Map()
+    if (!d) return
+    const add = (/** @type {unknown[]} */ list, /** @type {string | undefined} */ ymd) => {
+      if (!Array.isArray(list) || !ymd) return
+      for (const h of list) {
+        if (!h || typeof h !== 'object' || !('id' in h)) continue
+        const id = /** @type {{ id: string }} */ (h).id
+        baselineMyReaction.set(
+          reactionKey(id, ymd),
+          /** @type {'HEART' | 'SKEPTIC' | null} */ (
+            /** @type {{ myReaction?: 'HEART' | 'SKEPTIC' | null }} */ (h).myReaction ?? null
+          ),
+        )
+      }
+    }
+    add(/** @type {unknown[]} */ (d.todayHabits ?? []), /** @type {string | undefined} */ (d.peerTodayYmd))
+    add(/** @type {unknown[]} */ (d.yesterdayHabits ?? []), /** @type {string | undefined} */ (d.peerYesterdayYmd))
+  }
+
+  $: if (!open) {
+    draftData = null
+    pendingByKey = new Map()
+    baselineMyReaction = new Map()
+    closeInFlight = false
+  }
+
+  $: if (open && data && !loading) {
+    if (draftData === null || draftData.userId !== data.userId) {
+      draftData = /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(data)))
+      fillBaseline(draftData)
+      pendingByKey = new Map()
+    }
+  }
+
+  /**
+   * @param {Record<string, unknown> & { reactionHeartCount?: number, reactionSkepticCount?: number }} h
+   * @param {'HEART' | 'SKEPTIC' | null} oldR
+   * @param {'HEART' | 'SKEPTIC' | null} newR
+   */
+  const applyLocalCounts = (h, oldR, newR) => {
+    let hc = Number(h.reactionHeartCount) || 0
+    let sc = Number(h.reactionSkepticCount) || 0
+    if (oldR === 'HEART') hc--
+    if (oldR === 'SKEPTIC') sc--
+    if (newR === 'HEART') hc++
+    if (newR === 'SKEPTIC') sc++
+    h.reactionHeartCount = Math.max(0, hc)
+    h.reactionSkepticCount = Math.max(0, sc)
+  }
 
   /**
    * @param {Record<string, unknown> & { id?: string, myReaction?: string | null }} h
    * @param {'HEART' | 'SKEPTIC'} kind
    */
-  const setReaction = async (h, kind) => {
+  const setReaction = (h, kind) => {
     reactionErr = ''
-    if (!data?.userId || !ymdForTab || typeof h.id !== 'string') return
-    const next = h.myReaction === kind ? null : kind
-    reactionBusyId = h.id
+    if (!draftData?.userId || !ymdForTab || typeof h.id !== 'string' || reactionFlushBusy) return
+    const ymd = ymdForTab
+    const list =
+      tab === 'today'
+        ? /** @type {Array<Record<string, unknown>>} */ (draftData.todayHabits ?? [])
+        : /** @type {Array<Record<string, unknown>>} */ (draftData.yesterdayHabits ?? [])
+    const habit = list.find((x) => x.id === h.id)
+    if (!habit) return
+    const oldR = /** @type {'HEART' | 'SKEPTIC' | null} */ (habit.myReaction ?? null)
+    const next = oldR === kind ? null : kind
+    applyLocalCounts(/** @type {Record<string, unknown>} */ (habit), oldR, next)
+    habit.myReaction = next
+    const key = reactionKey(h.id, ymd)
+    const initial = baselineMyReaction.get(key) ?? null
+    if (next === initial) pendingByKey.delete(key)
+    else pendingByKey.set(key, { habitId: h.id, ymd, kind: next })
+    draftData = draftData
+  }
+
+  const close = async () => {
+    if (closeInFlight) return
+    reactionErr = ''
+    if (!data?.userId) {
+      onClose()
+      return
+    }
+    const items = Array.from(pendingByKey.values())
+    if (items.length === 0) {
+      onClose()
+      return
+    }
+    closeInFlight = true
+    reactionFlushBusy = true
     try {
-      await habitsApi.setPerfReaction({
-        targetUserId: data.userId,
-        habitId: h.id,
-        ymd: ymdForTab,
-        kind: next,
-      })
+      await habitsApi.setPerfReactionsBatch({ targetUserId: data.userId, items })
       const refreshed = await habitsApi.getPublicHabits(data.userId)
       dispatch('updated', refreshed)
+      onClose()
     } catch (e) {
       reactionErr =
         typeof e?.message === 'string' && e.message.length
           ? e.message
-          : 'Impossible d’enregistrer la réaction.'
+          : 'Impossible d’enregistrer les réactions.'
     } finally {
-      reactionBusyId = null
+      reactionFlushBusy = false
+      closeInFlight = false
     }
   }
-
-  const close = () => onClose()
 </script>
 
 {#if open}
@@ -107,7 +197,13 @@
           {/if}
         </div>
       </div>
-      <button type="button" class="btn-close" on:click={close} aria-label="Fermer">×</button>
+      <button
+        type="button"
+        class="btn-close"
+        on:click={close}
+        aria-label="Fermer"
+        disabled={reactionFlushBusy}
+      >×</button>
     </header>
 
     <div class="tabs" role="tablist" aria-label="Période">
@@ -143,12 +239,12 @@
       {:else if error}
         <p class="err center-pad">{error}</p>
       {:else if tab === 'today'}
-        {#if data?.todayHabits?.length}
+        {#if display?.todayHabits?.length}
           {#if reactionErr}
             <p class="err reaction-err">{reactionErr}</p>
           {/if}
           <ul class="list">
-            {#each data.todayHabits as h (h.id)}
+            {#each display.todayHabits as h (h.id)}
               <li class="habit-row" class:done={h.done}>
                 <span class="habit-ico" aria-hidden="true">{h.icon}</span>
                 <div class="habit-col">
@@ -171,7 +267,7 @@
                             type="button"
                             class="react-btn"
                             class:active={h.myReaction === 'HEART'}
-                            disabled={reactionBusyId === h.id}
+                            disabled={reactionFlushBusy}
                             aria-pressed={h.myReaction === 'HEART'}
                             aria-label="Aimer cette perf"
                             on:click={() => setReaction(h, 'HEART')}
@@ -182,7 +278,7 @@
                             type="button"
                             class="react-btn"
                             class:active={h.myReaction === 'SKEPTIC'}
-                            disabled={reactionBusyId === h.id}
+                            disabled={reactionFlushBusy}
                             aria-pressed={h.myReaction === 'SKEPTIC'}
                             aria-label="Sceptique sur cette perf"
                             on:click={() => setReaction(h, 'SKEPTIC')}
@@ -209,12 +305,12 @@
           <p class="muted center-pad">Aucune habitude prévue aujourd’hui (chez ce joueur).</p>
         {/if}
       {:else if tab === 'yesterday'}
-        {#if data?.yesterdayHabits?.length}
+        {#if display?.yesterdayHabits?.length}
           {#if reactionErr}
             <p class="err reaction-err">{reactionErr}</p>
           {/if}
           <ul class="list">
-            {#each data.yesterdayHabits as h (h.id)}
+            {#each display.yesterdayHabits as h (h.id)}
               <li class="habit-row" class:done={h.done}>
                 <span class="habit-ico" aria-hidden="true">{h.icon}</span>
                 <div class="habit-col">
@@ -237,7 +333,7 @@
                             type="button"
                             class="react-btn"
                             class:active={h.myReaction === 'HEART'}
-                            disabled={reactionBusyId === h.id}
+                            disabled={reactionFlushBusy}
                             aria-pressed={h.myReaction === 'HEART'}
                             aria-label="Aimer cette perf"
                             on:click={() => setReaction(h, 'HEART')}
@@ -248,7 +344,7 @@
                             type="button"
                             class="react-btn"
                             class:active={h.myReaction === 'SKEPTIC'}
-                            disabled={reactionBusyId === h.id}
+                            disabled={reactionFlushBusy}
                             aria-pressed={h.myReaction === 'SKEPTIC'}
                             aria-label="Sceptique sur cette perf"
                             on:click={() => setReaction(h, 'SKEPTIC')}

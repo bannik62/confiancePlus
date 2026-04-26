@@ -37,4 +37,6 @@ export const habitsApi = {
   getPublicHabits: (userId) => api.get(`/habits/public/${encodeURIComponent(userId)}`),
   /** Réaction ❤️ / 🤔 sur une perf (habitude validée, YMD = jour civil du joueur cible) */
   setPerfReaction: (body) => api.post('/habits/perf-reactions', body),
+  /** Plusieurs réactions — un seul e-mail côté serveur (ex. à la fermeture du modal) */
+  setPerfReactionsBatch: (body) => api.post('/habits/perf-reactions/batch', body),
 }

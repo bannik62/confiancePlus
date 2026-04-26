@@ -58,3 +58,18 @@ export const perfReactionBodySchema = z.object({
   ymd:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   kind:       z.enum(['HEART', 'SKEPTIC']).nullable(),
 })
+
+/** Plusieurs réactions en une requête — un seul e-mail regroupé à la fermeture côté client. */
+export const perfReactionBatchBodySchema = z.object({
+  targetUserId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        habitId: z.string().min(1),
+        ymd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        kind: z.enum(['HEART', 'SKEPTIC']).nullable(),
+      }),
+    )
+    .min(1)
+    .max(80),
+})

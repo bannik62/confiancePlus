@@ -7,15 +7,16 @@ import { getLocalYmd } from '../../lib/timezoneLocal.js'
 import { canViewPeerHabits } from './habits.peer.js'
 
 /**
- * @param {string} viewerId
- * @param {{ targetUserId: string, habitId: string, ymd: string, kind: 'HEART' | 'SKEPTIC' | null }} body
+ * Applique une réaction en base, sans envoyer d’e-mail.
+ * @returns {Promise<{ shouldNotify: boolean, habitName: string, ymd: string, kind: 'HEART' | 'SKEPTIC' } | null>}
+ *         `null` = suppression ou pas de changement notifiable.
  */
-export const setPerfReaction = async (viewerId, { targetUserId, habitId, ymd, kind }) => {
+const applyPerfReactionRecord = async (
+  viewerId,
+  { targetUserId, habitId, ymd, kind },
+) => {
   if (viewerId === targetUserId) {
     throw { status: 400, message: 'Tu ne peux pas réagir à tes propres perfs.' }
-  }
-  if (!(await canViewPeerHabits(viewerId, targetUserId))) {
-    throw { status: 403, message: 'Impossible de réagir pour ce joueur.' }
   }
 
   const profile = await db.user.findUnique({
@@ -51,7 +52,7 @@ export const setPerfReaction = async (viewerId, { targetUserId, habitId, ymd, ki
     await db.habitPerfReaction.deleteMany({
       where: { fromUserId: viewerId, habitId, ymd },
     })
-    return { ok: true }
+    return null
   }
 
   const before = await db.habitPerfReaction.findUnique({
@@ -70,7 +71,12 @@ export const setPerfReaction = async (viewerId, { targetUserId, habitId, ymd, ki
   })
 
   const shouldNotify = !before || before.kind !== kind
+  if (!shouldNotify) return null
 
+  return { shouldNotify: true, habitName: habit.name, ymd, kind }
+}
+
+const sendPerfReactionMail = async (targetUserId, viewerId, line) => {
   const [target, liker] = await Promise.all([
     db.user.findUnique({
       where: { id: targetUserId },
@@ -80,23 +86,111 @@ export const setPerfReaction = async (viewerId, { targetUserId, habitId, ymd, ki
   ])
 
   if (
-    shouldNotify &&
-    target?.email &&
-    target.perfReactionEmailsEnabled !== false &&
-    isMailConfigured() &&
-    liker
+    !target?.email ||
+    target.perfReactionEmailsEnabled === false ||
+    !isMailConfigured() ||
+    !liker
   ) {
+    return
+  }
+  const label = line.kind === 'HEART' ? 'a réagi ❤️' : 'a réagi 🤔'
+  await sendMail({
+    to: target.email,
+    subject: `${liker.username} ${label} — ${line.habitName}`,
+    text: `Bonjour ${target.username},\n\n${liker.username} ${label} sur ton habitude « ${line.habitName} » (${line.ymd}).\n\nOuvre l’app : ${config.FRONTEND_URL}\n`,
+  })
+}
+
+/**
+ * @param {string} viewerId
+ * @param {{ targetUserId: string, habitId: string, ymd: string, kind: 'HEART' | 'SKEPTIC' | null }} body
+ */
+export const setPerfReaction = async (viewerId, body) => {
+  if (!(await canViewPeerHabits(viewerId, body.targetUserId))) {
+    throw { status: 403, message: 'Impossible de réagir pour ce joueur.' }
+  }
+
+  const line = await applyPerfReactionRecord(viewerId, body)
+  if (line?.shouldNotify) {
     try {
-      const label = kind === 'HEART' ? 'a réagi ❤️' : 'a réagi 🤔'
-      await sendMail({
-        to: target.email,
-        subject: `${liker.username} ${label} — ${habit.name}`,
-        text: `Bonjour ${target.username},\n\n${liker.username} ${label} sur ton habitude « ${habit.name} » (${ymd}).\n\nOuvre l’app : ${config.FRONTEND_URL}\n`,
-      })
+      await sendPerfReactionMail(body.targetUserId, viewerId, line)
     } catch (e) {
       console.warn('[perf-reaction] e-mail non envoyé', e?.message)
     }
   }
-
   return { ok: true }
+}
+
+/**
+ * Plusieurs réactions d’un coup : une seule notification e-mail regroupée à la fin.
+ * @param {string} viewerId
+ * @param {{ targetUserId: string, items: Array<{ habitId: string, ymd: string, kind: 'HEART' | 'SKEPTIC' | null }> }} body
+ */
+export const setPerfReactionsBatch = async (viewerId, { targetUserId, items }) => {
+  if (viewerId === targetUserId) {
+    throw { status: 400, message: 'Tu ne peux pas réagir à tes propres perfs.' }
+  }
+  if (!(await canViewPeerHabits(viewerId, targetUserId))) {
+    throw { status: 403, message: 'Impossible de réagir pour ce joueur.' }
+  }
+
+  const dedup = new Map()
+  for (const it of items) {
+    const k = `${it.habitId}|${it.ymd}`
+    dedup.set(k, it)
+  }
+  const list = [...dedup.values()]
+
+  /** @type {Array<{ habitName: string, ymd: string, kind: 'HEART' | 'SKEPTIC' }>} */
+  const notifyLines = []
+
+  for (const it of list) {
+    try {
+      const line = await applyPerfReactionRecord(viewerId, { targetUserId, ...it })
+      if (line?.shouldNotify) {
+        notifyLines.push({ habitName: line.habitName, ymd: line.ymd, kind: line.kind })
+      }
+    } catch (e) {
+      const status = e?.status ?? 500
+      const message = typeof e?.message === 'string' ? e.message : 'Erreur'
+      throw { status, message: `${message} (habitude ${it.habitId}, ${it.ymd})` }
+    }
+  }
+
+  if (notifyLines.length > 0) {
+    const [target, liker] = await Promise.all([
+      db.user.findUnique({
+        where: { id: targetUserId },
+        select: { email: true, perfReactionEmailsEnabled: true, username: true },
+      }),
+      db.user.findUnique({ where: { id: viewerId }, select: { username: true } }),
+    ])
+
+    if (
+      target?.email &&
+      target.perfReactionEmailsEnabled !== false &&
+      isMailConfigured() &&
+      liker
+    ) {
+      try {
+        const n = notifyLines.length
+        const emoji = (k) => (k === 'HEART' ? '❤️' : '🤔')
+        const linesTxt = notifyLines
+          .map((l) => `- « ${l.habitName} » (${l.ymd}) : ${emoji(l.kind)}`)
+          .join('\n')
+        await sendMail({
+          to: target.email,
+          subject:
+            n === 1
+              ? `${liker.username} ${notifyLines[0].kind === 'HEART' ? 'a réagi ❤️' : 'a réagi 🤔'} — ${notifyLines[0].habitName}`
+              : `${liker.username} — ${n} réactions sur tes perfs`,
+          text: `Bonjour ${target.username},\n\n${liker.username} a réagi sur ${n === 1 ? 'ton habitude suivante' : 'tes habitudes suivantes'} :\n\n${linesTxt}\n\nOuvre l’app : ${config.FRONTEND_URL}\n`,
+        })
+      } catch (e) {
+        console.warn('[perf-reaction-batch] e-mail non envoyé', e?.message)
+      }
+    }
+  }
+
+  return { ok: true, applied: list.length, notified: notifyLines.length }
 }

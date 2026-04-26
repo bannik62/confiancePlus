@@ -10,11 +10,12 @@ import {
   dailyOfferQuerySchema,
   dailyOfferBodySchema,
   perfReactionBodySchema,
+  perfReactionBatchBodySchema,
 } from './habits.schema.js'
 import * as service from './habits.service.js'
 import * as dailyOffer from './dailyOffer.service.js'
 import { getPublicHabitsForPeer } from './habits.peer.js'
-import { setPerfReaction } from './habits.perfReaction.js'
+import { setPerfReaction, setPerfReactionsBatch } from './habits.perfReaction.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -62,6 +63,19 @@ router.post(
     try {
       const out = await dailyOffer.acceptDailyOffer(req.user.id, req.body.date)
       res.status(out.alreadyAccepted ? 200 : 201).json(out)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+/** Réactions groupées (une seule notification e-mail). */
+router.post(
+  '/perf-reactions/batch',
+  validate(perfReactionBatchBodySchema),
+  async (req, res, next) => {
+    try {
+      res.json(await setPerfReactionsBatch(req.user.id, req.body))
     } catch (e) {
       next(e)
     }
