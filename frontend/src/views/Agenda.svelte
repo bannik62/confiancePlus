@@ -812,11 +812,11 @@
   }
   .head {
     margin-bottom: 12px;
-    padding: 6px clamp(12px, 3.5vw, 22px) 2px;
+    padding: 6px clamp(15px, 3.5vw, 22px) 2px;
     box-sizing: border-box;
   }
   .sup {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
     color: var(--muted);
@@ -829,7 +829,7 @@
     font-family: 'Rajdhani', sans-serif;
   }
   .sub {
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     line-height: 1.45;
     margin: 8px 0 0;
@@ -849,7 +849,7 @@
     font-family: 'Rajdhani', sans-serif;
   }
   .micro {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
@@ -858,11 +858,11 @@
     color: var(--muted);
   }
   .small {
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .err {
     color: var(--red);
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     margin-bottom: 10px;
   }
   .modal-err {
@@ -897,11 +897,11 @@
     --month-row-h: clamp(2.2rem, 6vmin, 2.85rem);
     --cell-gap: 6px;
     display: flex;
-    gap: clamp(8px, 2.2vmin, 14px);
+    gap: clamp(15px, 2.2vmin, 14px);
     align-items: stretch;
     width: 100%;
     min-height: 0;
-    padding: clamp(8px, 2vmin, 18px) 0 clamp(10px, 2.5vmin, 22px);
+    padding: clamp(15px, 2vmin, 18px) 0 clamp(15px, 2.5vmin, 22px);
     box-sizing: border-box;
   }
   .github-grid.dim {
@@ -917,7 +917,7 @@
     width: clamp(22px, 6vmin, 32px);
   }
   .dow {
-    font-size: clamp(10px, 2.6vmin, 13px);
+    font-size: clamp(15px, 2.6vmin, 13px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
@@ -938,7 +938,7 @@
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-    padding-bottom: clamp(8px, 2vmin, 14px);
+    padding-bottom: clamp(15px, 2vmin, 14px);
     scrollbar-width: thin;
   }
   .gh-months {
@@ -951,7 +951,7 @@
     gap: 0;
     column-gap: var(--cell-gap);
     row-gap: 0;
-    margin-bottom: clamp(10px, 2.4vmin, 16px);
+    margin-bottom: clamp(15px, 2.4vmin, 16px);
     min-height: var(--month-row-h);
     align-items: stretch;
   }
@@ -960,7 +960,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: clamp(6px, 1.6vmin, 10px) clamp(4px, 1vmin, 8px);
+    padding: clamp(15px, 1.6vmin, 10px) clamp(15px, 1vmin, 8px);
     border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
     background: linear-gradient(
       180deg,
@@ -971,7 +971,7 @@
     box-sizing: border-box;
   }
   .month-band__txt {
-    font-size: clamp(11px, 3vmin, 15px);
+    font-size: clamp(15px, 3vmin, 15px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     color: var(--accent-light);
@@ -1014,7 +1014,7 @@
     aspect-ratio: 1;
     height: auto;
     min-height: var(--week-col-min);
-    border-radius: clamp(3px, 1vw, 6px);
+    border-radius: clamp(15px, 1vw, 6px);
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     padding: 2px;
     cursor: pointer;
@@ -1039,7 +1039,7 @@
     text-align: center;
   }
   .cell-date-today {
-    font-size: clamp(5px, 1.65vmin, 8px);
+    font-size: clamp(15px, 1.65vmin, 8px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     color: var(--cyan);
@@ -1056,7 +1056,7 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
   .cell-num {
-    font-size: clamp(8px, 2.4vmin, 12px);
+    font-size: clamp(15px, 2.4vmin, 12px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     color: color-mix(in srgb, var(--text) 72%, transparent);
@@ -1135,7 +1135,7 @@
     background: var(--border)33;
   }
   .r-date {
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-family: 'Rajdhani', sans-serif;
     color: var(--muted);
   }
@@ -1146,7 +1146,7 @@
     white-space: nowrap;
   }
   .r-who {
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--cyan);
   }
 
@@ -1214,13 +1214,13 @@
     flex-direction: column;
     gap: 6px;
     margin-bottom: 10px;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
   .field span {
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
   .field input,
   .field select,
@@ -1247,7 +1247,7 @@
     background: var(--grad-cta);
     color: #fff;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.5px;
@@ -1257,7 +1257,7 @@
   .cta.inline {
     width: auto;
     padding: 8px 14px;
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     margin-top: 0;
   }
   .btn-sec {
@@ -1268,12 +1268,12 @@
     color: var(--text);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     cursor: pointer;
   }
   .btn-sec.small {
     padding: 6px 12px;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
   .btn-row {
     display: flex;
@@ -1286,7 +1286,7 @@
     background: none;
     border: none;
     color: var(--red);
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     cursor: pointer;
     text-decoration: underline;
     font-family: 'Rajdhani', sans-serif;
@@ -1317,7 +1317,7 @@
   }
   .notes {
     margin-top: 8px;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     color: var(--muted);
     line-height: 1.45;
   }
@@ -1343,7 +1343,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     resize: vertical;
     min-height: 44px;
     font-family: inherit;

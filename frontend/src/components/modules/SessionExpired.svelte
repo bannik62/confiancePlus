@@ -31,11 +31,11 @@
   }
   .lock  { font-size: 40px; margin-bottom: 16px; }
   .title { font-size: 18px; font-weight: 900; font-family: 'Rajdhani', sans-serif; color: var(--text); margin-bottom: 8px; }
-  .sub   { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+  .sub   { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
   button {
     background: var(--grad-cta);
     border: none; border-radius: 12px; color: #fff;
-    font-weight: 900; font-size: 13px; padding: 11px 28px;
+    font-weight: 900; font-size: clamp(15px, 0.72rem + 0.28vw, 17px); padding: 11px 28px;
     cursor: pointer; font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px; box-shadow: 0 0 20px var(--accent)55;
   }

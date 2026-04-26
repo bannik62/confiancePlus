@@ -463,7 +463,7 @@
 
   .sub {
     margin: 2px 0 0;
-    font-size: 0.8rem;
+    font-size: max(15px, 0.8rem);
   }
 
   .btn-close {
@@ -500,7 +500,7 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
@@ -511,7 +511,7 @@
 
   @media (max-width: 360px) {
     .tab {
-      font-size: 0.76rem;
+      font-size: max(15px, 0.76rem);
       padding: 10px 4px;
     }
   }
@@ -584,7 +584,7 @@
 
   .reaction-err {
     margin: 0 0 8px;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
 
   .react-bar {
@@ -631,7 +631,7 @@
   }
 
   .react-totals {
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
   }
 
   .react-mine {
@@ -656,7 +656,7 @@
   }
 
   .habit-meta {
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     margin-top: 4px;
     line-height: 1.35;
   }
@@ -664,7 +664,7 @@
   .status {
     flex-shrink: 0;
     align-self: center;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -684,7 +684,7 @@
 
   @media (max-width: 340px) {
     .status {
-      font-size: 0.65rem;
+      font-size: max(15px, 0.65rem);
       padding: 6px 6px;
     }
   }

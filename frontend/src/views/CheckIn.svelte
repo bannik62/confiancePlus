@@ -78,15 +78,15 @@
     padding: 24px;
     gap: 20px;
   }
-  .sup { font-size: 11px; color: var(--accent); letter-spacing: 4px; font-family: 'Rajdhani', sans-serif; margin-bottom: 8px; }
+  .sup { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--accent); letter-spacing: 4px; font-family: 'Rajdhani', sans-serif; margin-bottom: 8px; }
   h2   { font-size: 26px; font-weight: 900; line-height: 1.3; text-align: center; }
   h2 span { color: var(--text); }
   .hint {
-    font-size: 12px; color: var(--muted); line-height: 1.45;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); line-height: 1.45;
     max-width: 320px; text-align: center; margin-top: 12px;
   }
   .hint strong { color: var(--cyan); font-weight: 600; }
-  p    { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  p    { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); margin-top: 6px; }
   .grid { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 340px; }
   .mood-btn {
     width: 52px; height: 52px; border-radius: 13px;
@@ -101,18 +101,18 @@
     color: var(--c);
     box-shadow: 0 0 12px color-mix(in srgb, var(--c) 55%, transparent);
   }
-  .n { font-size: 9px; font-family: 'Rajdhani', sans-serif; font-weight: 700; }
+  .n { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); font-family: 'Rajdhani', sans-serif; font-weight: 700; }
   .mood-label { font-size: 20px; font-weight: 900; }
   textarea {
     width: 100%; max-width: 340px;
     background: var(--surface); border: 1px solid var(--accent)44;
-    border-radius: 14px; color: var(--text); font-size: 14px;
+    border-radius: 14px; color: var(--text); font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 14px 16px; resize: none; min-height: 100px;
   }
   .cta {
     background: var(--grad-cta);
     border: none; border-radius: 14px; color: #fff;
-    font-weight: 900; font-size: 14px; padding: 13px 40px;
+    font-weight: 900; font-size: clamp(15px, 0.72rem + 0.28vw, 17px); padding: 13px 40px;
     cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 2px;
     box-shadow: 0 0 20px var(--accent)55;
   }
@@ -120,7 +120,7 @@
   .back {
     background: transparent; border: 1px solid var(--border);
     border-radius: 12px; color: var(--muted); font-weight: 700;
-    font-size: 13px; padding: 11px 22px; cursor: pointer;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px); padding: 11px 22px; cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
   }
   .actions { display: flex; gap: 10px; }

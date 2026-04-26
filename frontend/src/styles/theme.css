@@ -16,9 +16,9 @@
   --border:       #1e1b4b;   /* bordure card */
   --border-btn:   #2d2b5e;   /* bordure inactive boutons */
 
-  /* ── Textes ────────────────────────────────────────────────── */
-  --text:         #e2e8f0;   /* texte principal */
-  --muted:        #64748b;   /* texte secondaire / labels */
+  /* ── Textes (lisibles sur fond #07071a / aurora) ─────────────── */
+  --text:         #f1f5f9;   /* texte principal — proche slate-100 */
+  --muted:        #b4c0d0;   /* secondaire / micro — plus clair que slate-500 */
 
   /* ── Couleurs d'accentuation ───────────────────────────────── */
   --accent:       #7c3aed;   /* violet — accent principal */
@@ -89,4 +89,16 @@
   :root {
     --app-gutter-x: clamp(24px, 5vw, 72px);
   }
+}
+
+/* ── Base typo : min 15px (plan projet), léger scale viewport (rem = cette taille) ── */
+html {
+  font-size: clamp(15px, 2.2vw + 10px, 17px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.5;
 }

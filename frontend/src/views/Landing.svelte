@@ -160,7 +160,7 @@
     border-radius: 6px;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     letter-spacing: 1px;
     cursor: pointer;
     text-transform: uppercase;
@@ -190,7 +190,7 @@
     border-radius: 99px;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
-    font-size: 0.8rem;
+    font-size: max(15px, 0.8rem);
     letter-spacing: 2px;
     text-transform: uppercase;
     margin-bottom: 20px;
@@ -316,7 +316,7 @@
     display: block;
   }
   .stat-label {
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     color: #64748b;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -331,7 +331,7 @@
 
   .section-label {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     letter-spacing: 3px;
     text-transform: uppercase;
     color: #7c3aed;
@@ -385,7 +385,7 @@
 
   .rarity-tag {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.7rem;
+    font-size: max(15px, 0.7rem);
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -426,7 +426,7 @@
   }
 
   .card p {
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     color: #64748b;
     line-height: 1.5;
   }
@@ -448,7 +448,7 @@
     display: flex;
     justify-content: space-between;
     margin-top: 6px;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     color: #64748b;
     font-family: 'Rajdhani', sans-serif;
   }
@@ -538,7 +538,7 @@
     font-size: 1rem;
   }
   .ht-wrap footer p {
-    font-size: 0.8rem;
+    font-size: max(15px, 0.8rem);
     color: #64748b;
   }
 
@@ -558,7 +558,7 @@
     .btn-nav {
       right: 12px;
       padding: 6px 12px;
-      font-size: 0.7rem;
+      font-size: max(15px, 0.7rem);
     }
   }
 </style>

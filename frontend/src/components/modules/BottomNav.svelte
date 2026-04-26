@@ -48,7 +48,7 @@
   button.active { opacity: 1; }
   .ico { font-size: 22px; }
   .lbl {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;

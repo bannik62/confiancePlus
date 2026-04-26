@@ -252,7 +252,7 @@
   }
   
   .date-label {
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     color: var(--accent);
     font-family: 'Rajdhani', sans-serif;
@@ -271,7 +271,7 @@
   }
   
   .section-title {
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;
@@ -295,7 +295,7 @@
   
   .mood-reason {
     margin-top: 8px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--text);
     font-style: italic;
   }
@@ -317,7 +317,7 @@
   }
   
   .journal-text {
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.5;
     color: var(--text);
     font-style: italic;
@@ -354,7 +354,7 @@
   .habit-name {
     flex: 1;
     min-width: 0;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.35;
     color: var(--text);
     overflow-wrap: anywhere;
@@ -363,7 +363,7 @@
   
   .habit-xp {
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--gold);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
@@ -373,7 +373,7 @@
   }
   
   .no-habits {
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     text-align: center;
     padding: 12px;
@@ -396,7 +396,7 @@
   }
 
   .rdv-not-done-title {
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     color: var(--text);
     display: block;
@@ -404,7 +404,7 @@
 
   .rdv-not-done-reason {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-style: italic;
     line-height: 1.4;
@@ -420,7 +420,7 @@
   }
   
   .xp-label {
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
   }

@@ -174,7 +174,7 @@
 
   .sub {
     margin: 4px 0 0;
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
   }
 
   .muted {
@@ -214,7 +214,7 @@
 
   .block-title {
     margin: 0 0 8px;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-family: 'Rajdhani', sans-serif;
@@ -238,7 +238,7 @@
   }
 
   .intro {
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     margin: 0 0 10px;
     line-height: 1.4;
   }
@@ -270,7 +270,7 @@
 
   .extra {
     margin: 10px 0 0;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
 
   .foot {

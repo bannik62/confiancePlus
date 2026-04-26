@@ -645,7 +645,7 @@
     border-radius: 8px;
     background: transparent;
     color: var(--muted);
-    font-size: .85rem;
+    font-size: max(15px, .85rem);
     cursor: pointer;
     transition: all .2s;
   }
@@ -665,7 +665,7 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-    font-size: .85rem;
+    font-size: max(15px, .85rem);
     color: var(--text-label);
   }
   .field-col {
@@ -674,7 +674,7 @@
     gap: 5px;
   }
   .field-col > label {
-    font-size: .85rem;
+    font-size: max(15px, .85rem);
     color: var(--text-label);
   }
   input, select {
@@ -739,7 +739,7 @@
     flex-direction: column;
     gap: 8px;
   }
-  .context-picker legend { color: var(--muted); font-size: .8rem; padding: 0 4px; }
+  .context-picker legend { color: var(--muted); font-size: max(15px, .8rem); padding: 0 4px; }
   .radio { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 
   /* Bouton */
@@ -759,11 +759,11 @@
   .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
   /* Erreurs */
-  .error       { color: var(--red-light); font-size: .85rem; text-align: center; }
-  .field-error { color: var(--red-light); font-size: .78rem; }
+  .error       { color: var(--red-light); font-size: max(15px, .85rem); text-align: center; }
+  .field-error { color: var(--red-light); font-size: max(15px, .78rem); }
 
   /* Hint */
-  .hint { color: var(--muted); font-size: .85rem; text-align: center; }
+  .hint { color: var(--muted); font-size: max(15px, .85rem); text-align: center; }
   .register-closed {
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -786,7 +786,7 @@
   }
   .avatar-big { font-size: 3.5rem; }
   .welcome-banner p { font-size: 1.1rem; color: var(--text); }
-  .welcome-banner small { color: var(--muted); font-size: .82rem; }
+  .welcome-banner small { color: var(--muted); font-size: max(15px, .82rem); }
 
   /* Picker avatar inscription */
   .avatar-field {
@@ -795,7 +795,7 @@
     gap: 8px;
   }
   .avatar-field-label {
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     color: var(--text-label);
   }
   .avatar-preview {
@@ -841,7 +841,7 @@
     margin-top: 2px;
   }
   .muted-inline {
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     color: var(--muted);
   }
   .sr-only {

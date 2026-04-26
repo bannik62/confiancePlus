@@ -13,7 +13,7 @@
     color: var(--c);
     border-radius: 6px;
     padding: 2px 8px;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     letter-spacing: 1px;
     font-family: 'Rajdhani', sans-serif;

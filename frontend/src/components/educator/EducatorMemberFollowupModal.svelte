@@ -229,7 +229,7 @@
     color: var(--red);
   }
   .banner {
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     line-height: 1.45;
     padding: 10px 12px;
     border-radius: 10px;
@@ -242,7 +242,7 @@
     border-color: color-mix(in srgb, var(--cyan) 35%, transparent);
   }
   .micro {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
@@ -277,14 +277,14 @@
   }
   .habit-name {
     font-weight: 700;
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
   }
   .habit-name.done {
     color: var(--accent-light);
   }
   .habit-xp {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--text-dim);
     font-family: 'Rajdhani', sans-serif;
   }
@@ -300,7 +300,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 900;
     color: #fff;
     flex-shrink: 0;
@@ -326,7 +326,7 @@
     min-width: 0;
   }
   .rate {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
@@ -342,7 +342,7 @@
       0 0 14px rgba(251, 191, 36, 0.18);
   }
   .day {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
@@ -357,13 +357,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     margin-bottom: 4px;
   }
   .pct {
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
   .track {
     height: 6px;

@@ -119,7 +119,7 @@
   }
   .kicker {
     margin: 0 0 0.35rem;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--muted, #94a3b8);
@@ -138,21 +138,21 @@
   }
   .sub {
     margin: 0 0 1rem;
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     color: var(--text, #e2e8f0);
     line-height: 1.45;
   }
   .hint {
     display: block;
     margin-top: 0.35rem;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     color: var(--muted, #94a3b8);
   }
   .err {
     margin: 0 0 0.75rem;
     padding: 0.5rem 0.65rem;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     line-height: 1.4;
     color: #fecaca;
     background: rgba(239, 68, 68, 0.15);
@@ -180,7 +180,7 @@
   .btn {
     border-radius: 10px;
     padding: 0.55rem 0.85rem;
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     cursor: pointer;
     border: 1px solid transparent;
   }

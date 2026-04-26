@@ -309,13 +309,13 @@
           (Safari → Partager → sur l’écran d’accueil).
         </p>
         {#if notifPerm === 'denied'}
-          <p class="pwa-lead" style="color:var(--gold);font-size:0.88rem;margin:6px 0">
+          <p class="pwa-lead" style="color:var(--gold);font-size: max(15px, 0.88rem);margin:6px 0">
             État : notifications <strong>bloquées</strong> pour ce site. Utilise les paramètres du navigateur pour les
             autoriser, puis recharge la page.
           </p>
         {/if}
-        {#if pushErr}<p class="err" style="color:var(--red);font-size:0.9rem;white-space:pre-wrap">{pushErr}</p>{/if}
-        {#if pushOk}<p class="ok" style="color:var(--green);font-size:0.9rem">{pushOk}</p>{/if}
+        {#if pushErr}<p class="err" style="color:var(--red);font-size: max(15px, 0.9rem);white-space:pre-wrap">{pushErr}</p>{/if}
+        {#if pushOk}<p class="ok" style="color:var(--green);font-size: max(15px, 0.9rem)">{pushOk}</p>{/if}
         {#if pushEnabled}
           <button type="button" class="logout" disabled={pushBusy} on:click={disablePush}>
             {pushBusy ? '…' : 'Désactiver les rappels sur cet appareil'}
@@ -437,7 +437,7 @@
   }
   .uname  { font-size: 22px; font-weight: 900; font-family: 'Rajdhani', sans-serif; background: linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .tags   { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
-  .micro  { font-size: 10px; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 4px; }
+  .micro  { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 4px; }
   .muted  { color: var(--muted); }
   .total-xp { font-size: 28px; font-weight: 900; color: var(--gold); }
   .logout {
@@ -448,7 +448,7 @@
     border: 1px solid color-mix(in srgb, var(--red) 50%, var(--border));
     border-radius: 12px;
     color: var(--red);
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 12px;
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
@@ -467,7 +467,7 @@
     width: auto;
     margin-top: 0;
     padding: 8px 12px;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.06em;
     white-space: nowrap;
   }
@@ -483,8 +483,8 @@
     box-sizing: border-box;
   }
 
-  .pwa-ok   { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
-  .pwa-lead { margin: 8px 0 12px; font-size: 14px; line-height: 1.45; color: var(--text); }
+  .pwa-ok   { margin: 8px 0 0; font-size: clamp(15px, 0.72rem + 0.28vw, 17px); line-height: 1.45; color: var(--text); }
+  .pwa-lead { margin: 8px 0 12px; font-size: clamp(15px, 0.72rem + 0.28vw, 17px); line-height: 1.45; color: var(--text); }
   .install-btn {
     width: 100%;
     margin-top: 4px;
@@ -493,7 +493,7 @@
     border: 1px solid var(--accent)66;
     background: linear-gradient(135deg, var(--accent)33, var(--cyan)22);
     color: var(--text);
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.5px;
@@ -505,7 +505,7 @@
   }
   .pwa-sub {
     margin: 12px 0 0;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.45;
   }
 
@@ -545,7 +545,7 @@
   .install-steps {
     margin: 0 0 12px;
     padding-left: 20px;
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.55;
     color: var(--text);
   }
@@ -553,7 +553,7 @@
     margin-bottom: 8px;
   }
   .install-note {
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.45;
     margin: 0 0 16px;
   }
@@ -564,7 +564,7 @@
     border: 1px solid var(--accent)44;
     background: var(--surface-modal);
     color: var(--text);
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
@@ -575,7 +575,7 @@
 
   .acct-hint {
     margin: 8px 0 14px;
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.45;
     color: var(--text);
   }
@@ -588,7 +588,7 @@
     margin-top: 18px;
   }
   .acct-sub {
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     color: var(--gold);
@@ -597,7 +597,7 @@
   }
   .acct-label {
     display: block;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     margin-bottom: 4px;
     letter-spacing: 0.5px;
@@ -630,7 +630,7 @@
     border: 1px solid var(--accent)66;
     background: linear-gradient(135deg, var(--accent)33, var(--cyan)22);
     color: var(--text);
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
@@ -645,13 +645,13 @@
   }
   .acct-err {
     color: var(--red);
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     margin: 0 0 8px;
     white-space: pre-wrap;
   }
   .acct-ok {
     color: var(--green);
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     margin: 0 0 8px;
   }
 </style>

@@ -413,7 +413,7 @@
   </button>
   {#if $hasGroup && $groupLeaderboard.length > 0}
     <p class="micro muted edu-section-label">Aperçu du classement</p>
-    <p class="hint-edu muted" style="margin-top:-4px;margin-bottom:10px;font-size:0.82rem">
+    <p class="hint-edu muted" style="margin-top:-4px;margin-bottom:10px;font-size: max(15px, 0.82rem)">
       Touche une ligne pour ouvrir le suivi détaillé (habitudes, stats, calendrier — données sensibles selon le consentement de l’élève).
     </p>
     <div class="edu-board">
@@ -728,7 +728,7 @@
     </div>
   </div>
   {#if atHabitCap}
-    <p class="micro muted" style="margin:-4px 0 10px">
+    <p class="micro muted micro--fine" style="margin:-4px 0 10px">
       Tu as atteint le plafond d’habitudes actives pour ton niveau (niveau {$habitSlots.level}). Désactive une
       habitude dans la liste ou gagne de l’XP pour débloquer de nouvelles places.
     </p>
@@ -945,11 +945,13 @@
       0 0 70px rgba(245, 158, 11, 0.12),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
-  .sup         { font-size: 10px; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 5px; }
-  .micro       { font-size: 10px; color: var(--muted); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
+  .sup         { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 5px; }
+  .micro       { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
+  /* Aide longue : plus petit que les autres .micro */
+  .micro.micro--fine { font-size: 14px; }
   .muted       { color: var(--muted); }
-  .msg         { font-size: 14px; line-height: 1.55; }
-  .reason      { font-size: 11px; color: var(--muted); }
+  .msg         { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); line-height: 1.55; }
+  .reason      { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); }
   .big-num     { font-size: 20px; font-weight: 900; background: linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .xp-num {
     font-size: 26px;
@@ -998,7 +1000,7 @@
     margin: 0;
     max-width: 11rem;
     line-height: 1.35;
-    font-size: 8px !important;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px) !important;
     letter-spacing: 0.06em;
   }
   .circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -1027,7 +1029,7 @@
   .habit-legend {
     margin: -2px 0 12px;
     line-height: 1.45;
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.35px;
     max-width: 42rem;
   }
@@ -1044,7 +1046,7 @@
     color: var(--text-dim);
   }
   .habit-xp.skip-line {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     letter-spacing: 0.2px;
     line-height: 1.35;
@@ -1058,7 +1060,7 @@
     color: var(--text-dim);
   }
   .habit-xp.skip-line .skip-detail {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 600;
     letter-spacing: 0.25px;
     color: var(--muted);
@@ -1069,7 +1071,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     letter-spacing: 0.3px;
     line-height: 1.25;
@@ -1079,7 +1081,7 @@
     color: var(--muted);
   }
   .habit-xp.not-today .active-days {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--cyan);
     opacity: 0.95;
   }
@@ -1109,7 +1111,7 @@
   .habit-action-btn.text {
     min-width: 4.5rem;
     padding: 7px 8px;
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.55px;
@@ -1197,15 +1199,15 @@
   .habit.checked .ico {
     filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.9)) drop-shadow(0 0 18px rgba(124, 58, 237, 0.5));
   }
-  .habit-name  { font-weight: 700; font-size: 14px; color: var(--muted); }
+  .habit-name  { font-weight: 700; font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); }
   .habit-name.done { color: var(--accent-light); }
-  .habit-xp    { font-size: 10px; color: var(--text-dim); font-family: 'Rajdhani', sans-serif; }
+  .habit-xp    { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--text-dim); font-family: 'Rajdhani', sans-serif; }
   .habit-xp.done   { color: var(--gold); }
   .check {
     width: 30px; height: 30px; border-radius: 9px;
     background: var(--border); border: 2px solid var(--accent-dark);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 900; color: #fff; transition: all 0.15s;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px); font-weight: 900; color: #fff; transition: all 0.15s;
   }
   .check.checked {
     background: var(--grad-cta);
@@ -1227,7 +1229,7 @@
   .sleep-btn {
     width: 29px; height: 29px; border-radius: 8px;
     background: var(--border); border: 1.5px solid var(--border-btn);
-    color: var(--muted); font-weight: 900; font-size: 11px;
+    color: var(--muted); font-weight: 900; font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     cursor: pointer; transition: all 0.1s; font-family: 'Rajdhani', sans-serif;
   }
   .sleep-btn.sel {
@@ -1248,7 +1250,7 @@
     border: 2px solid rgba(124, 58, 237, 0.45);
     border-radius: 10px;
     color: var(--text);
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 12px;
     resize: none;
     min-height: 80px;
@@ -1275,7 +1277,7 @@
     border-radius: 10px;
     color: var(--accent-light);
     font-weight: 700;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 9px 22px;
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
@@ -1300,7 +1302,7 @@
     border: 1px solid color-mix(in srgb, #ffffff 22%, transparent);
     color: #fff;
     font-weight: 900;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 10px 22px;
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
@@ -1382,7 +1384,7 @@
     border: 1px solid var(--accent);
     border-radius: 6px;
     color: var(--accent);
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 4px 10px;
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
@@ -1455,12 +1457,12 @@
   .edu-xp {
     font-weight: 800;
     color: var(--gold);
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     font-family: 'Rajdhani', sans-serif;
   }
   .hint-edu {
     margin-top: 14px;
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     line-height: 1.5;
     color: var(--text);
   }
@@ -1469,7 +1471,7 @@
     background: transparent;
     border: 1px solid var(--gold);
     color: var(--gold);
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
     letter-spacing: 1px;
@@ -1502,7 +1504,7 @@
     font-size: 0.95rem;
   }
   .appt-home-notes {
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     color: var(--muted);
     margin: 6px 0 0;
     line-height: 1.4;
@@ -1528,7 +1530,7 @@
     background: var(--grad-cta);
     color: #fff;
     font-weight: 800;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
     box-shadow: 0 0 12px var(--accent)44;
@@ -1540,7 +1542,7 @@
     background: var(--surface);
     color: var(--muted);
     font-weight: 700;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
   }
@@ -1561,7 +1563,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     resize: vertical;
     min-height: 44px;
     font-family: inherit;
@@ -1588,7 +1590,7 @@
 
   .appt-missed-summary {
     cursor: pointer;
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     font-weight: 700;
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;

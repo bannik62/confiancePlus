@@ -57,7 +57,7 @@
   .meta {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     margin-bottom: 4px;
     font-family: 'Rajdhani', sans-serif;
@@ -115,7 +115,7 @@
     min-width: 0;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 800;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.06em;
     color: #f4f4ff;
     text-shadow:
@@ -154,7 +154,7 @@
     flex-shrink: 0;
   }
   .embed-xp {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     letter-spacing: 0.04em;
     opacity: 0.95;
@@ -171,7 +171,7 @@
       border-radius: 8px;
     }
     .embed-labels {
-      font-size: 9px;
+      font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
       padding: 0 6px;
       letter-spacing: 0.04em;
     }

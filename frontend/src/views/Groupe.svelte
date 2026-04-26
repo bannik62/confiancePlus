@@ -458,7 +458,7 @@
   .tabs button {
     flex: 1; padding: 9px 8px; border: none; border-radius: 9px;
     background: transparent; color: var(--muted);
-    font-size: .85rem; cursor: pointer; transition: all .2s;
+    font-size: max(15px, .85rem); cursor: pointer; transition: all .2s;
     font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 1px;
   }
   .tabs button.active { background: var(--accent); color: #fff; }
@@ -517,7 +517,7 @@
     box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 50%, transparent);
   }
 
-  .medal { font-size: 14px; color: var(--muted); font-weight: 900; width: 24px; text-align: center; }
+  .medal { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--muted); font-weight: 900; width: 24px; text-align: center; }
   .top .medal { color: var(--gold); }
 
   .ava {
@@ -540,7 +540,7 @@
     line-height: 1.25;
   }
   .perf-react-pill {
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     font-weight: 800;
     padding: 4px 9px;
     border-radius: 8px;
@@ -584,7 +584,7 @@
       0 2px 14px rgba(0, 0, 0, 0.14);
   }
   .lb-items-lbl {
-    font-size: 10.5px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--text) 58%, transparent);
@@ -600,7 +600,7 @@
     flex-wrap: wrap;
   }
   .lb-joker {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     font-weight: 800;
     color: #f0abfc;
     text-shadow:
@@ -616,7 +616,7 @@
     white-space: nowrap;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 800;
-    font-size: 0.86rem;
+    font-size: max(15px, 0.86rem);
     color: var(--gold);
   }
   .lb-streak7-img {
@@ -626,7 +626,7 @@
     display: block;
   }
   .lb-cristaux {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     font-weight: 800;
     color: var(--cyan);
     white-space: nowrap;
@@ -640,7 +640,7 @@
     margin: 4px 0 2px;
   }
   .group-chip {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.4px;
@@ -655,7 +655,7 @@
   }
 
   .you-badge {
-    font-size: 10px; background: var(--accent); color: #fff;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px); background: var(--accent); color: #fff;
     border-radius: 6px; padding: 1px 6px;
     font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
   }
@@ -695,7 +695,7 @@
     border-radius: 12px;
     background: var(--accent)18;
     color: var(--text);
-    font-size: 0.8rem;
+    font-size: max(15px, 0.8rem);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.5px;
@@ -767,7 +767,7 @@
   .btn-code-toggle {
     margin-top: 8px;
     padding: 6px 14px;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     border-radius: 8px;
     border: 1px solid var(--border);
     background: transparent;
@@ -791,7 +791,7 @@
   /* ── Sélecteur groupes ── */
   .group-selector { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .group-pill {
-    padding: 5px 12px; border-radius: 20px; font-size: .82rem;
+    padding: 5px 12px; border-radius: 20px; font-size: max(15px, .82rem);
     border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer;
   }
   .group-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -802,7 +802,7 @@
   .email-invite { flex: 1 1 200px; min-width: 0; }
   input {
     flex: 1; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); font-size: .9rem; padding: 9px 12px;
+    border-radius: 8px; color: var(--text); font-size: max(15px, .9rem); padding: 9px 12px;
   }
   .btn-primary {
     background: var(--accent); border: none; border-radius: 8px;
@@ -812,18 +812,18 @@
     width: 100%; background: transparent; border: 1px solid var(--accent)66;
     border-radius: 8px; color: var(--accent); padding: 10px; cursor: pointer; margin-top: 8px;
   }
-  .sm { padding: 9px 14px; font-size: .85rem; }
+  .sm { padding: 9px 14px; font-size: max(15px, .85rem); }
 
   /* ── Misc ── */
-  .micro   { font-size: 10px; letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
+  .micro   { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; }
   .muted   { color: var(--muted); }
-  .hint    { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
-  .error   { color: var(--red); font-size: .85rem; margin-bottom: 8px; }
+  .hint    { color: var(--muted); font-size: max(15px, .9rem); margin-bottom: 12px; }
+  .error   { color: var(--red); font-size: max(15px, .85rem); margin-bottom: 8px; }
   .loading { color: var(--muted); text-align: center; padding: 40px 0; }
   .section-label { margin-bottom: 12px; }
 
   .consent-copy {
-    font-size: 0.86rem;
+    font-size: max(15px, 0.86rem);
     line-height: 1.5;
     color: var(--text);
     margin: 0 0 12px;
@@ -832,7 +832,7 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
-    font-size: 0.84rem;
+    font-size: max(15px, 0.84rem);
     line-height: 1.45;
     color: var(--text);
     cursor: pointer;

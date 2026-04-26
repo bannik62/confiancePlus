@@ -40,6 +40,6 @@
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 2px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
 </style>

@@ -125,7 +125,7 @@
 
 <style>
   .micro {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
     color: var(--muted);
@@ -158,7 +158,7 @@
   }
   
   .insight-text {
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.5;
     color: var(--text);
   }

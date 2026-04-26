@@ -115,7 +115,7 @@
     border-radius: 0 8px 8px 0;
     background: transparent;
     color: var(--muted);
-    font-size: 0.65rem;
+    font-size: max(15px, 0.65rem);
     line-height: 1;
     cursor: pointer;
     display: flex;

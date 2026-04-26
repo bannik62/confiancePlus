@@ -778,7 +778,7 @@
     <div class="sup muted">NOTIFICATIONS PUSH</div>
     {#if pushErr}<p class="err">{pushErr}</p>{/if}
     {#if pushOk}<p class="ok">{pushOk}</p>{/if}
-    <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+    <p class="muted" style="margin:8px 0 10px;font-size: max(15px, 0.85rem)">
       Heure locale (fuseau Europe/Paris par défaut côté utilisateur) du rappel « habitudes du jour ». Les utilisateurs
       sans abonnement push ou déjà à jour ne reçoivent rien. Le bouton test envoie à <strong>tous</strong> les appareils
       abonnés en base (pas seulement le compte admin).
@@ -816,7 +816,7 @@
     <div class="sup muted">E-MAIL (Gmail — serveur)</div>
     {#if emailErr}<p class="err">{emailErr}</p>{/if}
     {#if emailOk}<p class="ok">{emailOk}</p>{/if}
-    <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+    <p class="muted" style="margin:8px 0 10px;font-size: max(15px, 0.85rem)">
       Même configuration que sur le VPS : <code>GMAIL_USER</code> + <code>GMAIL_APP_PASSWORD</code>. Tu peux
       enregistrer un <strong>modèle</strong> (titre + corps) puis envoyer à <strong>tout le monde</strong> (comptes avec
       e-mail, non suspendus) ou à <strong>un seul</strong> utilisateur. Placeholders :
@@ -882,7 +882,7 @@
     {#if gpLoading || !gpEdit}
       <p class="muted" style="margin-top:8px">Chargement…</p>
     {:else}
-      <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+      <p class="muted" style="margin:8px 0 10px;font-size: max(15px, 0.85rem)">
         Surcharge stockée en base (<code>AppSetting.gameConfig</code>). Sans sauvegarde, les valeurs du fichier
         <code>gameConfig.js</code> s’appliquent.
         {#if gpHasDb}<strong> Surcharge active.</strong>{/if}
@@ -1191,7 +1191,7 @@
             on:click|stopPropagation={() => toggleGpTip('rewardsBlock')}
           >i</button>
         </div>
-        <p class="muted" style="margin:0 0 10px;font-size:0.82rem">
+        <p class="muted" style="margin:0 0 10px;font-size: max(15px, 0.82rem)">
           Seuils distincts des paliers « badges » ci‑dessus. Ordre côté serveur : par seuil croissant.
         </p>
         <div class="gp-streak-rewards">
@@ -1274,7 +1274,7 @@
             on:click|stopPropagation={() => toggleGpTip('animationsUiBlock')}
           >i</button>
         </div>
-        <p class="muted" style="margin:0 0 10px;font-size:0.82rem">
+        <p class="muted" style="margin:0 0 10px;font-size: max(15px, 0.82rem)">
           0 = instantané. Respecte aussi <code>prefers-reduced-motion</code> côté app. Prise en compte après enregistrement + rechargement du store public.
         </p>
         <div class="gp-grid">
@@ -1469,7 +1469,7 @@
     {#if dailyLoading && !dailyTemplates.length}
       <p class="muted" style="margin-top:8px">Chargement…</p>
     {:else}
-      <p class="muted" style="margin:8px 0 10px;font-size:0.85rem">
+      <p class="muted" style="margin:8px 0 10px;font-size: max(15px, 0.85rem)">
         Emoji + titre + XP par coche pour l’habitude du jour (cible 15 ; habitudes perso 10 ; RDV agenda 30). Les entrées retirées de la liste sont désactivées côté serveur.
       </p>
       <div class="daily-grid">
@@ -1593,7 +1593,7 @@
     margin: 4px 0 0;
   }
   .sup {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
     color: var(--gold);
@@ -1608,7 +1608,7 @@
     padding: 8px 14px;
     border-radius: 10px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .btn-out:hover {
     border-color: var(--accent);
@@ -1616,12 +1616,12 @@
   }
   .err {
     color: var(--red);
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     margin-bottom: 10px;
   }
   .ok {
     color: var(--green);
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     margin-bottom: 8px;
   }
   .table {
@@ -1641,7 +1641,7 @@
     border-radius: 10px;
   }
   .cell {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
   }
   .cell.grow {
     flex: 1 1 200px;
@@ -1652,7 +1652,7 @@
   }
   .mail {
     color: var(--muted);
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     word-break: break-all;
   }
   .tags {
@@ -1661,7 +1661,7 @@
     margin-top: 4px;
   }
   .tag {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     padding: 2px 8px;
     border-radius: 6px;
     background: var(--gold)22;
@@ -1693,7 +1693,7 @@
     color: var(--muted);
     padding: 6px 10px;
     border-radius: 8px;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     cursor: pointer;
   }
   .btn-susp:hover {
@@ -1714,7 +1714,7 @@
   }
   .gmeta {
     display: block;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     color: var(--muted);
     margin-top: 4px;
     word-break: break-all;
@@ -1727,7 +1727,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
   }
   .audit li {
     padding: 8px 10px;
@@ -1739,7 +1739,7 @@
   .audit time {
     display: block;
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     margin-bottom: 4px;
   }
   .aud-act {
@@ -1750,21 +1750,21 @@
     display: block;
     color: var(--muted);
     margin-top: 4px;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
   }
   .dates {
     display: flex;
     flex-direction: column;
     gap: 3px;
     margin-top: 8px;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     line-height: 1.35;
   }
   .crystal-row {
     margin-top: 6px;
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
   }
   .crystal-balance {
     font-weight: 800;
@@ -1785,7 +1785,7 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     font-family: 'Rajdhani', sans-serif;
   }
   .btn-crystal {
@@ -1794,7 +1794,7 @@
     border: 1px solid var(--cyan)66;
     background: var(--cyan)18;
     color: var(--cyan);
-    font-size: 0.76rem;
+    font-size: max(15px, 0.76rem);
     font-weight: 700;
     cursor: pointer;
     font-family: 'Rajdhani', sans-serif;
@@ -1814,7 +1814,7 @@
     color: var(--red);
     padding: 6px 10px;
     border-radius: 8px;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     cursor: pointer;
   }
   .btn-del:hover {
@@ -1850,7 +1850,7 @@
   }
   .lbl {
     display: block;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 1px;
     color: var(--muted);
     margin-bottom: 4px;
@@ -1864,7 +1864,7 @@
     border-radius: 8px;
     color: var(--text);
     padding: 8px;
-    font-size: 0.82rem;
+    font-size: max(15px, 0.82rem);
     resize: vertical;
     font-family: 'Exo 2', sans-serif;
   }
@@ -1907,7 +1907,7 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .daily-xp {
     width: 4rem;
@@ -1916,13 +1916,13 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .daily-act {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
     color: var(--muted);
     white-space: nowrap;
   }
@@ -1938,7 +1938,7 @@
   }
   .push-test-label {
     display: block;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     color: var(--muted);
     margin-bottom: 6px;
   }
@@ -1956,7 +1956,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     font-family: inherit;
   }
   .push-test-input:focus {
@@ -1965,7 +1965,7 @@
   }
   .push-test-hint {
     margin: 6px 0 0;
-    font-size: 0.75rem;
+    font-size: max(15px, 0.75rem);
   }
   .btn-secondary {
     padding: 8px 14px;
@@ -1974,7 +1974,7 @@
     background: var(--surface);
     color: var(--text);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     font-family: 'Rajdhani', sans-serif;
   }
   .btn-secondary:hover {
@@ -1986,7 +1986,7 @@
     gap: 14px;
   }
   .email-radio {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     cursor: pointer;
   }
   .email-lbl {
@@ -1995,7 +1995,7 @@
   }
   .email-lbl span {
     display: block;
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 1px;
     color: var(--muted);
     margin-bottom: 4px;
@@ -2055,7 +2055,7 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     font-weight: 700;
     letter-spacing: 0.06em;
     color: var(--cyan);
@@ -2085,7 +2085,7 @@
     cursor: pointer;
     line-height: 1;
     flex-shrink: 0;
-    font-size: 0.62rem;
+    font-size: max(15px, 0.62rem);
     isolation: isolate;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -2128,7 +2128,7 @@
     justify-content: space-between;
     gap: 6px;
     width: 100%;
-    font-size: 0.68rem;
+    font-size: max(15px, 0.68rem);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
   }
@@ -2144,7 +2144,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 0.68rem;
+    font-size: max(15px, 0.68rem);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
   }
@@ -2154,7 +2154,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .gp-full {
     display: block;
@@ -2168,7 +2168,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     font-family: inherit;
   }
   .gp-streak-rewards {
@@ -2193,7 +2193,7 @@
   }
   .gp-r-lbl {
     display: block;
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     color: var(--muted);
     margin-bottom: 4px;
   }
@@ -2209,7 +2209,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .gp-r-grow {
     flex: 1 1 140px;
@@ -2223,7 +2223,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .gp-r-icon-wrap {
     flex: 0 0 auto;
@@ -2248,7 +2248,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
     font-family: inherit;
   }
   .gp-r-full textarea {
@@ -2282,7 +2282,7 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
   .gp-actions {
     display: flex;
@@ -2337,7 +2337,7 @@
 
   .gp-tip-sheet-body {
     margin: 0 0 16px;
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     line-height: 1.45;
     white-space: pre-wrap;
   }
@@ -2350,7 +2350,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.9rem;
+    font-size: max(15px, 0.9rem);
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;

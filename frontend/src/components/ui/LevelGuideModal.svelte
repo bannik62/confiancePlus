@@ -200,7 +200,7 @@
 
   .sub {
     margin: 0;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     line-height: 1.45;
     max-width: 52ch;
   }
@@ -263,7 +263,7 @@
   }
 
   .you-xp {
-    font-size: 0.85rem;
+    font-size: max(15px, 0.85rem);
   }
 
   .frieze {
@@ -343,7 +343,7 @@
     top: -1px;
     right: 10px;
     transform: translateY(-50%);
-    font-size: 0.65rem;
+    font-size: max(15px, 0.65rem);
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -384,13 +384,13 @@
 
   .card-meta {
     margin: 0;
-    font-size: 0.78rem;
+    font-size: max(15px, 0.78rem);
     line-height: 1.45;
   }
 
   .card-range {
     margin: 8px 0 0;
-    font-size: 0.76rem;
+    font-size: max(15px, 0.76rem);
     line-height: 1.45;
     padding: 8px 10px;
     border-radius: 10px;
@@ -399,7 +399,7 @@
   }
 
   .foot-note {
-    font-size: 0.72rem;
+    font-size: max(15px, 0.72rem);
     line-height: 1.4;
     margin: 12px 0 4px;
     padding-top: 10px;

@@ -97,7 +97,7 @@
     min-width: 0;
   }
   .label {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--accent);
     letter-spacing: 3px;
     font-family: 'Rajdhani', sans-serif;
@@ -149,7 +149,7 @@
     outline-offset: 2px;
   }
   .niveaux-lbl {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 0.04em;
@@ -184,7 +184,7 @@
     outline-offset: 2px;
   }
   .items-lbl {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     font-family: 'Rajdhani', sans-serif;
@@ -193,7 +193,7 @@
     flex-shrink: 0;
   }
   .streak-inline {
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: var(--gold);
@@ -201,12 +201,12 @@
     flex-shrink: 0;
     white-space: nowrap;
   }
-  .cristaux { font-size: 14px; color: var(--cyan); font-weight: 700; }
+  .cristaux { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--cyan); font-weight: 700; }
   .streak7-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     color: var(--gold);
     font-family: 'Rajdhani', sans-serif;
@@ -218,7 +218,7 @@
     display: block;
   }
   .joker-badge {
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 800;
     color: #f0abfc;
     text-shadow:

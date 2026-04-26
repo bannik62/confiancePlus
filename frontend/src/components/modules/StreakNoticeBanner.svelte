@@ -146,7 +146,7 @@
     margin: 0 var(--app-gutter-x) 12px;
     padding: 12px 14px;
     border-radius: 12px;
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.45;
     border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
     position: relative;
@@ -195,12 +195,12 @@
   }
   .recoverHint {
     margin: 0 0 10px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted, #aaa);
   }
   .err {
     margin: 0 0 8px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: #f88;
   }
   .recoverActions {

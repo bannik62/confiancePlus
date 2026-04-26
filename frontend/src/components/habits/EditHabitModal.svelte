@@ -224,7 +224,7 @@
   }
   .intro-hint {
     margin: 10px 0 0;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     line-height: 1.45;
     color: var(--muted);
     font-family: 'Exo 2', sans-serif;
@@ -263,7 +263,7 @@
   }
   label {
     display: block;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--text-label);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;
@@ -288,12 +288,12 @@
     border-color: var(--red);
   }
   .field-error {
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--red-light);
     margin-top: 4px;
   }
   .char-count {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     text-align: right;
     margin-top: 4px;
@@ -326,7 +326,7 @@
     border: 1px solid var(--red);
     border-radius: 8px;
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--red-light);
     margin-bottom: 12px;
   }
@@ -340,7 +340,7 @@
     flex: 1;
     padding: 11px 20px;
     border-radius: 10px;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
@@ -362,7 +362,7 @@
 
   .label-row {
     display: block;
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--text-label);
     font-family: 'Rajdhani', sans-serif;
     letter-spacing: 1px;
@@ -384,7 +384,7 @@
     border: 1px solid var(--border-btn);
     background: var(--bg);
     color: var(--muted);
-    font-size: 11px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     cursor: pointer;
@@ -403,7 +403,7 @@
     gap: 8px;
     cursor: pointer;
     text-transform: none;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--text);
   }
 

@@ -314,7 +314,7 @@
     box-sizing: border-box;
   }
   .micro {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 2px;
     font-family: 'Rajdhani', sans-serif;
     color: var(--muted);
@@ -328,7 +328,7 @@
   }
   .hint {
     color: var(--muted);
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     line-height: 1.45;
     margin: 0;
   }
@@ -354,7 +354,7 @@
     justify-content: flex-end;
   }
   .rate {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
   }
   .hint-num,
@@ -397,7 +397,7 @@
       0 0 14px rgba(251, 191, 36, 0.18);
   }
   .day {
-    font-size: 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
   }
@@ -411,7 +411,7 @@
   .habit-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     margin-bottom: 5px;
   }
   .pct {
@@ -442,7 +442,7 @@
     text-align: center;
     padding: 20px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
   }
   .error {
     color: var(--red);
@@ -478,7 +478,7 @@
     box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 50%, transparent);
   }
   .medal {
-    font-size: 14px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     color: var(--muted);
     font-weight: 900;
     width: 24px;
@@ -556,7 +556,7 @@
       0 2px 14px rgba(0, 0, 0, 0.14);
   }
   .lb-items-lbl {
-    font-size: 10.5px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--text) 58%, transparent);
@@ -572,7 +572,7 @@
     flex-wrap: wrap;
   }
   .lb-joker {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     font-weight: 800;
     color: #f0abfc;
     text-shadow:
@@ -588,7 +588,7 @@
     white-space: nowrap;
     font-family: 'Rajdhani', sans-serif;
     font-weight: 800;
-    font-size: 0.86rem;
+    font-size: max(15px, 0.86rem);
     color: var(--gold);
   }
   .lb-streak7-img {
@@ -598,14 +598,14 @@
     display: block;
   }
   .lb-cristaux {
-    font-size: 0.88rem;
+    font-size: max(15px, 0.88rem);
     font-weight: 800;
     color: var(--cyan);
     white-space: nowrap;
     font-family: 'Rajdhani', sans-serif;
   }
   .you-badge {
-    font-size: 10px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
     background: var(--accent);
     color: #fff;
     border-radius: 6px;
