@@ -903,6 +903,10 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
   .grid2--home-stats > :global(.card.glow:first-child) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(
       165deg,
       rgba(124, 58, 237, 0.22) 0%,
@@ -1004,7 +1008,12 @@
     letter-spacing: 0.06em;
   }
   .circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .circle-label { text-align: center; }
+  .circle-label {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   .circle-label .big-num {
     filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.65)) drop-shadow(0 0 14px rgba(245, 158, 11, 0.55));
   }
@@ -1373,6 +1382,19 @@
         0 1px 0 rgba(255, 255, 255, 0.12) inset,
         0 0 22px color-mix(in srgb, var(--accent) 58%, transparent),
         0 0 34px color-mix(in srgb, var(--gold) 32%, transparent);
+    }
+    /* Colonne stats étroite : même axe que le cercle pour le ratio + libellé */
+    .grid2--home-stats .circle-wrap {
+      width: 100%;
+      align-items: center;
+    }
+    .grid2--home-stats .circle-label {
+      width: 100%;
+      align-items: center;
+    }
+    .grid2--home-stats .circle-label .big-num {
+      width: 100%;
+      text-align: center;
     }
   }
   .day-actions { margin-top: 6px; }

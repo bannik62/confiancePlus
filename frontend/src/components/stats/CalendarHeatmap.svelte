@@ -249,7 +249,7 @@
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    padding: 12px clamp(15px, 2vw, 16px);
+    padding: 12px clamp(10px, 2vw, 16px);
     background: var(--surface);
     border-radius: 14px;
     border: 1px solid var(--border);
@@ -259,7 +259,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 10px clamp(15px, 1.5vw, 12px) 12px;
+    padding: 10px clamp(10px, 1.5vw, 12px) 12px;
     isolation: isolate;
   }
 
@@ -296,7 +296,7 @@
     display: flex;
     width: 100%;
     min-width: 0;
-    gap: clamp(15px, 0.35vw, 5px);
+    gap: clamp(4px, 0.35vw, 5px);
     justify-content: stretch;
     align-items: flex-start;
     padding-bottom: 8px;
@@ -313,7 +313,7 @@
 
   .month-label {
     width: 100%;
-    font-size: clamp(15px, 2.2vw, 11px);
+    font-size: clamp(11px, 2.2vw, 13px);
     color: var(--muted);
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
@@ -327,21 +327,21 @@
     flex-direction: column;
     align-items: stretch;
     width: 100%;
-    gap: clamp(15px, 0.35vw, 4px);
+    gap: clamp(4px, 0.35vw, 4px);
     flex: 1;
     min-height: 0;
   }
 
   .day-cell {
     width: 100%;
-    min-height: clamp(15px, 2.8vw, 18px);
+    min-height: clamp(12px, 2.8vw, 18px);
     height: auto;
     flex-shrink: 0;
     border-radius: 4px;
     border: none;
     cursor: pointer;
     transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
-    padding: clamp(15px, 0.45vw, 5px) clamp(15px, 0.5vw, 6px);
+    padding: clamp(4px, 0.45vw, 5px) clamp(4px, 0.5vw, 6px);
     opacity: 0;
     animation: fadeIn 0.3s ease forwards;
     display: flex;
@@ -352,7 +352,7 @@
   }
 
   .cell-day-num {
-    font-size: clamp(15px, 1.85vw, 11px);
+    font-size: clamp(10px, 1.85vw, 13px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     color: #fff;
@@ -365,8 +365,8 @@
   /* Jour civil actuel : deux lignes (jour + date) + halo. */
   .day-cell.day-today {
     z-index: 2;
-    min-height: clamp(26px, 6.5vw, 40px);
-    padding: clamp(15px, 0.5vw, 6px) clamp(15px, 0.4vw, 5px);
+    min-height: clamp(28px, 6.5vw, 40px);
+    padding: clamp(5px, 0.5vw, 6px) clamp(4px, 0.4vw, 5px);
     flex-direction: column;
     gap: 1px;
     box-shadow:
@@ -389,7 +389,7 @@
   }
 
   .cell-today-num {
-    font-size: clamp(15px, 2.1vw, 12px);
+    font-size: clamp(11px, 2.1vw, 14px);
     font-weight: 800;
     font-family: 'Rajdhani', sans-serif;
     color: #fff;
@@ -397,7 +397,7 @@
   }
 
   .cell-today-date {
-    font-size: clamp(15px, 1.35vw, 8px);
+    font-size: clamp(8px, 1.35vw, 10px);
     font-weight: 700;
     font-family: 'Rajdhani', sans-serif;
     color: #fff;
@@ -559,8 +559,8 @@
   }
 
   .legend-box {
-    width: clamp(15px, 3vw, 22px);
-    height: clamp(15px, 1vw, 5px);
+    width: clamp(12px, 3vw, 22px);
+    height: clamp(12px, 3vw, 22px);
     border-radius: 2px;
   }
 
