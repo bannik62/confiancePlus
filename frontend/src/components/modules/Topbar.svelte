@@ -4,8 +4,8 @@
   import { tab }          from '../../stores/tab.js'
   import { gameplayStore } from '../../stores/gameplay.js'
   import { openItemsModal } from '../../stores/itemsModal.js'
+  import { openLevelGuideModal } from '../../stores/levelGuideModal.js'
   import XPBar            from '../ui/XPBar.svelte'
-  import Tag              from '../ui/Tag.svelte'
 
   $: streakTrophyImg = (() => {
     const rw = $gameplayStore?.streak?.rewards
@@ -36,9 +36,16 @@
 
   <div class="right">
     <div class="tags">
-      {#if $profileStore.title}
-        <Tag color="var(--cyan)">{$profileStore.title.icon}</Tag>
-      {/if}
+      <button
+        type="button"
+        class="niveaux-entry"
+        on:click|stopPropagation={openLevelGuideModal}
+        aria-haspopup="dialog"
+        aria-label="Voir l’échelle des niveaux et des titres"
+      >
+        <span class="niveaux-lbl">niveaux :</span>
+        <span class="niveaux-ico" aria-hidden="true">{$profileStore.title?.icon ?? '🌱'}</span>
+      </button>
       <button
         type="button"
         class="topbar-items-trigger"
@@ -122,6 +129,39 @@
     margin-bottom: 6px;
     flex-wrap: wrap;
     min-width: 0;
+  }
+  .niveaux-entry {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    padding: 4px 10px 4px 8px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--cyan) 45%, var(--border));
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .niveaux-entry:hover {
+    background: color-mix(in srgb, var(--cyan) 12%, transparent);
+    border-color: color-mix(in srgb, var(--cyan) 58%, var(--border));
+  }
+  .niveaux-entry:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .niveaux-lbl {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .niveaux-ico {
+    font-size: 1.2rem;
+    line-height: 1;
   }
   .topbar-items-trigger {
     display: inline-flex;
