@@ -34,6 +34,10 @@
 
   const dayLockStorageKey = () => `ht_dayLocked_${localDateString()}`
 
+  /** Palier `titles[].from` — change moins souvent que le niveau numérique. */
+  const titleTierFrom = (t) =>
+    t && typeof t.from === 'number' && Number.isFinite(t.from) ? t.from : null
+
   let journal = ''
   let sleep = 0
   /** Journée verrouillée après sauvegarde (rechargée depuis sessionStorage par date). */
@@ -231,6 +235,7 @@
   const saveFullDay = async () => {
     saving = true
     const levelBeforeSave = get(profileStore).level ?? 0
+    const titleTierBefore = titleTierFrom(get(profileStore).title)
     try {
       journalDirty = false
       const dayPayload = { journal }
@@ -258,13 +263,22 @@
       await tick()
       const levelAfter = prof?.level ?? get(profileStore).level ?? 0
       if (prof && levelAfter > levelBeforeSave) {
-        const badge = prof.title?.icon ?? '🎉'
-        const titleName = prof.title?.label?.trim?.() ? ` — ${prof.title.label}` : ''
+        const titleTierAfter = titleTierFrom(prof.title)
+        const titleTierChanged =
+          titleTierBefore !== null &&
+          titleTierAfter !== null &&
+          titleTierAfter !== titleTierBefore
+        const icon = titleTierChanged ? (prof.title?.icon ?? '🎉') : '🎉'
+        const label = prof.title?.label?.trim?.() ?? ''
+        const body =
+          titleTierChanged && label
+            ? `Félicitations : tu passes au niveau ${levelAfter} — nouveau titre « ${label} ».`
+            : `Félicitations : tu passes au niveau ${levelAfter}.`
         openAppModal({
           variant: 'celebration',
-          icon: badge,
+          icon,
           title: 'Niveau supérieur !',
-          body: `Félicitations : tu passes au niveau ${levelAfter}${titleName}.`,
+          body,
           primaryLabel: 'Super',
         })
       }
