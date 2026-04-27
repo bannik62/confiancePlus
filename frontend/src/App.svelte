@@ -81,40 +81,121 @@
     if (t && !tabPanelMounted[t]) tabPanelMounted = { ...tabPanelMounted, [t]: true }
   }
 
-  $: carouselIdx = (() => {
-    const i = TAB_ORDER.indexOf($tab)
-    return i >= 0 ? i : 0
-  })()
+  /**
+   * Carrousel = scroll horizontal + scroll-snap : pas de `transform` sur la piste,
+   * sinon les modales en `position: fixed` (Agenda, etc.) se calent sur l’ancêtre
+   * transformé et sortent du viewport après scroll vertical.
+   */
+  let tabCarouselEl = /** @type {HTMLDivElement | null} */ (null)
+  let carouselScrollIgnore = false
+  let carouselScrollTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
 
-  /** Pourcentage de translation : une « page » = 1/N de la piste */
-  $: carouselTranslatePct = (carouselIdx / TAB_ORDER.length) * 100
-
-  const SWIPE_PX = 56
-  let touchStartX = /** @type {number | null} */ (null)
-
-  const shiftCarousel = (delta) => {
-    const i = TAB_ORDER.indexOf($tab)
-    const cur = i >= 0 ? i : 0
-    const next = Math.max(0, Math.min(TAB_ORDER.length - 1, cur + delta))
-    if (next !== cur) tab.set(TAB_ORDER[next])
+  const clearCarouselScrollTimer = () => {
+    if (carouselScrollTimer != null) {
+      clearTimeout(carouselScrollTimer)
+      carouselScrollTimer = null
+    }
   }
 
-  /** Swipe gauche = onglet suivant, swipe droite = précédent */
-  const onCarouselTouchStart = (e) => {
-    if (e.touches.length !== 1) return
-    touchStartX = e.touches[0].clientX
+  const syncTabFromCarouselScroll = () => {
+    if (carouselScrollIgnore || !tabCarouselEl) return
+    const w = tabCarouselEl.clientWidth
+    if (!w) return
+    const maxIdx = TAB_ORDER.length - 1
+    let idx = Math.min(maxIdx, Math.max(0, Math.round(tabCarouselEl.scrollLeft / w)))
+    const exactLeft = idx * w
+    /* Accrochage pixel-perfect : évite la dérive après plusieurs allers-retours */
+    if (Math.abs(tabCarouselEl.scrollLeft - exactLeft) > 0.5) {
+      carouselScrollIgnore = true
+      tabCarouselEl.scrollLeft = exactLeft
+      queueMicrotask(() => {
+        carouselScrollIgnore = false
+      })
+    }
+    const key = TAB_ORDER[idx]
+    if (key && key !== $tab) tab.set(key)
   }
 
-  const onCarouselTouchEnd = (e) => {
-    if (touchStartX == null) return
-    const start = touchStartX
-    touchStartX = null
-    const end = e.changedTouches[0]?.clientX
-    if (typeof end !== 'number') return
-    const dx = end - start
-    if (dx > SWIPE_PX) shiftCarousel(-1)
-    else if (dx < -SWIPE_PX) shiftCarousel(1)
+  const onTabCarouselScroll = () => {
+    if (carouselScrollIgnore) return
+    clearCarouselScrollTimer()
+    carouselScrollTimer = setTimeout(syncTabFromCarouselScroll, 72)
   }
+
+  /** Alignement strict en scrollLeft (pas de smooth) pour éviter dérive / désalignement du contenu */
+  const scrollTabCarouselToIndex = (i) => {
+    if (!tabCarouselEl || i < 0 || i >= TAB_ORDER.length) return
+    const w = tabCarouselEl.clientWidth
+    if (!w) return
+    const left = i * w
+    if (Math.abs(tabCarouselEl.scrollLeft - left) < 0.5) return
+    carouselScrollIgnore = true
+    tabCarouselEl.scrollLeft = left
+    queueMicrotask(() => {
+      carouselScrollIgnore = false
+    })
+  }
+
+  /** Aligné sur le store `tab` uniquement (évite une boucle réactive avec bind:this + hauteur) */
+  async function alignCarouselForTab(t) {
+    await tick()
+    if (get(tab) !== t) return
+    const i = TAB_ORDER.indexOf(t)
+    if (i < 0 || !tabCarouselEl) return
+    const w = tabCarouselEl.clientWidth
+    if (!w) return
+    const target = i * w
+    if (Math.abs(tabCarouselEl.scrollLeft - target) > 0.5) {
+      scrollTabCarouselToIndex(i)
+    }
+  }
+
+  /** Hauteur du viewport carrousel = uniquement l’onglet actif (évite la hauteur du plus long panneau, ex. Classement) */
+  let tabCarouselActiveHeightPx = /** @type {number | null} */ (null)
+  let tabCarouselSlideRefs = /** @type {Record<string, HTMLElement>} */ ({})
+  let carouselSlideResizeObserver = /** @type {ResizeObserver | null} */ (null)
+  /** Évite boucle ResizeObserver ↔ style height ↔ remesure */
+  let applyingCarouselViewportHeight = false
+
+  function updateCarouselViewportHeight() {
+    if (applyingCarouselViewportHeight) return
+    const t = get(tab)
+    const el = tabCarouselSlideRefs[t]
+    if (!el) return
+    const h = Math.ceil(el.getBoundingClientRect().height)
+    if (h <= 0) return
+    if (tabCarouselActiveHeightPx != null && Math.abs(h - tabCarouselActiveHeightPx) < 4) return
+    applyingCarouselViewportHeight = true
+    tabCarouselActiveHeightPx = h
+    requestAnimationFrame(() => {
+      applyingCarouselViewportHeight = false
+    })
+  }
+
+  function ensureCarouselSlideObserver() {
+    if (carouselSlideResizeObserver || typeof ResizeObserver === 'undefined') return carouselSlideResizeObserver
+    carouselSlideResizeObserver = new ResizeObserver(() => {
+      if (applyingCarouselViewportHeight) return
+      requestAnimationFrame(() => updateCarouselViewportHeight())
+    })
+    return carouselSlideResizeObserver
+  }
+
+  /** Réf + observe : chaque slide garde sa propre hauteur, le viewport suit seulement l’actif */
+  function tabCarouselSlideRef(node, slideKey) {
+    tabCarouselSlideRefs[slideKey] = node
+    const ro = ensureCarouselSlideObserver()
+    ro?.observe(node)
+    queueMicrotask(updateCarouselViewportHeight)
+    return {
+      destroy() {
+        ro?.unobserve(node)
+        delete tabCarouselSlideRefs[slideKey]
+        queueMicrotask(updateCarouselViewportHeight)
+      },
+    }
+  }
+
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
     { key: 'agenda', ico: '📅', label: 'Agenda'       },
@@ -342,8 +423,34 @@
       resetSessionUi()
     })
 
+    const onResizeCarousel = () => {
+      if (!tabCarouselEl) return
+      const i = TAB_ORDER.indexOf(get(tab))
+      if (i >= 0) scrollTabCarouselToIndex(i)
+      updateCarouselViewportHeight()
+    }
+    window.addEventListener('resize', onResizeCarousel)
+
+    /** Scroll page + alignement carrousel : uniquement ici (pas de $: sur $tab ↔ bind:this → gel) */
+    let carouselTabPrev = /** @type {string | null} */ (null)
+    const unsubCarouselTab = tab.subscribe((value) => {
+      if (carouselTabPrev !== null && carouselTabPrev !== value) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      }
+      carouselTabPrev = value
+      queueMicrotask(() => {
+        updateCarouselViewportHeight()
+        void alignCarouselForTab(value)
+      })
+    })
+
     return () => {
+      unsubCarouselTab()
       window.removeEventListener('session:expired', resetSessionUi)
+      window.removeEventListener('resize', onResizeCarousel)
+      clearCarouselScrollTimer()
+      carouselSlideResizeObserver?.disconnect()
+      carouselSlideResizeObserver = null
     }
   })
 
@@ -447,17 +554,18 @@
     <main>
       <AuthGuard>
         <div
+          bind:this={tabCarouselEl}
           class="tab-carousel-viewport"
-          on:touchstart|passive={onCarouselTouchStart}
-          on:touchend|passive={onCarouselTouchEnd}
+          style="--n-slides: {TAB_ORDER.length};{tabCarouselActiveHeightPx != null
+            ? `height:${tabCarouselActiveHeightPx}px;`
+            : ''}"
+          on:scroll={onTabCarouselScroll}
         >
-          <div
-            class="tab-carousel-track"
-            style="transform: translateX(-{carouselTranslatePct}%); --n-slides: {TAB_ORDER.length}"
-          >
+          <div class="tab-carousel-track">
             {#each TAB_ORDER as slideKey (slideKey)}
               <section
                 class="tab-carousel-slide"
+                use:tabCarouselSlideRef={slideKey}
                 aria-hidden={$tab !== slideKey}
                 aria-label={slideKey}
               >
@@ -491,6 +599,10 @@
     letter-spacing: 2px;
   }
   :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Réduit le saut de largeur clientWidth quand la scrollbar verticale apparaît (dérive du carrousel horizontal) */
+  :global(html) {
+    scrollbar-gutter: stable;
+  }
   :global(body) {
     background: var(--bg);
     color: var(--text);
@@ -503,27 +615,38 @@
     min-height: 100dvh;
   }
 
-  /* Carrousel horizontal : N panneaux côte à côte, translation = onglet actif */
+  /* Carrousel horizontal : scroll-snap (pas de transform → modales fixed au bon viewport) */
   .tab-carousel-viewport {
     width: 100%;
     min-width: 0;
-    overflow: hidden;
-    touch-action: pan-y;
+    overflow-x: auto;
+    /* Masque les colonnes des autres onglets qui dépassent en hauteur */
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: manipulation;
+  }
+
+  .tab-carousel-viewport::-webkit-scrollbar {
+    display: none;
+    height: 0;
   }
 
   .tab-carousel-track {
     display: flex;
     flex-direction: row;
-    /* N × largeur du viewport (parent .tab-carousel-viewport) */
+    align-items: flex-start;
     width: calc(var(--n-slides, 6) * 100%);
-    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform;
   }
 
   .tab-carousel-slide {
-    /* 1/N de la piste = largeur du viewport */
     flex: 0 0 calc(100% / var(--n-slides, 6));
     min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
     box-sizing: border-box;
   }
 
@@ -532,8 +655,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .tab-carousel-track {
-      transition: transform 0.01ms linear;
+    .tab-carousel-viewport {
+      scroll-behavior: auto;
     }
   }
 
