@@ -22,13 +22,9 @@
     position: fixed;
     bottom: 0;
     left: 0;
-    /*
-     * Largeur explicitement calée sur le viewport (vw), pas sur « 100 % » du bloc englobant.
-     * Sinon, avec un ancêtre très large (ex. piste carrousel / overflow horizontal), left+right
-     * étirent la nav sur toute cette largeur : quelques icônes visibles, le reste hors écran.
-     */
-    width: 100vw;
-    width: 100dvw;
+    right: 0;
+    /* Pas de 100vw (souvent > largeur layout avec scrollbar). left+right + 100% si CB = viewport. */
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     /* Fond lisible (évite l’effet « barre invisible » sur fond sombre / emulateur) */
