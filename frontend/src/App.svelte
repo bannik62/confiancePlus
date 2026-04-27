@@ -14,6 +14,7 @@
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
    */
   import { onMount, tick } from 'svelte'
+  import { fade } from 'svelte/transition'
   import { get } from 'svelte/store'
   import { authStore, checkSession, clearAuth, isAppAdmin, mergeUser } from './stores/auth.js'
   import { profileStore } from './stores/profile.js'
@@ -71,17 +72,7 @@
 
   const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
 
-  /** Ordre du carrousel (barre du bas + boutique) — même ordre que la navigation */
-  const TAB_ORDER = ['home', 'agenda', 'groupe', 'stats', 'profil', 'shop']
-
-  /** Panneaux déjà visités : montage paresseux (évite 6× chargement API au démarrage) */
-  let tabPanelMounted = /** @type {Record<string, boolean>} */ ({})
-  $: {
-    const t = $tab
-    if (t && !tabPanelMounted[t]) tabPanelMounted = { ...tabPanelMounted, [t]: true }
-  }
-
-  /** Routage simple : un seul panneau visible à la fois (sans carrousel horizontal). */
+  /** Routage simple : un seul panneau visible à la fois. */
 
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
@@ -310,13 +301,25 @@
       resetSessionUi()
     })
 
-    const unsubTabScroll = tab.subscribe(() => {
+    const scrollAppTopStable = async () => {
       if (typeof window === 'undefined') return
-      queueMicrotask(() => {
+      await tick()
+      requestAnimationFrame(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+        window.scrollTo(0, 0)
         document.documentElement.scrollTop = 0
         document.body.scrollTop = 0
       })
+    }
+
+    let tabPrev = /** @type {string | null} */ (null)
+    const unsubTabScroll = tab.subscribe((value) => {
+      const switched = tabPrev !== null && tabPrev !== value
+      tabPrev = value
+      if (!switched) return
+      const y = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0
+      if (y < 2) return
+      void scrollAppTopStable()
     })
 
     return () => {
@@ -424,22 +427,17 @@
 
     <main>
       <AuthGuard>
-        <div class="tab-panels">
-          {#each TAB_ORDER as slideKey (slideKey)}
+        {#if VIEWS[$tab]}
+          {#key $tab}
             <section
-              class="tab-panel"
-              hidden={$tab !== slideKey}
-              aria-hidden={$tab !== slideKey}
-              aria-label={slideKey}
+              class="tab-fade-in"
+              aria-label={$tab}
+              in:fade={{ duration: 380 }}
             >
-              {#if tabPanelMounted[slideKey]}
-                <svelte:component this={VIEWS[slideKey]} />
-              {:else}
-                <div class="tab-panel-placeholder" aria-hidden="true"></div>
-              {/if}
+              <svelte:component this={VIEWS[$tab]} />
             </section>
-          {/each}
-        </div>
+          {/key}
+        {/if}
       </AuthGuard>
     </main>
 
@@ -473,20 +471,6 @@
     min-height: 100dvh;
   }
 
-  .tab-panels {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .tab-panel {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .tab-panel-placeholder {
-    min-height: 45vh;
-  }
-
   main {
     padding: 14px var(--app-gutter-x);
     /*
@@ -494,6 +478,11 @@
      * Marge généreuse pour que le dernier contenu (ex. CTA) ne soit jamais sous la barre
      * — indépendamment du reflet WebKit (souvent un souci de calque / padding, pas seulement le reflet).
      */
-    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab-fade-in {
+      transition: none;
+    }
   }
 </style>
