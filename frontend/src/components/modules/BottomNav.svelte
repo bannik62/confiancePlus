@@ -22,7 +22,15 @@
     position: fixed;
     bottom: 0;
     left: 0;
-    right: 0;
+    /*
+     * Largeur explicitement calée sur le viewport (vw), pas sur « 100 % » du bloc englobant.
+     * Sinon, avec un ancêtre très large (ex. piste carrousel / overflow horizontal), left+right
+     * étirent la nav sur toute cette largeur : quelques icônes visibles, le reste hors écran.
+     */
+    width: 100vw;
+    width: 100dvw;
+    max-width: 100%;
+    box-sizing: border-box;
     /* Fond lisible (évite l’effet « barre invisible » sur fond sombre / emulateur) */
     background: linear-gradient(180deg, rgba(7, 7, 26, 0.55), var(--bg) 42%, var(--bg) 100%);
     backdrop-filter: blur(14px);
