@@ -70,6 +70,51 @@
   import { resetLevelGuideModal } from './stores/levelGuideModal.js'
 
   const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
+
+  /** Ordre du carrousel (barre du bas + boutique) — même ordre que la navigation */
+  const TAB_ORDER = ['home', 'agenda', 'groupe', 'stats', 'profil', 'shop']
+
+  /** Panneaux déjà visités : montage paresseux (évite 6× chargement API au démarrage) */
+  let tabPanelMounted = /** @type {Record<string, boolean>} */ ({})
+  $: {
+    const t = $tab
+    if (t && !tabPanelMounted[t]) tabPanelMounted = { ...tabPanelMounted, [t]: true }
+  }
+
+  $: carouselIdx = (() => {
+    const i = TAB_ORDER.indexOf($tab)
+    return i >= 0 ? i : 0
+  })()
+
+  /** Pourcentage de translation : une « page » = 1/N de la piste */
+  $: carouselTranslatePct = (carouselIdx / TAB_ORDER.length) * 100
+
+  const SWIPE_PX = 56
+  let touchStartX = /** @type {number | null} */ (null)
+
+  const shiftCarousel = (delta) => {
+    const i = TAB_ORDER.indexOf($tab)
+    const cur = i >= 0 ? i : 0
+    const next = Math.max(0, Math.min(TAB_ORDER.length - 1, cur + delta))
+    if (next !== cur) tab.set(TAB_ORDER[next])
+  }
+
+  /** Swipe gauche = onglet suivant, swipe droite = précédent */
+  const onCarouselTouchStart = (e) => {
+    if (e.touches.length !== 1) return
+    touchStartX = e.touches[0].clientX
+  }
+
+  const onCarouselTouchEnd = (e) => {
+    if (touchStartX == null) return
+    const start = touchStartX
+    touchStartX = null
+    const end = e.changedTouches[0]?.clientX
+    if (typeof end !== 'number') return
+    const dx = end - start
+    if (dx > SWIPE_PX) shiftCarousel(-1)
+    else if (dx < -SWIPE_PX) shiftCarousel(1)
+  }
   const TABS_STUDENT = [
     { key: 'home',   ico: '🏠', label: "Aujourd'hui" },
     { key: 'agenda', ico: '📅', label: 'Agenda'       },
@@ -296,6 +341,10 @@
       void clearAuth()
       resetSessionUi()
     })
+
+    return () => {
+      window.removeEventListener('session:expired', resetSessionUi)
+    }
   })
 
   // Chaque connexion (ou restauration cookie) incrémente session → nouvelle clé → re-bootstrap
@@ -397,7 +446,30 @@
 
     <main>
       <AuthGuard>
-        <svelte:component this={VIEWS[$tab]} />
+        <div
+          class="tab-carousel-viewport"
+          on:touchstart|passive={onCarouselTouchStart}
+          on:touchend|passive={onCarouselTouchEnd}
+        >
+          <div
+            class="tab-carousel-track"
+            style="transform: translateX(-{carouselTranslatePct}%); --n-slides: {TAB_ORDER.length}"
+          >
+            {#each TAB_ORDER as slideKey (slideKey)}
+              <section
+                class="tab-carousel-slide"
+                aria-hidden={$tab !== slideKey}
+                aria-label={slideKey}
+              >
+                {#if tabPanelMounted[slideKey]}
+                  <svelte:component this={VIEWS[slideKey]} />
+                {:else}
+                  <div class="tab-carousel-placeholder" aria-hidden="true"></div>
+                {/if}
+              </section>
+            {/each}
+          </div>
+        </div>
       </AuthGuard>
     </main>
 
@@ -429,6 +501,40 @@
   :global(#app) {
     min-height: 100vh;
     min-height: 100dvh;
+  }
+
+  /* Carrousel horizontal : N panneaux côte à côte, translation = onglet actif */
+  .tab-carousel-viewport {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  .tab-carousel-track {
+    display: flex;
+    flex-direction: row;
+    /* N × largeur du viewport (parent .tab-carousel-viewport) */
+    width: calc(var(--n-slides, 6) * 100%);
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .tab-carousel-slide {
+    /* 1/N de la piste = largeur du viewport */
+    flex: 0 0 calc(100% / var(--n-slides, 6));
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .tab-carousel-placeholder {
+    min-height: 45vh;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tab-carousel-track {
+      transition: transform 0.01ms linear;
+    }
   }
 
   main {
