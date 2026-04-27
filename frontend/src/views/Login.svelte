@@ -9,7 +9,7 @@
   import { UserActivate }        from '../models/UserActivate.js'
   import { UserCompleteProfile } from '../models/UserCompleteProfile.js'
 
-  // ── Onglet actif : 'login' | 'register' | 'code' ──────────────────────────
+  // ── Onglet actif : 'login' | 'register' | 'code' | 'forgot' ─────────────────
   let tab = 'login'
 
   // ── Modèles ────────────────────────────────────────────────────────────────
@@ -27,6 +27,10 @@
   // Étape du flux code association : 'enter-code' | 'set-password'
   let codeStep     = 'enter-code'
   let pendingUser  = null   // réponse /check-code (username, avatar, emailHint, ok)
+
+  /** Mot de passe oublié */
+  let forgotEmail = ''
+  let forgotSent = false
 
   /** Affichage clair du mot de passe (toggle œil) */
   let showLoginPw = false
@@ -83,6 +87,8 @@
     pendingUser = null
     activateModel = new UserActivate()
     profileModel = new UserCompleteProfile()
+    forgotEmail = ''
+    forgotSent = false
     showLoginPw = false
     showRegisterPw = false
     showActivatePw = false
@@ -108,6 +114,24 @@
       finishAuth(res.user)
     } catch (e) {
       error = e.message ?? 'Erreur de connexion'
+    } finally {
+      loading = false
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    error = ''
+    const em = String(forgotEmail || '').trim()
+    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      error = 'Entre une adresse e-mail valide'
+      return
+    }
+    loading = true
+    try {
+      await authApi.forgotPassword({ email: em })
+      forgotSent = true
+    } catch (e) {
+      error = e.message ?? 'Erreur — réessaie dans un instant'
     } finally {
       loading = false
     }
@@ -181,11 +205,13 @@
     </div>
 
     <!-- ── Onglets ─────────────────────────────────────────────────────── -->
-    <div class="tabs">
-      <button class:active={tab === 'login'}    on:click={() => void switchTab('login')}>Connexion</button>
-      <button class:active={tab === 'register'} on:click={() => void switchTab('register')}>S'inscrire</button>
-      <button class:active={tab === 'code'}     on:click={() => void switchTab('code')}>Code asso</button>
-    </div>
+    {#if tab !== 'forgot'}
+      <div class="tabs">
+        <button class:active={tab === 'login'}    on:click={() => void switchTab('login')}>Connexion</button>
+        <button class:active={tab === 'register'} on:click={() => void switchTab('register')}>S'inscrire</button>
+        <button class:active={tab === 'code'}     on:click={() => void switchTab('code')}>Code asso</button>
+      </div>
+    {/if}
 
     {#if error}
       <p class="error">{error}</p>
@@ -296,12 +322,61 @@
             </button>
           </div>
           {#if loginModel.errors.password}<span class="field-error">{loginModel.errors.password}</span>{/if}
+          <button
+            type="button"
+            class="link-forgot"
+            on:click={() => {
+              forgotEmail = loginModel.email?.trim() || ''
+              tab = 'forgot'
+              error = ''
+              forgotSent = false
+            }}
+          >
+            Mot de passe oublié ?
+          </button>
         </div>
 
         <button type="submit" class="btn-primary" disabled={loading}>
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
       </form>
+
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <!-- Mot de passe oublié -->
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    {:else if tab === 'forgot'}
+      <div class="forgot-panel">
+        <button type="button" class="link-back" on:click={() => void switchTab('login')}>← Retour à la connexion</button>
+        <h2 class="forgot-title">Réinitialiser le mot de passe</h2>
+        <p class="hint forgot-lead">
+          Indique l’e-mail de ton compte : tu recevras un lien valable 1 h pour choisir un nouveau mot de passe.
+        </p>
+        {#if forgotSent}
+          <p class="hint forgot-ok">
+            Si cette adresse correspond à un compte actif, un e-mail avec un lien de réinitialisation a été envoyé.
+            Pense à vérifier les courriers indésirables.
+          </p>
+          <button type="button" class="btn-primary" on:click={() => void switchTab('login')}>
+            Retour à la connexion
+          </button>
+        {:else}
+          <form on:submit|preventDefault={handleForgotPassword}>
+            <label>
+              E-mail du compte
+              <input
+                type="email"
+                bind:value={forgotEmail}
+                placeholder="ton@email.fr"
+                autocomplete="email"
+                disabled={loading}
+              />
+            </label>
+            <button type="submit" class="btn-primary" disabled={loading}>
+              {loading ? 'Envoi…' : 'Envoyer le lien'}
+            </button>
+          </form>
+        {/if}
+      </div>
 
     <!-- ════════════════════════════════════════════════════════════════════ -->
     <!-- Onglet REGISTER -->
@@ -676,6 +751,57 @@
   .field-col > label {
     font-size: max(15px, .85rem);
     color: var(--text-label);
+  }
+  .link-forgot {
+    align-self: flex-start;
+    margin-top: 2px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--cyan);
+    font-size: max(15px, 0.88rem);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .link-forgot:hover {
+    color: var(--accent);
+  }
+  .forgot-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .link-back {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: max(15px, 0.9rem);
+    cursor: pointer;
+  }
+  .link-back:hover {
+    color: var(--text);
+  }
+  .forgot-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.2rem;
+    color: var(--text);
+    font-weight: 700;
+  }
+  .forgot-lead {
+    margin: 0;
+    line-height: 1.45;
+  }
+  .forgot-ok {
+    margin: 0;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--cyan) 35%, var(--border));
+    background: color-mix(in srgb, var(--cyan) 8%, var(--surface-modal));
+    color: var(--text);
+    line-height: 1.45;
   }
   input, select {
     background: var(--bg);

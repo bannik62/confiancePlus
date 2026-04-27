@@ -34,12 +34,20 @@
 
   import Login   from './views/Login.svelte'
   import Landing from './views/Landing.svelte'
+  import ResetPassword from './views/ResetPassword.svelte'
 
   /** `/` = marketing ; `/login` etc. = même index.html (Apache FallbackResource) → Login */
   function isMarketingHome() {
     if (typeof window === 'undefined') return false
     const p = (window.location.pathname || '/').replace(/\/+$/, '') || '/'
     return p === '/'
+  }
+
+  /** Page dédiée lien e-mail « mot de passe oublié » — sans jeton dans l’URL, pas de formulaire valide. */
+  function isResetPasswordPath() {
+    if (typeof window === 'undefined') return false
+    const p = (window.location.pathname || '/').replace(/\/+$/, '') || '/'
+    return p === '/reset-password'
   }
   import CheckIn from './views/CheckIn.svelte'
   import Home    from './views/Home.svelte'
@@ -344,6 +352,9 @@
 
 {:else if !$authStore.user && isMarketingHome()}
   <Landing />
+
+{:else if !$authStore.user && isResetPasswordPath()}
+  <ResetPassword />
 
 {:else if !$authStore.user}
   <Login />

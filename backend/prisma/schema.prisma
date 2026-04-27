@@ -78,6 +78,23 @@ model User {
   appointmentCompletions   AppointmentCompletion[]
 
   pushSubscriptions PushSubscription[]
+
+  passwordResetTokens PasswordResetToken[]
+}
+
+/// Jeton usage unique pour « mot de passe oublié » (hash stocké uniquement).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 /// 1 ligne par jour civil où le bonus « journée parfaite » a été crédité (idempotence)

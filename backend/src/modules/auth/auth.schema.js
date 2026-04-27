@@ -85,3 +85,23 @@ export const changePasswordSchema = z
     message: 'Les mots de passe ne correspondent pas',
     path: ['confirmNewPassword'],
   })
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email().transform((v) => normalizeEmail(v)),
+})
+
+export const resetPasswordTokenSchema = z
+  .object({
+    token: z.string().min(16, 'Lien incomplet ou invalide'),
+    newPassword: z.string().min(8).max(100),
+    confirmNewPassword: z.string().min(8).max(100),
+  })
+  .refine((d) => d.newPassword === d.confirmNewPassword, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirmNewPassword'],
+  })
+
+/** GET /auth/reset-password/check */
+export const resetPasswordCheckQuerySchema = z.object({
+  token: z.string().min(1),
+})

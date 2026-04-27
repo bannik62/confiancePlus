@@ -10,6 +10,9 @@ import {
   activateSchema,
   changeEmailSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordTokenSchema,
+  resetPasswordCheckQuerySchema,
 } from './auth.schema.js'
 import * as service from './auth.service.js'
 
@@ -81,6 +84,36 @@ router.post('/activate', validate(activateSchema), async (req, res, next) => {
     const csrfToken = setSessionCookies(res, token)
     res.json({ user, csrfToken })
   } catch (e) { next(e) }
+})
+
+// ── Mot de passe oublié (sans session) ────────────────────────────────────────
+
+router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res, next) => {
+  try {
+    res.json(await service.requestPasswordReset(req.body))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get(
+  '/reset-password/check',
+  validate(resetPasswordCheckQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      res.json(await service.checkPasswordResetToken(req.query.token))
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post('/reset-password', validate(resetPasswordTokenSchema), async (req, res, next) => {
+  try {
+    res.json(await service.resetPasswordWithToken(req.body))
+  } catch (e) {
+    next(e)
+  }
 })
 
 // ── Session ────────────────────────────────────────────────────────────────────

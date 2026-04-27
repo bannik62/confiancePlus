@@ -1,6 +1,8 @@
+import crypto from 'crypto'
 import { db } from '../../core/db.js'
 import { config } from '../../core/config.js'
 import { hashPassword, verifyPassword, signToken } from '../../core/auth.js'
+import { sendMail, isMailConfigured } from '../../core/emailService.js'
 import { createDefaultHabitsForUser } from '../../core/defaultHabits.js'
 import { normalizeEmail, maskEmailHint } from '../../core/emailUtil.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
@@ -325,5 +327,135 @@ export const changePassword = async (userId, body) => {
     where: { id: userId },
     data: { passwordHash: await hashPassword(newPassword) },
   })
+  return { ok: true }
+}
+
+// ── Mot de passe oublié (lien e-mail, jeton à usage unique) ───────────────────
+
+const RESET_TOKEN_BYTES = 32
+const RESET_EXPIRY_MS = 60 * 60 * 1000
+
+const hashResetToken = (plain) =>
+  crypto.createHash('sha256').update(String(plain).trim(), 'utf8').digest('hex')
+
+const GENERIC_FORGOT_RESPONSE = () => ({
+  ok: true,
+  message:
+    'Si cette adresse correspond à un compte actif, un e-mail avec un lien de réinitialisation a été envoyé.',
+})
+
+/** @param {{ email: string }} body */
+export const requestPasswordReset = async (body) => {
+  const generic = GENERIC_FORGOT_RESPONSE()
+  const norm = normalizeEmail(body.email)
+  const user = await db.user.findFirst({
+    where: { email: norm },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      isSuspended: true,
+    },
+  })
+  if (!user?.email || !user.passwordHash || user.isSuspended) return generic
+
+  await db.passwordResetToken.deleteMany({ where: { userId: user.id } })
+
+  const plain = crypto.randomBytes(RESET_TOKEN_BYTES).toString('hex')
+  const tokenHash = hashResetToken(plain)
+  const expiresAt = new Date(Date.now() + RESET_EXPIRY_MS)
+
+  await db.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  })
+
+  const base = String(config.FRONTEND_URL || '').replace(/\/+$/, '') || 'http://localhost:5173'
+  const resetUrl = `${base}/reset-password?t=${encodeURIComponent(plain)}`
+
+  if (!isMailConfigured()) {
+    console.warn(
+      '[auth] Mot de passe oublié : GMAIL_USER / GMAIL_APP_PASSWORD absents — e-mail non envoyé',
+    )
+    return generic
+  }
+
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Habitracks — réinitialiser ton mot de passe',
+      text:
+        `Bonjour,\n\nTu as demandé à réinitialiser ton mot de passe sur Habitracks.\n\n` +
+        `Ouvre ce lien (valide 1 h) :\n${resetUrl}\n\n` +
+        `Si tu n’es pas à l’origine de cette demande, ignore ce message.\n`,
+      html:
+        `<p>Bonjour,</p><p>Tu as demandé à réinitialiser ton mot de passe sur <strong>Habitracks</strong>.</p>` +
+        `<p><a href="${resetUrl}">Réinitialiser mon mot de passe</a></p>` +
+        `<p>Ce lien est valable <strong>1 heure</strong>.</p>` +
+        `<p>Si tu n’es pas à l’origine de cette demande, ignore ce message.</p>`,
+    })
+  } catch (e) {
+    console.warn('[auth] Envoi e-mail réinitialisation échoué', e?.message)
+  }
+
+  return generic
+}
+
+/** @param {string | undefined} token */
+export const checkPasswordResetToken = async (token) => {
+  if (!token || typeof token !== 'string' || token.length < 16) return { ok: false }
+  const tokenHash = hashResetToken(token)
+  const row = await db.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: { expiresAt: true, usedAt: true },
+  })
+  if (!row || row.usedAt) return { ok: false }
+  if (row.expiresAt.getTime() < Date.now()) return { ok: false }
+  return { ok: true }
+}
+
+/** @param {{ token: string, newPassword: string, confirmNewPassword: string }} body */
+export const resetPasswordWithToken = async (body) => {
+  const { newPassword, confirmNewPassword } = body
+  if (newPassword !== confirmNewPassword)
+    throw { status: 400, message: 'Les mots de passe ne correspondent pas' }
+
+  const token = typeof body.token === 'string' ? body.token.trim() : ''
+  if (token.length < 16) throw { status: 400, message: 'Lien invalide ou expiré' }
+
+  const tokenHash = hashResetToken(token)
+  const row = await db.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: { id: true, userId: true, expiresAt: true, usedAt: true },
+  })
+
+  if (!row || row.usedAt)
+    throw { status: 400, message: 'Lien invalide ou déjà utilisé' }
+  if (row.expiresAt.getTime() < Date.now())
+    throw {
+      status: 400,
+      message:
+        'Ce lien a expiré — demande un nouveau lien depuis la page de connexion.',
+    }
+
+  const newHash = await hashPassword(newPassword)
+
+  await db.$transaction([
+    db.user.update({
+      where: { id: row.userId },
+      data: { passwordHash: newHash },
+    }),
+    db.passwordResetToken.update({
+      where: { id: row.id },
+      data: { usedAt: new Date() },
+    }),
+    db.passwordResetToken.deleteMany({
+      where: { userId: row.userId, id: { not: row.id } },
+    }),
+  ])
+
   return { ok: true }
 }

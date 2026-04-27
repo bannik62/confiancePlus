@@ -10,4 +10,8 @@ export const authApi = {
   activate:  (data) => api.post('/auth/activate',   data),
   changeEmail:    (data) => api.patch('/auth/me/email', data),
   changePassword: (data) => api.patch('/auth/me/password', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  checkResetPasswordToken: (token) =>
+    api.get(`/auth/reset-password/check?token=${encodeURIComponent(token)}`),
+  resetPasswordWithToken: (data) => api.post('/auth/reset-password', data),
 }

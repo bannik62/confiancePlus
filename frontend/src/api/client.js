@@ -21,7 +21,14 @@ const shouldDispatchSessionExpiredOn401 = (method, path) => {
   if (method === 'GET' && base === '/auth/register-status') return false
   if (
     method === 'POST' &&
-    ['/auth/login', '/auth/register', '/auth/activate', '/auth/check-code'].includes(base)
+    [
+      '/auth/login',
+      '/auth/register',
+      '/auth/activate',
+      '/auth/check-code',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+    ].includes(base)
   )
     return false
   return true
