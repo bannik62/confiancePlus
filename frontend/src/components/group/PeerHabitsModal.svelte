@@ -379,14 +379,14 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: 1200;
     background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
   }
 
   .panel {
     position: fixed;
-    z-index: 201;
+    z-index: 1201;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -410,7 +410,7 @@
       bottom: 0;
       transform: none;
       width: 100%;
-      max-height: min(88dvh, 100%);
+      max-height: min(96dvh, 100%);
       border-radius: 16px 16px 0 0;
       padding-bottom: env(safe-area-inset-bottom, 0);
     }

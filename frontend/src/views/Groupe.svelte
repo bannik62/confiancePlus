@@ -116,10 +116,24 @@
   let peerError = ''
   let peerData = null
   let peerTitle = 'Habitudes'
+  let memorablePreview = null
 
   const closePeerHabits = () => {
     peerOpen = false
     peerError = ''
+  }
+
+  const openMemorablePreview = (member) => {
+    if (!member?.memorable) return
+    memorablePreview = {
+      username: member.username,
+      imageUrl: member.memorable.imageUrl ?? null,
+      text: member.memorable.text ?? null,
+    }
+  }
+
+  const closeMemorablePreview = () => {
+    memorablePreview = null
   }
 
   $: lbStreakTrophyImg = (() => {
@@ -307,7 +321,14 @@
             {#if m.memorable}
               <div class="memorable-snippet">
                 {#if m.memorable.imageUrl}
-                  <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                  <button
+                    type="button"
+                    class="memorable-thumb-btn"
+                    on:click|stopPropagation={() => openMemorablePreview(m)}
+                    aria-label="Voir le moment mémorable de {m.username}"
+                  >
+                    <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                  </button>
                 {/if}
                 {#if m.memorable.text}
                   <p class="memorable-text">"{m.memorable.text}"</p>
@@ -425,7 +446,14 @@
           {#if m.memorable}
             <div class="memorable-snippet">
               {#if m.memorable.imageUrl}
-                <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                <button
+                  type="button"
+                  class="memorable-thumb-btn"
+                  on:click|stopPropagation={() => openMemorablePreview(m)}
+                  aria-label="Voir le moment mémorable de {m.username}"
+                >
+                  <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                </button>
               {/if}
               {#if m.memorable.text}
                 <p class="memorable-text">"{m.memorable.text}"</p>
@@ -465,6 +493,22 @@
   onClose={closePeerHabits}
   on:updated={(e) => { peerData = e.detail }}
 />
+
+{#if memorablePreview}
+  <div class="memorable-overlay" role="presentation" on:click={closeMemorablePreview}></div>
+  <div class="memorable-modal" role="dialog" aria-modal="true" aria-label="Moment mémorable">
+    <div class="memorable-modal-head">
+      <div class="micro muted">MOMENT MÉMORABLE — {memorablePreview.username}</div>
+      <button type="button" class="memorable-close" on:click={closeMemorablePreview}>✕</button>
+    </div>
+    {#if memorablePreview.imageUrl}
+      <img src={memorablePreview.imageUrl} alt="Moment mémorable de {memorablePreview.username}" class="memorable-image-full" />
+    {/if}
+    {#if memorablePreview.text}
+      <p class="memorable-text-full">"{memorablePreview.text}"</p>
+    {/if}
+  </div>
+{/if}
 
 {/if}
 
@@ -581,6 +625,13 @@
     gap: 8px;
     flex-wrap: wrap;
   }
+  .memorable-thumb-btn {
+    border: none;
+    padding: 0;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+  }
   .memorable-thumb {
     width: 44px;
     height: 44px;
@@ -595,6 +646,58 @@
     line-height: 1.3;
     font-style: italic;
     max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .memorable-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 1000;
+  }
+  .memorable-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 520px);
+    max-height: 84vh;
+    overflow: auto;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42);
+    z-index: 1001;
+  }
+  .memorable-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .memorable-close {
+    border: 1px solid var(--border-btn);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+  }
+  .memorable-image-full {
+    width: 100%;
+    max-height: 58vh;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2);
+  }
+  .memorable-text-full {
+    margin: 10px 0 0;
+    color: var(--text);
+    line-height: 1.4;
+    font-size: max(15px, 0.92rem);
     overflow-wrap: anywhere;
   }
   button.lb-items {
