@@ -781,16 +781,32 @@
       <span>Autoriser le partage du moment mémorable dans le classement</span>
     </label>
     <div class="memorable-upload">
-      <label class="action-u action-u--upload">
+      <div class="upload-actions">
         <input
+          id="memorable-camera-input"
+          class="file-input-hidden"
           type="file"
           accept="image/jpeg,image/png,image/webp,image/*"
           capture="environment"
           disabled={dayBundleLocked}
           on:change={onMemorableImageChange}
         />
-        <span class="action-u-inner">📷 Ajouter une image</span>
-      </label>
+        <label class="action-u action-u--upload" for="memorable-camera-input" aria-label="Prendre une photo">
+          <span class="action-u-inner">📷 Prendre une photo</span>
+        </label>
+
+        <input
+          id="memorable-gallery-input"
+          class="file-input-hidden"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/*"
+          disabled={dayBundleLocked}
+          on:change={onMemorableImageChange}
+        />
+        <label class="action-u action-u--upload" for="memorable-gallery-input" aria-label="Choisir depuis la galerie">
+          <span class="action-u-inner">🖼️ Choisir une image</span>
+        </label>
+      </div>
       <p class="micro muted" style="margin-top:6px">Formats: JPG/PNG/WebP · Max 5 MB · conversion auto en WebP</p>
       {#if memorableImagePreview}
         <div class="memorable-preview-wrap">
@@ -1433,6 +1449,14 @@
   .memorable-upload {
     margin-top: 10px;
   }
+  .upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .file-input-hidden {
+    display: none;
+  }
   .action-u {
     appearance: none;
     margin: 0;
@@ -1486,9 +1510,6 @@
   }
   .action-u--upload {
     margin-right: 2px;
-  }
-  .action-u input {
-    display: none;
   }
   .memorable-preview-wrap {
     margin-top: 10px;
