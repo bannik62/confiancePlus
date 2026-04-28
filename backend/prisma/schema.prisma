@@ -15,6 +15,8 @@ model User {
   email          String?  @unique   // optionnel pour les comptes créés par un éducateur
   username       String   @unique
   passwordHash   String?            // null tant que le compte n'est pas activé
+  /// Version de session JWT (invalidation globale après changement/reset mot de passe)
+  tokenVersion   Int      @default(0)
   avatar         String   @default("🦊")
   isPending      Boolean  @default(false)  // true = créé par éducateur, pas encore activé
   activationCode String?  @unique          // code 6 chars, null après activation
@@ -335,6 +337,10 @@ model DailyLog {
   moodReason   String?
   sleepQuality Int?
   journal      String?
+  /// Image optionnelle du « moment mémorable » (chemin public /uploads/...)
+  memorableImageUrl String?
+  /// Consentement explicite: partage du moment mémorable dans le classement
+  shareMemorableInLeaderboard Boolean @default(false)
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

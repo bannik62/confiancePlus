@@ -10,10 +10,19 @@ const iconSchema = z
     message: 'Utilise un emoji comme icône',
   })
 
+const strongPasswordSchema = z
+  .string()
+  .min(12, '12 caractères minimum')
+  .max(100)
+  .regex(/[a-z]/, 'Au moins une minuscule')
+  .regex(/[A-Z]/, 'Au moins une majuscule')
+  .regex(/\d/, 'Au moins un chiffre')
+  .regex(/[^A-Za-z0-9]/, 'Au moins un caractère spécial')
+
 export const registerSchema = z.object({
   email:      z.string().email().transform((v) => normalizeEmail(v)),
   username:   z.string().min(2).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Lettres, chiffres et _ uniquement'),
-  password:   z.string().min(8).max(100),
+  password:   strongPasswordSchema,
   avatar:     iconSchema.optional().default('🦊'),
   // Contexte groupe optionnel
   group:      z.object({
@@ -56,7 +65,7 @@ export const activateSchema = z.object({
     .transform(v => v.trim().toUpperCase())
     .pipe(z.string().length(6).regex(/^[A-Z0-9]{6}$/)),
   email: z.string().email().transform((v) => normalizeEmail(v)),
-  password: z.string().min(8).max(100),
+  password: strongPasswordSchema,
   username: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Lettres, chiffres et _ uniquement'),
   avatar:   iconSchema.optional().default('🦊'),
 })
@@ -78,8 +87,8 @@ export const changeEmailSchema = z
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
-    newPassword: z.string().min(8).max(100),
-    confirmNewPassword: z.string().min(8).max(100),
+    newPassword: strongPasswordSchema,
+    confirmNewPassword: strongPasswordSchema,
   })
   .refine((d) => d.newPassword === d.confirmNewPassword, {
     message: 'Les mots de passe ne correspondent pas',
@@ -93,8 +102,8 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordTokenSchema = z
   .object({
     token: z.string().min(16, 'Lien incomplet ou invalide'),
-    newPassword: z.string().min(8).max(100),
-    confirmNewPassword: z.string().min(8).max(100),
+    newPassword: strongPasswordSchema,
+    confirmNewPassword: strongPasswordSchema,
   })
   .refine((d) => d.newPassword === d.confirmNewPassword, {
     message: 'Les mots de passe ne correspondent pas',

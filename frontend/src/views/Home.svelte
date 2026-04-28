@@ -28,6 +28,7 @@
   import { habitDayMultiplier, HABIT_BONUS_PER_TASK } from '../lib/xpHabitBonus.js'
   import { gameplayStore } from '../stores/gameplay.js'
   import { animMs } from '../lib/gameplayUiDefaults.js'
+  import { CheckinDailyModel } from '../models/checkin/CheckinDailyModel.js'
 
   const coerceSleep = (sq) =>
     typeof sq === 'number' && Number.isFinite(sq) ? sq : (Number(sq) || 0)
@@ -39,7 +40,13 @@
     t && typeof t.from === 'number' && Number.isFinite(t.from) ? t.from : null
 
   let journal = ''
+  let moodReason = ''
   let sleep = 0
+  let shareMemorableInLeaderboard = false
+  let memorableImageFile = null
+  let memorableImagePreview = ''
+  let removeMemorableImage = false
+  let memorableImageError = ''
   /** Journée verrouillée après sauvegarde (rechargée depuis sessionStorage par date). */
   let dayBundleLocked = false
   /** Saisie en cours : on ne réinjecte pas le journal depuis l’API tant que tu édites. */
@@ -69,7 +76,13 @@
     const log = get(dailyLog)
     if (!log) return
     journal = log.journal ?? ''
+    moodReason = log.moodReason ?? ''
     sleep = coerceSleep(log.sleepQuality)
+    shareMemorableInLeaderboard = log.shareMemorableInLeaderboard === true
+    memorableImagePreview = typeof log.memorableImageUrl === 'string' ? log.memorableImageUrl : ''
+    memorableImageFile = null
+    removeMemorableImage = false
+    memorableImageError = ''
   }
 
   const loadTodayAppointments = async () => {
@@ -111,6 +124,36 @@
 
   const onJournalInput = () => {
     journalDirty = true
+  }
+
+  const onMoodReasonInput = () => {
+    journalDirty = true
+  }
+
+  const onMemorableImageChange = (event) => {
+    const file = event.currentTarget?.files?.[0] ?? null
+    memorableImageError = ''
+    memorableImageFile = file
+    removeMemorableImage = false
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      memorableImageFile = null
+      memorableImageError = 'Format invalide (jpeg/png/webp).'
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      memorableImageFile = null
+      memorableImageError = 'Image trop lourde (5MB max).'
+      return
+    }
+    memorableImagePreview = URL.createObjectURL(file)
+  }
+
+  const clearMemorableImage = () => {
+    memorableImageFile = null
+    memorableImagePreview = ''
+    removeMemorableImage = true
+    memorableImageError = ''
   }
 
   /** Backend : isDue false = pas prévu ce jour civil (affichage + sync API au save uniquement) */
@@ -238,11 +281,24 @@
     const titleTierBefore = titleTierFrom(get(profileStore).title)
     try {
       journalDirty = false
-      const dayPayload = { journal }
-      if (sleep >= 1 && sleep <= 10) dayPayload.sleepQuality = sleep
+      const model = new CheckinDailyModel()
+      model.mood.mood = $dailyLog?.mood ?? null
+      model.mood.moodReason = moodReason
+      model.memorable.memorableText = journal
+      model.memorable.shareInLeaderboard = shareMemorableInLeaderboard
+      model.memorable.imageFile = memorableImageFile
+      model.memorable.removeImage = removeMemorableImage
+      const dayPayload = model.toPayload({ date: localDateString(), allowMoodOptional: true })
+      if (!(dayPayload instanceof FormData) && sleep >= 1 && sleep <= 10) dayPayload.sleepQuality = sleep
+      if (dayPayload instanceof FormData && sleep >= 1 && sleep <= 10) dayPayload.append('sleepQuality', String(sleep))
       const log = await saveDailyLog(dayPayload)
       if (log) {
         journal = log.journal ?? ''
+        moodReason = log.moodReason ?? ''
+        shareMemorableInLeaderboard = log.shareMemorableInLeaderboard === true
+        memorableImagePreview = typeof log.memorableImageUrl === 'string' ? log.memorableImageUrl : ''
+        memorableImageFile = null
+        removeMemorableImage = false
         appliedLogKey = `${log.id}:${log.updatedAt}`
       }
       const list = get(habits)
@@ -697,6 +753,15 @@
 
   <div class="home-ambient home-ambient--accent">
   <Card>
+    <div class="micro" style="color:var(--cyan); margin-bottom:10px">🗣️ PHRASE D'HUMEUR DU JOUR</div>
+    <input
+      class="mood-reason-input"
+      bind:value={moodReason}
+      readonly={dayBundleLocked}
+      on:input={onMoodReasonInput}
+      maxlength="500"
+      placeholder="Ex : motivé, mais un peu fatigué"
+    />
     <div class="micro" style="color:var(--accent); margin-bottom:10px">✨ MOMENT MÉMORABLE</div>
     <textarea
       class:locked={dayBundleLocked}
@@ -705,6 +770,40 @@
       on:input={onJournalInput}
       placeholder="Une chose qui t'a marqué aujourd'hui..."
     ></textarea>
+    <label class="share-row-home">
+      <input
+        class="switch-input"
+        type="checkbox"
+        bind:checked={shareMemorableInLeaderboard}
+        disabled={dayBundleLocked}
+      />
+      <span class="switch-ui" aria-hidden="true"></span>
+      <span>Autoriser le partage du moment mémorable dans le classement</span>
+    </label>
+    <div class="memorable-upload">
+      <label class="action-u action-u--upload">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/*"
+          capture="environment"
+          disabled={dayBundleLocked}
+          on:change={onMemorableImageChange}
+        />
+        <span class="action-u-inner">📷 Ajouter une image</span>
+      </label>
+      <p class="micro muted" style="margin-top:6px">Formats: JPG/PNG/WebP · Max 5 MB · conversion auto en WebP</p>
+      {#if memorableImagePreview}
+        <div class="memorable-preview-wrap">
+          <img src={memorableImagePreview} alt="Aperçu moment mémorable" class="memorable-preview" />
+          {#if !dayBundleLocked}
+            <button type="button" class="clear-image-btn" on:click={clearMemorableImage}>Retirer</button>
+          {/if}
+        </div>
+      {/if}
+      {#if memorableImageError}
+        <p class="micro" style="color:var(--red);margin-top:6px">{memorableImageError}</p>
+      {/if}
+    </div>
   </Card>
   </div>
 
@@ -718,13 +817,13 @@
       </span>
       <button
         type="button"
-        class="add-habit-btn"
+        class="action-u"
         disabled={atHabitCap}
         title={atHabitCap
           ? 'Nombre max d’habitudes pour ton niveau — désactive une habitude ou monte de niveau.'
           : 'Ajouter une habitude'}
         on:click={() => !atHabitCap && (showAddHabitModal = true)}
-      >+ Ajouter</button>
+      ><span class="action-u-inner">+ Ajouter</span></button>
     </div>
   </div>
   {#if atHabitCap}
@@ -1266,6 +1365,154 @@
     font-family: 'Exo 2', sans-serif;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
+  .mood-reason-input {
+    width: 100%;
+    margin: 0 0 10px;
+    background: rgba(7, 7, 26, 0.95);
+    border: 2px solid rgba(6, 182, 212, 0.35);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
+    padding: 10px 12px;
+  }
+  .mood-reason-input:read-only {
+    opacity: 0.85;
+    cursor: default;
+  }
+  .share-row-home {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    color: var(--text);
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
+    cursor: pointer;
+  }
+  .switch-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .switch-ui {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1px solid var(--border-btn);
+    background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    transition: all 0.22s ease;
+    flex: 0 0 auto;
+  }
+  .switch-ui::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #fff, #d8d8ff);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.38);
+    transition: transform 0.22s ease;
+  }
+  .switch-input:checked + .switch-ui {
+    border-color: color-mix(in srgb, var(--accent) 65%, var(--cyan));
+    background: linear-gradient(120deg, var(--accent), var(--cyan));
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--accent) 40%, transparent),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  }
+  .switch-input:checked + .switch-ui::after {
+    transform: translateX(20px);
+  }
+  .switch-input:disabled + .switch-ui {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .memorable-upload {
+    margin-top: 10px;
+  }
+  .action-u {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: solid 3px #161616;
+    border-top: none;
+    border-radius: 16px;
+    position: relative;
+    cursor: pointer;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    box-shadow:
+      0px 4px 10px #00000062,
+      0px 10px 34px -10px #000000a6,
+      0px 12px 40px -15px #00000071;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: stretch;
+    vertical-align: middle;
+  }
+  .action-u:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+  .action-u:active:not(:disabled) {
+    box-shadow: none;
+  }
+  .action-u:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+  }
+  .action-u-inner {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 14px 9px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    font-family: 'Rajdhani', sans-serif;
+    border-bottom: solid 2px #374e72;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #5771a5, #000);
+    color: #fff;
+    text-shadow: 1px 1px #000, 0 0 9px #fff;
+    text-transform: uppercase;
+  }
+  .action-u--upload {
+    margin-right: 2px;
+  }
+  .action-u input {
+    display: none;
+  }
+  .memorable-preview-wrap {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .memorable-preview {
+    width: 76px;
+    height: 76px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .clear-image-btn {
+    border: 1px solid var(--border-btn);
+    border-radius: 9px;
+    padding: 6px 10px;
+    background: var(--surface);
+    color: var(--muted);
+    font-weight: 700;
+    cursor: pointer;
+  }
   textarea.locked {
     opacity: 0.92;
     cursor: default;
@@ -1401,28 +1648,6 @@
   .wide { width: 100%; }
   .edit-btn.wide { margin-top: 0; }
   
-  .add-habit-btn {
-    background: transparent;
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    color: var(--accent);
-    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
-    padding: 4px 10px;
-    cursor: pointer;
-    font-family: 'Rajdhani', sans-serif;
-    letter-spacing: 0.5px;
-    transition: all 0.2s;
-  }
-  .add-habit-btn:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--bg);
-  }
-  .add-habit-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    border-color: var(--border);
-    color: var(--muted);
-  }
 
   .educator-home .cta-groupe {
     width: 100%;

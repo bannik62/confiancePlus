@@ -18,6 +18,16 @@ import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+const sharedMemorableFromDailyLogs = (dailyLogs, anchorYmd) => {
+  const row = Array.isArray(dailyLogs)
+    ? dailyLogs.find((x) => ymdFromDbDate(x.date) === anchorYmd)
+    : null
+  if (!row || row.shareMemorableInLeaderboard !== true) return null
+  const text = typeof row.journal === 'string' ? row.journal.trim() : ''
+  const imageUrl = typeof row.memorableImageUrl === 'string' ? row.memorableImageUrl : null
+  if (!text && !imageUrl) return null
+  return { text: text || null, imageUrl }
+}
 
 /** Streak engagement seul (claim palier sans refaire tout le profil). */
 const computeEngagementStreakValue = async (userId, anchor) => {
@@ -206,7 +216,14 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       },
       dailyLogs: {
         where: { date: dateWhere },
-        select: { date: true, mood: true, journal: true, sleepQuality: true },
+        select: {
+          date: true,
+          mood: true,
+          journal: true,
+          sleepQuality: true,
+          shareMemorableInLeaderboard: true,
+          memorableImageUrl: true,
+        },
       },
       dailyVisits: {
         where: { ymd: { gte: streakMinYmd, lte: anchor } },
@@ -281,6 +298,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
         groupNames,
         perfReactionHearts: rx.perfReactionHearts,
         perfReactionSkeptics: rx.perfReactionSkeptics,
+        memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
       }
     })
     .sort((a, b) => b.totalXP - a.totalXP)

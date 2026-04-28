@@ -63,7 +63,7 @@ export class BaseModel {
     username:     /^[a-zA-Z0-9_]{2,30}$/,
     emoji:        /^\p{Emoji}/u,
     activationCode: /^[A-Z0-9]{6}$/,
-    // Mot de passe : min 8 chars, au moins 1 lettre et 1 chiffre
-    password:     /^(?=.*[A-Za-z])(?=.*\d).{8,100}$/,
+    // Mot de passe fort : min 12, minuscule, majuscule, chiffre, spécial
+    password:     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,100}$/,
   }
 }

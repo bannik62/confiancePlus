@@ -19,10 +19,12 @@ export const requireAuth = async (req, res, next) => {
 
     const row = await db.user.findUnique({
       where: { id: req.user.id },
-      select: { isSuspended: true },
+      select: { isSuspended: true, tokenVersion: true },
     })
     if (row?.isSuspended)
       return res.status(403).json({ error: 'Compte suspendu — contacte le support.', code: 'SUSPENDED' })
+    if ((req.user.tokenVersion ?? 0) !== (row?.tokenVersion ?? 0))
+      return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' })
 
     next()
   } catch (e) {

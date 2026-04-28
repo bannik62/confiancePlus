@@ -304,6 +304,16 @@
                 <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
               {/if}
             </div>
+            {#if m.memorable}
+              <div class="memorable-snippet">
+                {#if m.memorable.imageUrl}
+                  <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                {/if}
+                {#if m.memorable.text}
+                  <p class="memorable-text">"{m.memorable.text}"</p>
+                {/if}
+              </div>
+            {/if}
           </div>
           <div class="actions-col">
             <div class="xp-stack">
@@ -412,6 +422,16 @@
               <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
             {/if}
           </div>
+          {#if m.memorable}
+            <div class="memorable-snippet">
+              {#if m.memorable.imageUrl}
+                <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+              {/if}
+              {#if m.memorable.text}
+                <p class="memorable-text">"{m.memorable.text}"</p>
+              {/if}
+            </div>
+          {/if}
         </div>
         <div class="actions-col">
           <div class="xp-stack">
@@ -553,6 +573,29 @@
   .streak-hint {
     line-height: 1.35;
     max-width: 100%;
+  }
+  .memorable-snippet {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .memorable-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+  }
+  .memorable-text {
+    margin: 0;
+    color: var(--muted);
+    font-size: max(15px, 0.82rem);
+    line-height: 1.3;
+    font-style: italic;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
   button.lb-items {
     font: inherit;
@@ -842,7 +885,6 @@
     margin-top: 3px;
     width: 18px;
     height: 18px;
-    accent-color: var(--accent);
   }
   .share-row input:disabled {
     opacity: 0.55;

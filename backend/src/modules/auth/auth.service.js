@@ -7,11 +7,12 @@ import { createDefaultHabitsForUser } from '../../core/defaultHabits.js'
 import { normalizeEmail, maskEmailHint } from '../../core/emailUtil.js'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import * as cristaux from '../cristaux/cristaux.service.js'
+import * as loginAttempts from './loginAttempts.service.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const safeUser = (user) => {
-  const { passwordHash, activationCode, ...rest } = user
+  const { passwordHash, activationCode, tokenVersion, ...rest } = user
   return rest
 }
 
@@ -19,6 +20,7 @@ const tokenPayload = (user) => ({
   id: user.id,
   username: user.username,
   isAdmin: user.isAdmin === true,
+  tokenVersion: user.tokenVersion ?? 0,
 })
 
 // ── Register (compte autonome) ────────────────────────────────────────────────
@@ -133,21 +135,45 @@ const assertLoginMode = async (userId, loginMode, inviteCode) => {
   return { matchedGroupId: group.id }
 }
 
-export const login = async ({ email, password, loginMode, inviteCode }) => {
-  const user = await db.user.findUnique({ where: { email: normalizeEmail(email) } })
-  if (!user || !user.passwordHash)
+export const login = async ({ email, password, loginMode, inviteCode, clientIp }) => {
+  const normEmail = normalizeEmail(email)
+  if (loginAttempts.isLocked(normEmail, clientIp))
+    throw {
+      status: 429,
+      code: 'AUTH_LOCKED',
+      message: 'Trop de tentatives — réessaie dans quelques minutes.',
+    }
+
+  const user = await db.user.findUnique({ where: { email: normEmail } })
+  if (!user || !user.passwordHash) {
+    loginAttempts.recordFailure(normEmail, clientIp)
     throw { status: 401, message: 'Identifiants invalides' }
+  }
 
-  if (user.isPending)
+  if (user.isPending) {
+    loginAttempts.recordFailure(normEmail, clientIp)
     throw { status: 403, message: 'Compte non activé — utilise ton code association' }
+  }
 
-  if (user.isSuspended)
+  if (user.isSuspended) {
+    loginAttempts.recordFailure(normEmail, clientIp)
     throw { status: 403, message: 'Compte suspendu — contacte le support.', code: 'SUSPENDED' }
+  }
 
   const valid = await verifyPassword(password, user.passwordHash)
-  if (!valid) throw { status: 401, message: 'Identifiants invalides' }
+  if (!valid) {
+    loginAttempts.recordFailure(normEmail, clientIp)
+    throw { status: 401, message: 'Identifiants invalides' }
+  }
 
-  const { matchedGroupId } = await assertLoginMode(user.id, loginMode, inviteCode)
+  let matchedGroupId
+  try {
+    const mode = await assertLoginMode(user.id, loginMode, inviteCode)
+    matchedGroupId = mode.matchedGroupId
+  } catch (e) {
+    loginAttempts.recordFailure(normEmail, clientIp)
+    throw e
+  }
 
   const refreshed = await db.user.update({
     where: { id: user.id },
@@ -166,6 +192,7 @@ export const login = async ({ email, password, loginMode, inviteCode }) => {
   await cristaux.tryGrantConnexionQuotidienne(refreshed.id)
   await cristaux.tryGrantClosedDayJourneeParfaite(refreshed.id)
   const out = await db.user.findUnique({ where: { id: refreshed.id } })
+  loginAttempts.clearFailures(normEmail, clientIp)
 
   return {
     user:             safeUser(out),
@@ -325,7 +352,10 @@ export const changePassword = async (userId, body) => {
 
   await db.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashPassword(newPassword) },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      tokenVersion: { increment: 1 },
+    },
   })
   return { ok: true }
 }
@@ -446,7 +476,10 @@ export const resetPasswordWithToken = async (body) => {
   await db.$transaction([
     db.user.update({
       where: { id: row.userId },
-      data: { passwordHash: newHash },
+      data: {
+        passwordHash: newHash,
+        tokenVersion: { increment: 1 },
+      },
     }),
     db.passwordResetToken.update({
       where: { id: row.id },

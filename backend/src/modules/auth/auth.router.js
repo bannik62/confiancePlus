@@ -54,7 +54,10 @@ router.post('/register', validate(registerSchema), async (req, res, next) => {
 
 router.post('/login', validate(loginSchema), async (req, res, next) => {
   try {
-    const { user, token, matchedGroupId } = await service.login(req.body)
+    const { user, token, matchedGroupId } = await service.login({
+      ...req.body,
+      clientIp: req.ip,
+    })
     const csrfToken = setSessionCookies(res, token)
     res.json({
       user,

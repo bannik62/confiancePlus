@@ -11,6 +11,7 @@
   let error = ''
   let loading = false
   let success = false
+  const STRONG_PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,100}$/
 
   onMount(() => {
     const u = new URLSearchParams(window.location.search)
@@ -37,8 +38,8 @@
   const handleSubmit = async (e) => {
     e.preventDefault()
     error = ''
-    if (newPassword.length < 8) {
-      error = 'Au moins 8 caractères'
+    if (!STRONG_PASSWORD_RE.test(newPassword)) {
+      error = '12 caractères min, avec majuscule, minuscule, chiffre et spécial'
       return
     }
     if (newPassword !== confirmPassword) {
@@ -89,7 +90,7 @@
       <button type="button" class="btn-secondary" on:click={goLogin}>Retour à la connexion</button>
     {:else}
       <h2 class="title">Nouveau mot de passe</h2>
-      <p class="hint">Choisis un mot de passe d’au moins 8 caractères.</p>
+      <p class="hint">Choisis un mot de passe fort : 12 caractères min, majuscule, minuscule, chiffre et spécial.</p>
 
       {#if error}
         <p class="error">{error}</p>

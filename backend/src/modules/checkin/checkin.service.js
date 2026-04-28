@@ -1,4 +1,6 @@
 import { db } from '../../core/db.js'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { userIsAssociationOwner } from '../group/educatorScope.js'
 import { userIsAppAdmin } from '../admin/adminScope.js'
 
@@ -32,9 +34,42 @@ export const upsertDailyLog = async (userId, { date: dateStr, ...data }) => {
   const date = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
     ? dateFromYMD(dateStr)
     : todayDateUtc()
-  return db.dailyLog.upsert({
-    where:  { userId_date: { userId, date } },
-    create: { userId, date, ...data },
-    update: { ...data },
+  const existing = await db.dailyLog.findUnique({
+    where: { userId_date: { userId, date } },
+    select: { memorableImageUrl: true },
   })
+  let nextImageUrl = existing?.memorableImageUrl ?? null
+  if (data.removeMemorableImage === true) nextImageUrl = null
+  if (typeof data.memorableImageUrl === 'string' && data.memorableImageUrl.length > 0)
+    nextImageUrl = data.memorableImageUrl
+
+  const previousImageUrl = existing?.memorableImageUrl ?? null
+  const shouldDeletePreviousImage =
+    typeof previousImageUrl === 'string' &&
+    previousImageUrl.length > 0 &&
+    previousImageUrl !== nextImageUrl
+
+  const payload = {
+    mood: data.mood,
+    moodReason: data.moodReason,
+    sleepQuality: data.sleepQuality,
+    journal: data.journal,
+    shareMemorableInLeaderboard: data.shareMemorableInLeaderboard,
+    memorableImageUrl: nextImageUrl,
+  }
+
+  const row = await db.dailyLog.upsert({
+    where:  { userId_date: { userId, date } },
+    create: { userId, date, ...payload },
+    update: payload,
+  })
+
+  if (shouldDeletePreviousImage) {
+    const relative = previousImageUrl
+      .replace(/^\/+/, '')
+      .replace(/^api\//, '')
+    const absolutePath = path.resolve(process.cwd(), relative)
+    fs.unlink(absolutePath).catch(() => {})
+  }
+  return row
 }

@@ -1,6 +1,7 @@
 import express      from 'express'
 import cors         from 'cors'
 import cookieParser from 'cookie-parser'
+import path from 'node:path'
 import { config }       from './core/config.js'
 import { logger }       from './middlewares/logger.js'
 import { apiLimiter, authLimiter } from './middlewares/rateLimiter.js'
@@ -31,6 +32,8 @@ app.use(cors({
 }))
 app.use(cookieParser())           // parse req.cookies
 app.use(express.json())
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')))
+app.use('/api/uploads', express.static(path.resolve(process.cwd(), 'uploads')))
 app.use(logger)
 app.use('/api', apiLimiter)
 

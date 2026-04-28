@@ -35,7 +35,8 @@ const shouldDispatchSessionExpiredOn401 = (method, path) => {
 }
 
 const request = async (method, path, body) => {
-  const headers = { 'Content-Type': 'application/json' }
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' }
 
   // Injecte le token CSRF sur toutes les mutations
   if (MUTATION_METHODS.has(method)) {
@@ -53,7 +54,7 @@ const request = async (method, path, body) => {
       credentials: 'include',   // envoie le cookie httpOnly automatiquement
       headers,
       signal: controller.signal,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: isFormData ? body : JSON.stringify(body) } : {}),
     })
   } catch (e) {
     if (e?.name === 'AbortError')

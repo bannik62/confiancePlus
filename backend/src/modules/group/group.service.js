@@ -15,6 +15,17 @@ const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 
+const sharedMemorableFromDailyLogs = (dailyLogs, anchorYmd) => {
+  const row = Array.isArray(dailyLogs)
+    ? dailyLogs.find((x) => ymdFromDbDate(x.date) === anchorYmd)
+    : null
+  if (!row || row.shareMemorableInLeaderboard !== true) return null
+  const text = typeof row.journal === 'string' ? row.journal.trim() : ''
+  const imageUrl = typeof row.memorableImageUrl === 'string' ? row.memorableImageUrl : null
+  if (!text && !imageUrl) return null
+  return { text: text || null, imageUrl }
+}
+
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
   let code, exists
@@ -103,7 +114,14 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
           },
           dailyLogs: {
             where: { date: dateWhere },
-            select: { date: true, mood: true, journal: true, sleepQuality: true },
+            select: {
+              date: true,
+              mood: true,
+              journal: true,
+              sleepQuality: true,
+              shareMemorableInLeaderboard: true,
+              memorableImageUrl: true,
+            },
           },
           dailyVisits: {
             where: { ymd: { gte: streakMinYmd, lte: anchor } },
@@ -178,6 +196,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
         streak7TrophyCount: user.streak7TrophyCount ?? 0,
         perfReactionHearts: rx.perfReactionHearts,
         perfReactionSkeptics: rx.perfReactionSkeptics,
+        memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
       }
     })
     .sort((a, b) => b.totalXP - a.totalXP)

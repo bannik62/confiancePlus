@@ -10,6 +10,12 @@ const envSchema = z.object({
   API_RATE_MAX:        z.coerce.number().default(100),
   /** POST login/register/activate/check-code — /me exclu du compteur authLimiter */
   AUTH_RATE_MAX:       z.coerce.number().default(30),
+  /** Fenêtre anti brute-force login (ms). */
+  AUTH_LOGIN_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  /** Nombre max d'échecs login par e-mail sur la fenêtre. */
+  AUTH_LOGIN_MAX_PER_EMAIL: z.coerce.number().default(5),
+  /** Nombre max d'échecs login par paire e-mail+IP sur la fenêtre. */
+  AUTH_LOGIN_MAX_PER_EMAIL_IP: z.coerce.number().default(10),
   /** Derrière reverse proxy : `TRUST_PROXY=1` ou `true` — ne pas utiliser `z.coerce.boolean()` (\"false\" → true). */
   TRUST_PROXY: z
     .union([z.string(), z.undefined()])

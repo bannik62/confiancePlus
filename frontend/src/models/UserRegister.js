@@ -38,7 +38,7 @@ export class UserRegister extends BaseModel {
   set password(value) {
     this._validateField('password', value, [
       { test: v => v?.length > 0,                     message: 'Mot de passe requis' },
-      { test: v => BaseModel.REGEX.password.test(v),  message: '8 caractères min, avec lettre et chiffre' },
+      { test: v => BaseModel.REGEX.password.test(v),  message: '12 caractères min, avec majuscule, minuscule, chiffre et spécial' },
     ])
     this.#password = value
   }

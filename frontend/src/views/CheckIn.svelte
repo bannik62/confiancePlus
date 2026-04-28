@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte'
   import { fly } from 'svelte/transition'
   import { saveDailyLog } from '../stores/checkin.js'
+  import { CheckinDailyModel } from '../models/checkin/CheckinDailyModel.js'
 
   const dispatch = createEventDispatcher()
 
@@ -13,7 +14,12 @@
   const emojiFor = (n) => n <= 2 ? '😔' : n <= 4 ? '😕' : n <= 6 ? '😐' : n <= 8 ? '🙂' : n === 9 ? '😄' : '🤩'
 
   const submit = async () => {
-    await saveDailyLog({ mood, moodReason: reason })
+    const model = new CheckinDailyModel()
+    model.mood.mood = mood
+    model.mood.moodReason = reason
+    model.memorable.memorableText = ''
+    const payload = model.toPayload({})
+    await saveDailyLog(payload)
     dispatch('done')
   }
 </script>
