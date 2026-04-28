@@ -3,7 +3,7 @@
   import { get } from 'svelte/store'
   import Card from '../components/ui/Card.svelte'
   import Tag from '../components/ui/Tag.svelte'
-  import { localDateString } from '../lib/dateLocal.js'
+  import { localDateString, mondayFirstWeekdayIndex } from '../lib/dateLocal.js'
   import { appointmentsApi } from '../api/appointments.js'
   import { loadProfile } from '../stores/profile.js'
   import {
@@ -19,6 +19,9 @@
   const APPT_XP_FIXED = 30
 
   let year = currentYear()
+  /** Coercion entière (bind input number peut être string). */
+  $: agendaYearNum = typeof year === 'number' ? year : Math.floor(Number(year)) || currentYear()
+
   /** @type {{ date: string, scheduled: number, completed: number, intensity: number }[]} */
   let heatDays = []
   /** @type {any[]} */
@@ -40,7 +43,7 @@
 
   /** @type {Record<string, { date: string, scheduled: number, completed: number, intensity: number }>} */
   $: heatByDate = $isEducatorAssociation
-    ? heatMapFromManaged(managedRows, year)
+    ? heatMapFromManaged(managedRows, agendaYearNum)
     : Object.fromEntries((heatDays ?? []).map((d) => [d.date, d]))
   /** @type {{ id: string, title: string, notes?: string, date: string, timeHm: string, xpReward: number, done: boolean, notDone?: boolean }[]} */
   let modalDayRows = []
@@ -85,80 +88,47 @@
 
   const completePayload = () => ({ today: localDateString() })
 
-  /**
-   * Bandeaux mois : une cellule grille par mois, largeur = nombre de semaines du mois (noms complets, plus de "Ja..").
-   * @param {number} y
-   * @param {{ ymd: string, inRange: boolean, d: Date }[][]} weeks
-   */
-  const computeMonthBands = (y, weeks) => {
-    const bands = []
-    for (let m = 0; m < 12; m++) {
-      const mm = String(m + 1).padStart(2, '0')
-      const ymdFirst = `${y}-${mm}-01`
-      const startCol = weeks.findIndex((week) => week.some((d) => d.inRange && d.ymd === ymdFirst))
-      if (startCol < 0) continue
-      let endCol
-      if (m === 11) {
-        endCol = weeks.length - 1
-      } else {
-        const mmNext = String(m + 2).padStart(2, '0')
-        const ymdNext = `${y}-${mmNext}-01`
-        const nextCol = weeks.findIndex((week) => week.some((d) => d.inRange && d.ymd === ymdNext))
-        endCol = nextCol > 0 ? nextCol - 1 : weeks.length - 1
-      }
-      const label = new Date(y, m, 1).toLocaleDateString('fr-FR', { month: 'long' })
-      bands.push({
-        label,
-        gridColumn: `${startCol + 1} / ${endCol + 2}`,
-        key: `m-${m}`,
-      })
-    }
-    return bands
-  }
+  /** 6 lignes × 7 jours, semaine lun → dim — mois mural classique. */
+  const MONTH_GRID_CELLS = 42
 
   /**
-   * Grille type GitHub : colonnes = semaines (lun→dim), dates locales.
-   * @param {number} y
+   * @param {number} y année civile locale
+   * @param {number} m 0–11
    */
-  const buildYearGrid = (y) => {
-    const jan1 = new Date(y, 0, 1)
-    const dec31 = new Date(y, 11, 31)
-    const mondayOf = (dt) => {
-      const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate())
-      const dow = (d.getDay() + 6) % 7
-      d.setDate(d.getDate() - dow)
-      return d
+  const buildMonthBloc = (y, m) => {
+    const firstOfMonth = new Date(y, m, 1)
+    const leading = mondayFirstWeekdayIndex(firstOfMonth)
+    const anchor = new Date(y, m, 1)
+    anchor.setDate(1 - leading)
+    const cells = []
+    for (let i = 0; i < MONTH_GRID_CELLS; i++) {
+      const d = new Date(anchor)
+      d.setDate(anchor.getDate() + i)
+      const ymd = localDateString(d)
+      const inMonth = d.getFullYear() === y && d.getMonth() === m
+      cells.push({ ymd, d, inMonth })
     }
-    const firstMonday = mondayOf(jan1)
-    const lastMonday = mondayOf(dec31)
-    const weeks = []
-    for (let cursor = new Date(firstMonday); cursor <= lastMonday; cursor.setDate(cursor.getDate() + 7)) {
-      const days = []
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(cursor)
-        d.setDate(cursor.getDate() + i)
-        const inRange = d >= jan1 && d <= dec31
-        days.push({ ymd: localDateString(d), inRange, d })
-      }
-      weeks.push(days)
-    }
-    const weekMetas = weeks.map((week) => {
-      const firstOfMonth = week.find((x) => x.inRange && x.d.getDate() === 1)
-      const monthStart = !!firstOfMonth
-      return { monthStart }
-    })
-    const monthBands = computeMonthBands(y, weeks)
-    return { weeks, weekMetas, monthBands, weekCount: weeks.length }
+    const label = firstOfMonth.toLocaleDateString('fr-FR', { month: 'long' })
+    return { monthIndex: m, key: `${y}-${String(m + 1).padStart(2, '0')}`, label, cells }
   }
 
-  $: grid = buildYearGrid(year)
+  /** @param {number} y */
+  const buildYearMonths = (y) => {
+    if (!Number.isFinite(y) || y < 1900 || y > 2600) return []
+    /** @type {ReturnType<typeof buildMonthBloc>[]} */
+    const out = []
+    for (let m = 0; m < 12; m++) out.push(buildMonthBloc(y, m))
+    return out
+  }
+
+  $: yearMonths = buildYearMonths(agendaYearNum)
   $: todayYmd = localDateString()
 
   const loadCalendarStudent = async () => {
     loading = true
     err = ''
     try {
-      const cal = await appointmentsApi.calendar(year)
+      const cal = await appointmentsApi.calendar(agendaYearNum)
       heatDays = cal?.days ?? []
     } catch (e) {
       err = e.message || 'Impossible de charger le calendrier'
@@ -177,7 +147,7 @@
     loading = true
     err = ''
     try {
-      const rows = await appointmentsApi.managed(gid, year)
+      const rows = await appointmentsApi.managed(gid, agendaYearNum)
       managedRows = Array.isArray(rows) ? rows : []
     } catch (e) {
       err = e.message || 'Impossible de charger les RDV'
@@ -190,10 +160,10 @@
   $: gid = $educatorAssociationGroupId
   $: if ($isEducatorAssociation) {
     gid
-    year
+    agendaYearNum
     void loadEducator()
   } else {
-    year
+    agendaYearNum
     void loadCalendarStudent()
   }
 
@@ -428,10 +398,9 @@
       ? managedRows.filter((r) => ymdFromIso(r.date) === modalDate)
       : []
 
-  const onCellClick = (day) => {
-    if (!day.inRange) return
-    if ($isEducatorAssociation) openEducatorDayModal(day.ymd)
-    else openDayModal(day.ymd)
+  const onCellClick = (ymd) => {
+    if ($isEducatorAssociation) openEducatorDayModal(ymd)
+    else openDayModal(ymd)
   }
 
   onMount(async () => {
@@ -454,9 +423,6 @@
     })
   }
 
-  /** Date du jour dans la case « aujourd’hui » (format court pour petites cases). */
-  const fmtCellTodayDate = (d) =>
-    d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
 </script>
 
 <div class="view">
@@ -468,7 +434,7 @@
       <input type="number" min="2020" max="2100" bind:value={year} />
     </label>
     <p class="sub">
-      Chaque colonne = une semaine (lun → dim). <strong>Fais défiler horizontalement</strong> pour parcourir l’année — les cases gardent une taille lisible. Touche un jour pour gérer les RDV.
+      Chaque bloc = un mois (lun → dim en-tête puis les jours). <strong>Fais défiler horizontalement</strong> pour parcourir les 12 mois. Touche un jour pour les RDV.
     </p>
   </div>
 
@@ -483,67 +449,47 @@
       <span class="micro muted">Plus d’activité</span>
     </div>
 
-    <div class="github-grid" class:dim={loading}>
-      <div class="dow-col" aria-hidden="true">
-        {#each DOW_LETTERS as L}
-          <span class="dow">{L}</span>
-        {/each}
-      </div>
-      <div class="gh-scroll" style="--week-count: {grid.weekCount}">
-        <div
-          class="gh-months"
-          style="grid-template-columns: repeat({grid.weekCount}, var(--week-col-min));"
-        >
-          {#each grid.monthBands as band (band.key)}
-            <div class="month-band" style="grid-column: {band.gridColumn};">
-              <span class="month-band__txt">{band.label}</span>
+    <div class="months-strip-wrap" class:dim={loading}>
+      <div class="year-cal-scroll" aria-label="Calendrier de l’année">
+        {#each yearMonths as bloc (bloc.key)}
+          <section class="month-card">
+            <h2 class="month-card-title">{bloc.label}</h2>
+            <div class="month-dow" aria-hidden="true">
+              {#each DOW_LETTERS as L}<span>{L}</span>{/each}
             </div>
-          {/each}
-        </div>
-        <div
-          class="gh-weeks"
-          style="grid-template-columns: repeat({grid.weekCount}, var(--week-col-min));"
-        >
-          {#each grid.weeks as week, wi}
-            <div class="week-col" class:month-start={grid.weekMetas[wi]?.monthStart}>
-              {#each week as day}
+            <div class="month-cell-grid">
+              {#each bloc.cells as cell (bloc.key + ':' + cell.ymd)}
                 <button
                   type="button"
-                  class="gh-cell"
-                  class:pad={!day.inRange}
-                  class:today={day.inRange && day.ymd === todayYmd}
-                  class:has-appt={day.inRange && (heatByDate[day.ymd]?.scheduled ?? 0) > 0}
-                  disabled={!day.inRange}
-                  style={day.inRange
-                    ? `background:${cellColor(heatByDate[day.ymd]?.intensity ?? 0)}`
+                  class="month-cell"
+                  class:omc={!cell.inMonth}
+                  class:today={cell.inMonth && cell.ymd === todayYmd}
+                  class:has-appt={cell.inMonth && (heatByDate[cell.ymd]?.scheduled ?? 0) > 0}
+                  disabled={!cell.inMonth}
+                  style={cell.inMonth
+                    ? `background:${cellColor(heatByDate[cell.ymd]?.intensity ?? 0)}`
+                    : undefined}
+                  title={cell.inMonth
+                    ? `${cell.ymd} — ${heatByDate[cell.ymd]?.scheduled ?? 0} RDV`
                     : ''}
-                  title={day.inRange
-                    ? `${day.ymd === todayYmd ? fmtCellTodayDate(day.d) + ' — ' : ''}${day.ymd} — ${heatByDate[day.ymd]?.scheduled ?? 0} RDV`
-                    : ''}
-                  on:click={() => onCellClick(day)}
+                  aria-hidden={!cell.inMonth ? true : undefined}
+                  on:click={() => onCellClick(cell.ymd)}
                 >
-                  {#if day.inRange}
-                    {#if day.ymd === todayYmd}
-                      <span class="cell-stack">
-                        <span class="cell-num">{day.d.getDate()}</span>
-                        <span class="cell-date-today">{fmtCellTodayDate(day.d)}</span>
-                      </span>
-                    {:else}
-                      <span class="cell-num">{day.d.getDate()}</span>
-                    {/if}
+                  {#if cell.inMonth}
+                    <span class="month-cell-num">{cell.d.getDate()}</span>
                   {/if}
                 </button>
               {/each}
             </div>
-          {/each}
-        </div>
+          </section>
+        {/each}
       </div>
     </div>
   </Card>
 
   {#if $isEducatorAssociation && managedRows.length > 0}
     <Card style="margin-top:12px">
-      <div class="micro muted" style="margin-bottom:8px">TOUS LES RDV ({year})</div>
+      <div class="micro muted" style="margin-bottom:8px">TOUS LES RDV ({agendaYearNum})</div>
       <ul class="compact-list">
         {#each managedRows as r}
           <li>
@@ -891,219 +837,141 @@
     );
   }
 
-  .github-grid {
-    /* Colonnes semaine = largeur fixe → scroll horizontal (pas d’écrasement sur mobile). */
-    --week-col-min: 52px;
-    --month-row-h: clamp(2.2rem, 6vmin, 2.85rem);
-    --cell-gap: 6px;
-    display: flex;
-    gap: clamp(15px, 2.2vmin, 14px);
-    align-items: stretch;
+  /* Bandeau horizontal : une carte par mois, grille 7 cols type calendrier mural. */
+  .months-strip-wrap {
     width: 100%;
-    min-height: 0;
-    padding: clamp(15px, 2vmin, 18px) 0 clamp(15px, 2.5vmin, 22px);
+    padding: clamp(15px, 2vmin, 18px) 0 clamp(12px, 2.5vmin, 20px);
     box-sizing: border-box;
+    min-height: 0;
   }
-  .github-grid.dim {
+  .months-strip-wrap.dim {
     opacity: 0.55;
   }
-  .dow-col {
+  .year-cal-scroll {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: var(--cell-gap);
-    padding-top: var(--month-row-h);
-    flex-shrink: 0;
-    width: clamp(22px, 6vmin, 32px);
-  }
-  .dow {
-    font-size: clamp(15px, 2.6vmin, 13px);
-    color: var(--muted);
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    text-align: center;
-    line-height: 1;
-    height: var(--week-col-min);
-    min-height: var(--week-col-min);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .gh-scroll {
-    --week-col-min: 52px;
-    flex: 1;
-    min-width: 0;
-    width: 100%;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: clamp(14px, 3vmin, 22px);
     overflow-x: auto;
     overflow-y: hidden;
+    padding-bottom: clamp(14px, 2.8vmin, 20px);
+    margin: 0;
+    scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-    padding-bottom: clamp(15px, 2vmin, 14px);
-    scrollbar-width: thin;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: clamp(8px, 2vw, 14px);
   }
-  .gh-months {
-    display: grid;
-    width: max-content;
-    min-width: calc(
-      var(--week-count, 53) * var(--week-col-min) + (var(--week-count, 53) - 1) * var(--cell-gap)
-    );
+  .month-card {
+    flex: 0 0 auto;
+    width: clamp(268px, 78vw, 328px);
+    scroll-snap-align: start;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    padding: 12px 10px 14px;
     box-sizing: border-box;
-    gap: 0;
-    column-gap: var(--cell-gap);
-    row-gap: 0;
-    margin-bottom: clamp(15px, 2.4vmin, 16px);
-    min-height: var(--month-row-h);
-    align-items: stretch;
-  }
-  .month-band {
-    min-width: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: clamp(15px, 1.6vmin, 10px) clamp(15px, 1vmin, 8px);
-    border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent) 12%, transparent),
-      color-mix(in srgb, var(--accent) 4%, transparent)
-    );
-    border-radius: 10px 10px 0 0;
-    box-sizing: border-box;
+    flex-direction: column;
+    gap: 8px;
   }
-  .month-band__txt {
-    font-size: clamp(15px, 3vmin, 15px);
-    font-weight: 800;
+  .month-card-title {
+    margin: 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
     font-family: 'Rajdhani', sans-serif;
-    color: var(--accent-light);
+    font-size: clamp(1.02rem, 4vmin, 1.18rem);
+    font-weight: 800;
     text-transform: capitalize;
+    letter-spacing: 0.05em;
+    color: var(--accent-light);
     text-align: center;
-    line-height: 1.15;
-    width: 100%;
-    hyphens: none;
-    word-break: break-word;
   }
-  .gh-weeks {
+  .month-dow {
     display: grid;
-    width: max-content;
-    min-width: calc(
-      var(--week-count, 53) * var(--week-col-min) + (var(--week-count, 53) - 1) * var(--cell-gap)
-    );
-    box-sizing: border-box;
-    gap: var(--cell-gap);
-    align-items: start;
-  }
-  .week-col {
-    display: flex;
-    flex-direction: column;
-    gap: var(--cell-gap);
-    width: var(--week-col-min);
-    min-width: var(--week-col-min);
-    border-radius: 4px;
-  }
-  .week-col.month-start {
-    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent);
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--accent) 11%, transparent),
-      transparent 68%
-    );
-    border-radius: 6px;
-  }
-  .gh-cell {
-    width: 100%;
-    aspect-ratio: 1;
-    height: auto;
-    min-height: var(--week-col-min);
-    border-radius: clamp(15px, 1vw, 6px);
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    padding: 2px;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: transform 0.1s, box-shadow 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    box-sizing: border-box;
-  }
-  .cell-stack {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    max-width: 100%;
-    pointer-events: none;
-    user-select: none;
-    line-height: 1.05;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
     text-align: center;
-  }
-  .cell-date-today {
-    font-size: clamp(15px, 1.65vmin, 8px);
+    font-size: clamp(12px, 3.2vmin, 14px);
+    font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
+    color: var(--muted);
+  }
+  .month-cell-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+  .month-cell {
+    aspect-ratio: 1;
+    width: 100%;
+    min-width: 0;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      transform 0.1s,
+      box-shadow 0.1s;
+    box-sizing: border-box;
+  }
+  .month-cell-num {
+    font-size: clamp(12px, 3vmin, 14px);
     font-family: 'Rajdhani', sans-serif;
-    color: var(--cyan);
-    opacity: 0.98;
-    line-height: 1.1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
-    padding: 0 1px;
-  }
-  .gh-cell.has-appt .cell-date-today {
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
-  .cell-num {
-    font-size: clamp(15px, 2.4vmin, 12px);
     font-weight: 800;
-    font-family: 'Rajdhani', sans-serif;
-    color: color-mix(in srgb, var(--text) 72%, transparent);
-    line-height: 1;
     pointer-events: none;
-    user-select: none;
-    opacity: 0.92;
+    color: color-mix(in srgb, var(--text) 78%, transparent);
   }
-  .gh-cell.has-appt .cell-num {
+  /* Cases hors mois : vides, désactivées (pas de chiffre, pas de clic). */
+  .month-cell:disabled,
+  .month-cell.omc:disabled {
+    cursor: default;
+    opacity: 1;
+    background: transparent !important;
+    border-color: transparent;
+    box-shadow: none !important;
+    transform: none;
+  }
+  .month-cell.omc:disabled:hover {
+    transform: none;
+    box-shadow: none !important;
+    z-index: auto;
+  }
+  .month-cell.has-appt .month-cell-num {
     color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 0 1px rgba(0, 0, 0, 0.55);
   }
-  .gh-cell.today .cell-num {
+  .month-cell.today .month-cell-num {
     color: var(--cyan);
+    font-weight: 900;
     text-shadow: none;
   }
-  .gh-cell:hover:not(:disabled) {
-    transform: scale(1.08);
+  .month-cell:not(:disabled):hover {
+    transform: scale(1.05);
     box-shadow: 0 0 0 1px var(--accent);
     z-index: 1;
   }
-  .gh-cell.today:hover:not(:disabled) {
+  .month-cell.today {
     z-index: 2;
     box-shadow:
-      0 0 8px var(--accent)66,
-      0 0 12px color-mix(in srgb, var(--cyan) 55%, transparent),
-      0 0 20px color-mix(in srgb, var(--cyan) 32%, transparent),
+      0 0 6px color-mix(in srgb, var(--cyan) 82%, transparent),
+      0 0 14px color-mix(in srgb, var(--accent) 25%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #fff 20%, transparent);
+  }
+  .month-cell.today:hover {
+    box-shadow:
+      0 0 10px color-mix(in srgb, var(--cyan) 55%, transparent),
+      0 0 18px color-mix(in srgb, var(--accent) 28%, transparent),
       inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
   }
-  .gh-cell.pad {
-    background: transparent !important;
-    border-color: transparent;
-    cursor: default;
-    pointer-events: none;
-    opacity: 0.2;
-    min-height: var(--week-col-min);
-  }
-  .gh-cell.today {
-    z-index: 2;
-    box-shadow:
-      0 0 6px color-mix(in srgb, var(--cyan) 85%, transparent),
-      0 0 14px color-mix(in srgb, var(--cyan) 40%, transparent),
-      0 0 22px color-mix(in srgb, var(--accent) 28%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent);
-  }
-  .gh-cell.has-appt {
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  .month-cell.has-appt {
+    border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
   }
 
   .compact-list {
