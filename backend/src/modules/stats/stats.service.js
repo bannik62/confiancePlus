@@ -760,6 +760,7 @@ export const getCalendarYear = async (userId, year) => {
       moodReason: dailyLog?.moodReason ?? null,
       sleepQuality: dailyLog?.sleepQuality ?? null,
       journal: dailyLog?.journal ?? null,
+      memorableImageUrl: dailyLog?.memorableImageUrl ?? null,
       // Liste habitudes cochées
       habits,
       /** RDV marqués « non fait » ce jour — raison visible ici / heatmap uniquement */

@@ -70,6 +70,7 @@
   
   // day.xp = serveur (computeDayXP : bonus « toutes cochées » déjà inclus)
   $: totalXp = day?.xp ?? 0
+  let imageOpen = false
 </script>
 
 {#if day}
@@ -123,7 +124,29 @@
       {#if day.journal}
         <div class="section">
           <div class="section-title">✨ Moment mémorable</div>
+          {#if day.memorableImageUrl}
+            <button
+              type="button"
+              class="memorable-thumb-btn"
+              aria-label="Agrandir la photo du moment mémorable"
+              on:click={() => (imageOpen = true)}
+            >
+              <img src={day.memorableImageUrl} alt="Moment mémorable du jour" class="memorable-thumb" />
+            </button>
+          {/if}
           <div class="journal-text">"{day.journal}"</div>
+        </div>
+      {:else if day.memorableImageUrl}
+        <div class="section">
+          <div class="section-title">✨ Photo du jour</div>
+          <button
+            type="button"
+            class="memorable-thumb-btn"
+            aria-label="Agrandir la photo du jour"
+            on:click={() => (imageOpen = true)}
+          >
+            <img src={day.memorableImageUrl} alt="Souvenir du jour" class="memorable-thumb" />
+          </button>
         </div>
       {/if}
 
@@ -170,6 +193,17 @@
     </div>
     </div>
   </div>
+
+  {#if imageOpen && day.memorableImageUrl}
+    <div class="image-overlay" role="presentation" on:click={() => (imageOpen = false)}></div>
+    <div class="image-modal" role="dialog" aria-modal="true" aria-label="Photo du jour">
+      <button type="button" class="image-close-btn" on:click={() => (imageOpen = false)}>✕</button>
+      <img src={day.memorableImageUrl} alt="Aperçu complet du moment mémorable" class="image-full" />
+      {#if day.journal}
+        <p class="image-caption">"{day.journal}"</p>
+      {/if}
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -327,6 +361,79 @@
     border-left: 3px solid var(--accent);
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .memorable-thumb-btn {
+    border: none;
+    padding: 0;
+    margin: 0 0 10px;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+  }
+
+  .memorable-thumb {
+    width: min(180px, 70vw);
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .image-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    background: rgba(0, 0, 0, 0.78);
+  }
+
+  .image-modal {
+    position: fixed;
+    z-index: 1301;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 560px);
+    max-height: 88dvh;
+    overflow: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+  }
+
+  .image-close-btn {
+    position: sticky;
+    top: 0;
+    margin-left: auto;
+    display: block;
+    border: 1px solid var(--border-btn);
+    background: var(--surface);
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .image-full {
+    width: 100%;
+    max-height: 70dvh;
+    object-fit: contain;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .image-caption {
+    margin: 10px 4px 2px;
+    font-size: clamp(15px, 0.72rem + 0.28vw, 17px);
+    line-height: 1.4;
+    color: var(--text);
+    font-style: italic;
+    overflow-wrap: anywhere;
   }
   
   .habits-list {

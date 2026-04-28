@@ -118,6 +118,7 @@
       day.mood ||
       day.sleepQuality ||
       day.journal ||
+      day.memorableImageUrl ||
       (day.moodReason && String(day.moodReason).trim()) ||
       (Array.isArray(day.rdvNotDone) && day.rdvNotDone.length > 0)
     ) {
