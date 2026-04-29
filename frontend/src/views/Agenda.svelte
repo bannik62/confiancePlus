@@ -241,6 +241,33 @@
     return '#fff'
   }
 
+  const cellGlowShadowFromScheduled = (scheduled) => {
+    const band = bandFromScheduled(scheduled)
+    if (band < 0) return 'none'
+    if (band === 0)
+      return '0 0 0 1px color-mix(in srgb, var(--stats-low) 78%, transparent), 0 0 10px color-mix(in srgb, var(--stats-low) 58%, transparent)'
+    if (band === 1)
+      return '0 0 0 1px color-mix(in srgb, var(--accent-dark) 82%, transparent), 0 0 10px color-mix(in srgb, var(--accent-dark) 58%, transparent)'
+    if (band === 2)
+      return '0 0 0 1px color-mix(in srgb, var(--accent) 78%, transparent), 0 0 11px color-mix(in srgb, var(--accent) 54%, transparent)'
+    if (band === 3)
+      return '0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--gold) 60%, var(--accent) 40%) 82%, transparent), 0 0 11px color-mix(in srgb, color-mix(in srgb, var(--gold) 60%, var(--accent) 40%) 56%, transparent)'
+    return '0 0 0 1px color-mix(in srgb, var(--gold) 80%, transparent), 0 0 12px color-mix(in srgb, var(--gold) 60%, transparent)'
+  }
+
+  /** Halo « jour courant » : surtout inset pour éviter le débordement sur la case voisine (ex. 30). */
+  const SHADOW_TODAY_RING =
+    'inset 0 0 0 2px color-mix(in srgb, var(--cyan) 78%, transparent), 0 0 6px color-mix(in srgb, var(--cyan) 52%, transparent)'
+
+  /** Le style inline `box-shadow` des RDV écrase le CSS `.month-cell.today` : on compose tout en JS. */
+  const combinedCellBoxShadow = (ymd, scheduled) => {
+    const rdv = cellGlowShadowFromScheduled(scheduled)
+    if (ymd !== todayYmd) return rdv
+    if (rdv === 'none') return SHADOW_TODAY_RING
+    /** `box-shadow`: la première couche est au-dessus — le halo cyan du jour passe devant les reflets RDV. */
+    return `${SHADOW_TODAY_RING}, ${rdv}`
+  }
+
   // Règle métier UI:
   // - passé (< aujourd'hui) : consultation uniquement ; sans RDV => case non cliquable
   // - aujourd'hui + futur : comportement normal (création autorisée)
@@ -518,6 +545,9 @@
                           heatByDate[cell.ymd]?.scheduled ?? 0,
                         )};border-color:${cellBorderFromScheduled(
                           heatByDate[cell.ymd]?.scheduled ?? 0,
+                        )};box-shadow:${combinedCellBoxShadow(
+                          cell.ymd,
+                          heatByDate[cell.ymd]?.scheduled ?? 0,
                         )}`
                       : undefined
                   }
@@ -530,6 +560,7 @@
                   {#if cell.inMonth}
                     <span
                       class="month-cell-num"
+                      class:is-today={cell.inMonth && cell.ymd === todayYmd}
                       style={`color:${cellTextColorFromScheduled(heatByDate[cell.ymd]?.scheduled ?? 0)}`}
                     >
                       {cell.d.getDate()}
@@ -945,6 +976,23 @@
     scroll-behavior: smooth;
     scroll-snap-type: x proximity;
     scroll-padding-inline: clamp(8px, 2vw, 14px);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent) 58%, var(--gold) 42%) color-mix(in srgb, var(--border) 88%, var(--bg));
+  }
+  .year-cal-scroll::-webkit-scrollbar {
+    height: 10px;
+  }
+  .year-cal-scroll::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--border) 88%, var(--bg));
+    border-radius: 999px;
+  }
+  .year-cal-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, var(--accent-dark), var(--accent), var(--gold));
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--bg) 75%, transparent);
+  }
+  .year-cal-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, var(--accent), var(--gold));
   }
   .month-card {
     flex: 0 0 auto;
@@ -1035,28 +1083,27 @@
       0 1px 2px rgba(0, 0, 0, 0.4),
       0 0 1px rgba(0, 0, 0, 0.55);
   }
-  .month-cell.today .month-cell-num {
-    color: var(--cyan);
+  /** Jour courant : taille + scale visibles (la couleur vient encore du span inline selon RDV). */
+  .month-cell-num.is-today {
+    display: inline-block;
+    font-size: clamp(18px, 6.2vmin, 24px) !important;
     font-weight: 900;
-    text-shadow: none;
+    line-height: 1;
+    transform: scale(1.18);
+    transform-origin: center center;
+    letter-spacing: 0.04em;
   }
   .month-cell:not(:disabled):hover {
     transform: scale(1.05);
     box-shadow: 0 0 0 1px var(--accent);
     z-index: 1;
   }
+  /** Surbrillance du jour courant portée par `combinedCellBoxShadow` (plus de conflit inline vs CSS). */
   .month-cell.today {
     z-index: 2;
-    box-shadow:
-      0 0 6px color-mix(in srgb, var(--cyan) 82%, transparent),
-      0 0 14px color-mix(in srgb, var(--accent) 25%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, #fff 20%, transparent);
   }
   .month-cell.today:hover {
-    box-shadow:
-      0 0 10px color-mix(in srgb, var(--cyan) 55%, transparent),
-      0 0 18px color-mix(in srgb, var(--accent) 28%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
+    z-index: 3;
   }
   /* border-color des cases RDV calculé en inline via `scheduled` */
 
