@@ -204,11 +204,48 @@
     apptDeclineReason = ''
   }
 
-  const cellColor = (intensity) => {
-    if (intensity <= 0) return 'var(--border)'
-    const a = 0.2 + (intensity / 100) * 0.85
-    return `color-mix(in srgb, var(--accent) ${Math.round(a * 100)}%, var(--bg))`
+  /**
+   * UX : 5 niveaux = 5 RDV max (cap à 5),
+   * couleurs "lever de soleil" identiques à `Stats` (theme.css).
+   */
+  const bandFromScheduled = (scheduled) => {
+    const s = Number(scheduled) || 0
+    if (s <= 0) return -1
+    return Math.min(4, Math.max(0, s - 1)) // 1->0 ... 5+->4
   }
+
+  const cellBackgroundFromScheduled = (scheduled) => {
+    const band = bandFromScheduled(scheduled)
+    if (band < 0) return 'var(--border)'
+    // Palette alignée sur le calendrier Stats (mode activité), sans blanc saturé.
+    if (band === 0) return 'var(--stats-low)'
+    if (band === 1) return 'var(--accent-dark)'
+    if (band === 2) return 'var(--accent)'
+    if (band === 3) return 'color-mix(in srgb, var(--gold) 60%, var(--accent) 40%)'
+    return 'var(--gold)'
+  }
+
+  const cellBorderFromScheduled = (scheduled) => {
+    const band = bandFromScheduled(scheduled)
+    if (band < 0) return `color-mix(in srgb, var(--border) 80%, transparent)`
+    if (band <= 1) return `color-mix(in srgb, var(--accent-dark) 58%, var(--border))`
+    if (band === 2) return `color-mix(in srgb, var(--accent) 60%, var(--border))`
+    return `color-mix(in srgb, var(--gold) 62%, var(--border))`
+  }
+
+  const cellTextColorFromScheduled = (scheduled) => {
+    const band = bandFromScheduled(scheduled)
+    if (band < 0) return undefined
+    // Lisibilité: clair sur tons sombres, sombre quand la case est dorée.
+    if (band >= 3) return 'var(--bg)'
+    return '#fff'
+  }
+
+  // Règle métier UI:
+  // - passé (< aujourd'hui) : consultation uniquement ; sans RDV => case non cliquable
+  // - aujourd'hui + futur : comportement normal (création autorisée)
+  const isPastDayNoAppt = (cell, scheduled) =>
+    cell?.inMonth && cell?.ymd && cell.ymd < todayYmd && (Number(scheduled) || 0) <= 0
 
   const createMine = async () => {
     if (!modalDate || !newTitle.trim()) return
@@ -445,7 +482,16 @@
   <Card style="width:100%;box-sizing:border-box">
     <div class="gh-toolbar">
       <span class="micro muted">Moins d’activité</span>
-      <div class="legend-scale" aria-hidden="true"></div>
+      <div class="legend-scale-wrap" aria-hidden="true">
+        <div class="legend-scale"></div>
+        <div class="legend-steps">
+          <span>1</span>
+          <span>2</span>
+          <span>3</span>
+          <span>4</span>
+          <span>5+</span>
+        </div>
+      </div>
       <span class="micro muted">Plus d’activité</span>
     </div>
 
@@ -465,10 +511,16 @@
                   class:omc={!cell.inMonth}
                   class:today={cell.inMonth && cell.ymd === todayYmd}
                   class:has-appt={cell.inMonth && (heatByDate[cell.ymd]?.scheduled ?? 0) > 0}
-                  disabled={!cell.inMonth}
-                  style={cell.inMonth
-                    ? `background:${cellColor(heatByDate[cell.ymd]?.intensity ?? 0)}`
-                    : undefined}
+                  disabled={!cell.inMonth || isPastDayNoAppt(cell, heatByDate[cell.ymd]?.scheduled ?? 0)}
+                  style={
+                    cell.inMonth
+                      ? `background:${cellBackgroundFromScheduled(
+                          heatByDate[cell.ymd]?.scheduled ?? 0,
+                        )};border-color:${cellBorderFromScheduled(
+                          heatByDate[cell.ymd]?.scheduled ?? 0,
+                        )}`
+                      : undefined
+                  }
                   title={cell.inMonth
                     ? `${cell.ymd} — ${heatByDate[cell.ymd]?.scheduled ?? 0} RDV`
                     : ''}
@@ -476,7 +528,12 @@
                   on:click={() => onCellClick(cell.ymd)}
                 >
                   {#if cell.inMonth}
-                    <span class="month-cell-num">{cell.d.getDate()}</span>
+                    <span
+                      class="month-cell-num"
+                      style={`color:${cellTextColorFromScheduled(heatByDate[cell.ymd]?.scheduled ?? 0)}`}
+                    >
+                      {cell.d.getDate()}
+                    </span>
                   {/if}
                 </button>
               {/each}
@@ -524,21 +581,26 @@
           <p class="muted">Chargement…</p>
         {:else}
           <div class="modal-section">
-            <div class="micro" style="color:var(--cyan)">NOUVEAU RDV CE JOUR</div>
-            <label class="field">
-              <span>Titre</span>
-              <input type="text" maxlength="120" bind:value={newTitle} placeholder="Ex. Appel coach" />
-            </label>
-            <label class="field">
-              <span>Notes</span>
-              <textarea rows="2" bind:value={newNotes} placeholder="Optionnel"></textarea>
-            </label>
-            <label class="field">
-              <span>Heure</span>
-              <input type="time" bind:value={newTimeHm} />
-            </label>
-            <p class="xp-fixed-hint micro muted">+{APPT_XP_FIXED} XP à la validation (montant fixe)</p>
-            <button type="button" class="cta" on:click={createMine}>Ajouter le RDV</button>
+            {#if modalDate >= todayYmd}
+              <div class="micro" style="color:var(--cyan)">NOUVEAU RDV CE JOUR</div>
+              <label class="field">
+                <span>Titre</span>
+                <input type="text" maxlength="120" bind:value={newTitle} placeholder="Ex. Appel coach" />
+              </label>
+              <label class="field">
+                <span>Notes</span>
+                <textarea rows="2" bind:value={newNotes} placeholder="Optionnel"></textarea>
+              </label>
+              <label class="field">
+                <span>Heure</span>
+                <input type="time" bind:value={newTimeHm} />
+              </label>
+              <p class="xp-fixed-hint micro muted">+{APPT_XP_FIXED} XP à la validation (montant fixe)</p>
+              <button type="button" class="cta" on:click={createMine}>Ajouter le RDV</button>
+            {:else}
+              <div class="micro muted" style="margin-bottom:8px">Consultation uniquement</div>
+              <p class="muted small">Date passée : création fermée, consultation des RDV existants uniquement.</p>
+            {/if}
           </div>
 
           <div class="modal-section">
@@ -826,15 +888,36 @@
     margin-bottom: 10px;
   }
   .legend-scale {
-    flex: 1;
     height: 10px;
     border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
     background: linear-gradient(
       90deg,
-      var(--border),
-      color-mix(in srgb, var(--accent) 35%, var(--bg)),
-      color-mix(in srgb, var(--accent) 85%, var(--bg))
+      var(--border) 0%,
+      var(--stats-low) 20%,
+      var(--accent-dark) 42%,
+      var(--accent) 68%,
+      var(--gold) 100%
     );
+  }
+  .legend-scale-wrap {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .legend-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    font-size: max(11px, 0.68rem);
+    color: var(--muted);
+    opacity: 0.9;
+    text-align: center;
+    letter-spacing: 0.02em;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
   }
 
   /* Bandeau horizontal : une carte par mois, grille 7 cols type calendrier mural. */
@@ -868,8 +951,14 @@
     width: clamp(268px, 78vw, 328px);
     scroll-snap-align: start;
     border-radius: 14px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    border: 1px solid color-mix(in srgb, var(--stat-global-text-2) 36%, var(--border));
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--stat-global-text-0) 12%, var(--bg)) 0%,
+        color-mix(in srgb, var(--stat-global-text-2) 8%, var(--bg)) 48%,
+        color-mix(in srgb, var(--stat-global-text-4) 6%, var(--bg)) 100%
+      );
     padding: 12px 10px 14px;
     box-sizing: border-box;
     display: flex;
@@ -879,13 +968,13 @@
   .month-card-title {
     margin: 0;
     padding-bottom: 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+    border-bottom: 1px solid color-mix(in srgb, var(--stat-global-text-3) 45%, var(--border));
     font-family: 'Rajdhani', sans-serif;
     font-size: clamp(1.02rem, 4vmin, 1.18rem);
     font-weight: 800;
     text-transform: capitalize;
     letter-spacing: 0.05em;
-    color: var(--accent-light);
+    color: var(--stat-global-text-2);
     text-align: center;
   }
   .month-dow {
@@ -942,7 +1031,6 @@
     z-index: auto;
   }
   .month-cell.has-appt .month-cell-num {
-    color: #fff;
     text-shadow:
       0 1px 2px rgba(0, 0, 0, 0.4),
       0 0 1px rgba(0, 0, 0, 0.55);
@@ -970,9 +1058,7 @@
       0 0 18px color-mix(in srgb, var(--accent) 28%, transparent),
       inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
   }
-  .month-cell.has-appt {
-    border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  }
+  /* border-color des cases RDV calculé en inline via `scheduled` */
 
   .compact-list {
     list-style: none;
