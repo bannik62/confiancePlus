@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { get } from 'svelte/store'
   import Card from '../components/ui/Card.svelte'
   import Tag from '../components/ui/Tag.svelte'
@@ -85,6 +85,9 @@
   let eduEditNotes = ''
   let eduEditDate = ''
   let eduEditTimeHm = '09:00'
+  /** @type {HTMLDivElement | null} */
+  let yearCalEl = null
+  let monthAutoScrolledFor = null
 
   const completePayload = () => ({ today: localDateString() })
 
@@ -487,6 +490,23 @@
     })
   }
 
+  const scrollToCurrentMonth = async () => {
+    if (!yearCalEl) return
+    const y = currentYear()
+    if (agendaYearNum !== y) return
+    if (monthAutoScrolledFor === agendaYearNum) return
+    await tick()
+    const curMonth = new Date().getMonth()
+    const target = yearCalEl.querySelector(`[data-month="${curMonth}"]`)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+    monthAutoScrolledFor = agendaYearNum
+  }
+
+  $: if (yearCalEl && yearMonths.length) {
+    void scrollToCurrentMonth()
+  }
+
 </script>
 
 <div class="view">
@@ -523,9 +543,9 @@
     </div>
 
     <div class="months-strip-wrap" class:dim={loading}>
-      <div class="year-cal-scroll" aria-label="Calendrier de l’année">
+      <div class="year-cal-scroll" aria-label="Calendrier de l’année" bind:this={yearCalEl}>
         {#each yearMonths as bloc (bloc.key)}
-          <section class="month-card">
+          <section class="month-card" data-month={bloc.monthIndex}>
             <h2 class="month-card-title">{bloc.label}</h2>
             <div class="month-dow" aria-hidden="true">
               {#each DOW_LETTERS as L}<span>{L}</span>{/each}
