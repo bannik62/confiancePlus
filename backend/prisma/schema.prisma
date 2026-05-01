@@ -65,6 +65,7 @@ model User {
   habitPerfReactionsFrom HabitPerfReaction[] @relation("HabitPerfReactionFrom")
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
+  memorableComments MemorableComment[]
   memberships GroupMember[]
 
   dailyHabitOffers DailyHabitOffer[]
@@ -344,9 +345,25 @@ model DailyLog {
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memorableComments MemorableComment[]
 
   @@unique([userId, date])
   @@index([userId])
+}
+
+/// Commentaire sur un moment mémorable (DailyLog avec partage leaderboard).
+model MemorableComment {
+  id           String   @id @default(cuid())
+  dailyLogId   String
+  authorUserId String
+  body         String
+  createdAt    DateTime @default(now())
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId, createdAt])
+  @@index([authorUserId, createdAt])
 }
 
 // ── RENDEZ-VOUS (agenda) — assignés à un user ; l’éducateur peut en créer pour un membre ASSO

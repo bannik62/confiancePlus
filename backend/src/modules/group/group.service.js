@@ -14,17 +14,10 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 const utcCalendarYmd = () => new Date().toISOString().slice(0, 10)
 import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
-
-const sharedMemorableFromDailyLogs = (dailyLogs, anchorYmd) => {
-  const row = Array.isArray(dailyLogs)
-    ? dailyLogs.find((x) => ymdFromDbDate(x.date) === anchorYmd)
-    : null
-  if (!row || row.shareMemorableInLeaderboard !== true) return null
-  const text = typeof row.journal === 'string' ? row.journal.trim() : ''
-  const imageUrl = typeof row.memorableImageUrl === 'string' ? row.memorableImageUrl : null
-  if (!text && !imageUrl) return null
-  return { text: text || null, imageUrl }
-}
+import {
+  sharedMemorableFromDailyLogs,
+  attachMemorableCommentCounts,
+} from '../memorable/memorableComment.service.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
@@ -115,6 +108,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
           dailyLogs: {
             where: { date: dateWhere },
             select: {
+              id: true,
               date: true,
               mood: true,
               journal: true,
@@ -157,49 +151,49 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
 
   const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
 
-  return ranked
-    .map(({ user }) => {
-      const apptList = apptByUser[user.id] || []
-      const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
-      const { totalXP } = totalGameXpAndStreakDates({
-        habits: user.habits,
-        habitLogs: user.habitLogs,
-        dailyLogs: user.dailyLogs,
-        appointmentCompletions: apptList,
-        anchorYmd: anchor,
-        habitSkipsByYmd,
-      })
-      const level = levelFromXP(totalXP)
-      const title = titleForLevel(level)
-      const streakLogs = user.habitLogs.filter((l) => {
-        const y = ymdFromDbDate(l.date)
-        return y >= streakMinYmd && y <= anchor
-      })
-      const streak = computeEngagementStreak({
-        anchorYmd:         anchor,
-        visitYmds:         user.dailyVisits.map((v) => v.ymd),
-        habits:            user.habits,
-        habitLogsInWindow: streakLogs,
-        habitSkipsByYmd,
-      })
-      const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
-      return {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-        totalXP,
-        level,
-        title,
-        streak,
-        cristaux: user.cristaux ?? 0,
-        jokerStreak: user.jokerStreak ?? 0,
-        streak7TrophyCount: user.streak7TrophyCount ?? 0,
-        perfReactionHearts: rx.perfReactionHearts,
-        perfReactionSkeptics: rx.perfReactionSkeptics,
-        memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
-      }
+  const leaderboardRows = ranked.map(({ user }) => {
+    const apptList = apptByUser[user.id] || []
+    const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
+    const { totalXP } = totalGameXpAndStreakDates({
+      habits: user.habits,
+      habitLogs: user.habitLogs,
+      dailyLogs: user.dailyLogs,
+      appointmentCompletions: apptList,
+      anchorYmd: anchor,
+      habitSkipsByYmd,
     })
-    .sort((a, b) => b.totalXP - a.totalXP)
+    const level = levelFromXP(totalXP)
+    const title = titleForLevel(level)
+    const streakLogs = user.habitLogs.filter((l) => {
+      const y = ymdFromDbDate(l.date)
+      return y >= streakMinYmd && y <= anchor
+    })
+    const streak = computeEngagementStreak({
+      anchorYmd:         anchor,
+      visitYmds:         user.dailyVisits.map((v) => v.ymd),
+      habits:            user.habits,
+      habitLogsInWindow: streakLogs,
+      habitSkipsByYmd,
+    })
+    const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
+    return {
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      totalXP,
+      level,
+      title,
+      streak,
+      cristaux: user.cristaux ?? 0,
+      jokerStreak: user.jokerStreak ?? 0,
+      streak7TrophyCount: user.streak7TrophyCount ?? 0,
+      perfReactionHearts: rx.perfReactionHearts,
+      perfReactionSkeptics: rx.perfReactionSkeptics,
+      memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
+    }
+  })
+  const withCommentCounts = await attachMemorableCommentCounts(leaderboardRows)
+  return withCommentCounts.sort((a, b) => b.totalXP - a.totalXP)
 }
 
 export const getMyGroups = async (userId) => {

@@ -8,6 +8,7 @@
     myRole, hasGroup, loadGroupData, loadGroupLeaderboard, loadGlobalLeaderboard, loadGroups,
   } from '../stores/group.js'
   import { groupApi } from '../api/group.js'
+  import { memorableCommentsApi } from '../api/memorableComments.js'
   import { habitsApi } from '../api/habits.js'
   import Tag  from '../components/ui/Tag.svelte'
   import Card from '../components/ui/Card.svelte'
@@ -117,23 +118,111 @@
   let peerData = null
   let peerTitle = 'Habitudes'
   let memorablePreview = null
+  let memorableComments = []
+  let memorableCommentsLoading = false
+  let memorableCommentsErr = ''
+  let newMemorableComment = ''
+  let memorableCommentSubmitting = false
+
+  const bumpMemorableCommentCount = (dailyLogId, delta) => {
+    if (!dailyLogId || !delta) return
+    groupLeaderboard.update((rows) =>
+      rows.map((r) => {
+        if (r.memorable?.dailyLogId !== dailyLogId) return r
+        return {
+          ...r,
+          memorable: {
+            ...r.memorable,
+            commentCount: Math.max(0, (r.memorable.commentCount ?? 0) + delta),
+          },
+        }
+      }),
+    )
+    globalLeaderboard.update((rows) =>
+      rows.map((r) => {
+        if (r.memorable?.dailyLogId !== dailyLogId) return r
+        return {
+          ...r,
+          memorable: {
+            ...r.memorable,
+            commentCount: Math.max(0, (r.memorable.commentCount ?? 0) + delta),
+          },
+        }
+      }),
+    )
+  }
 
   const closePeerHabits = () => {
     peerOpen = false
     peerError = ''
   }
 
-  const openMemorablePreview = (member) => {
-    if (!member?.memorable) return
+  const openMemorablePreview = async (member) => {
+    const dl = member?.memorable?.dailyLogId
+    if (!dl) return
     memorablePreview = {
       username: member.username,
       imageUrl: member.memorable.imageUrl ?? null,
       text: member.memorable.text ?? null,
+      dailyLogId: dl,
+    }
+    memorableComments = []
+    memorableCommentsErr = ''
+    newMemorableComment = ''
+    memorableCommentsLoading = true
+    try {
+      memorableComments = await memorableCommentsApi.list(dl)
+    } catch (e) {
+      memorableCommentsErr =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Impossible de charger les commentaires.'
+    } finally {
+      memorableCommentsLoading = false
     }
   }
 
   const closeMemorablePreview = () => {
     memorablePreview = null
+    memorableComments = []
+    memorableCommentsErr = ''
+    newMemorableComment = ''
+  }
+
+  const submitMemorableComment = async () => {
+    if (!memorablePreview?.dailyLogId) return
+    const t = newMemorableComment.trim()
+    if (!t || memorableCommentSubmitting) return
+    memorableCommentSubmitting = true
+    memorableCommentsErr = ''
+    try {
+      const row = await memorableCommentsApi.create(memorablePreview.dailyLogId, t)
+      memorableComments = [...memorableComments, row]
+      newMemorableComment = ''
+      bumpMemorableCommentCount(memorablePreview.dailyLogId, 1)
+    } catch (e) {
+      memorableCommentsErr =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Envoi impossible.'
+    } finally {
+      memorableCommentSubmitting = false
+    }
+  }
+
+  const removeMemorableComment = async (commentId) => {
+    if (!commentId || !memorablePreview?.dailyLogId) return
+    memorableCommentsErr = ''
+    try {
+      await memorableCommentsApi.remove(commentId)
+      memorableComments = memorableComments.filter((c) => c.id !== commentId)
+      bumpMemorableCommentCount(memorablePreview.dailyLogId, -1)
+    } catch (e) {
+      memorableCommentsErr =
+        typeof e?.message === 'string' && e.message.length
+          ? e.message
+          : 'Suppression impossible.'
+    }
   }
 
   $: lbStreakTrophyImg = (() => {
@@ -328,9 +417,29 @@
                     aria-label="Voir le moment mémorable de {m.username}"
                   >
                     <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                    {#if (m.memorable.commentCount ?? 0) > 0}
+                      <span class="memorable-comment-badge" title="Commentaires"
+                        aria-label="{m.memorable.commentCount} commentaire(s)"
+                      >💬 {m.memorable.commentCount}</span>
+                    {/if}
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="memorable-text-open"
+                    on:click|stopPropagation={() => openMemorablePreview(m)}
+                    aria-label="Voir le moment texte et les commentaires de {m.username}"
+                  >
+                    {#if m.memorable.text}
+                      <p class="memorable-text">"{m.memorable.text}"</p>
+                    {/if}
+                    {#if (m.memorable.commentCount ?? 0) > 0}
+                      <span class="memorable-comment-badge is-inline" aria-hidden="true"
+                        >💬 {m.memorable.commentCount}</span>
+                    {/if}
                   </button>
                 {/if}
-                {#if m.memorable.text}
+                {#if m.memorable.imageUrl && m.memorable.text}
                   <p class="memorable-text">"{m.memorable.text}"</p>
                 {/if}
               </div>
@@ -453,9 +562,29 @@
                   aria-label="Voir le moment mémorable de {m.username}"
                 >
                   <img src={m.memorable.imageUrl} alt="Moment mémorable de {m.username}" class="memorable-thumb" />
+                  {#if (m.memorable.commentCount ?? 0) > 0}
+                    <span class="memorable-comment-badge" title="Commentaires"
+                      aria-label="{m.memorable.commentCount} commentaire(s)"
+                    >💬 {m.memorable.commentCount}</span>
+                  {/if}
+                </button>
+              {:else}
+                <button
+                  type="button"
+                  class="memorable-text-open"
+                  on:click|stopPropagation={() => openMemorablePreview(m)}
+                  aria-label="Voir le moment texte et les commentaires de {m.username}"
+                >
+                  {#if m.memorable.text}
+                    <p class="memorable-text">"{m.memorable.text}"</p>
+                  {/if}
+                  {#if (m.memorable.commentCount ?? 0) > 0}
+                    <span class="memorable-comment-badge is-inline" aria-hidden="true"
+                      >💬 {m.memorable.commentCount}</span>
+                  {/if}
                 </button>
               {/if}
-              {#if m.memorable.text}
+              {#if m.memorable.imageUrl && m.memorable.text}
                 <p class="memorable-text">"{m.memorable.text}"</p>
               {/if}
             </div>
@@ -507,6 +636,53 @@
     {#if memorablePreview.text}
       <p class="memorable-text-full">"{memorablePreview.text}"</p>
     {/if}
+
+    <div class="memorable-comments">
+      <div class="memorable-comments-title micro muted">COMMENTAIRES</div>
+      {#if memorableCommentsLoading}
+        <p class="micro muted memorable-comments-status">Chargement…</p>
+      {:else if memorableCommentsErr}
+        <p class="memorable-comments-err">{memorableCommentsErr}</p>
+      {:else if memorableComments.length === 0}
+        <p class="micro muted memorable-comments-status">Aucun commentaire pour l’instant.</p>
+      {:else}
+        <ul class="memorable-comments-list">
+          {#each memorableComments as c}
+            <li class="memorable-comment-row">
+              <div class="memorable-comment-meta">
+                <span class="memorable-comment-who">{c.author?.avatar ?? ''} {c.author?.username ?? '?'}</span>
+                <time class="micro muted" datetime={c.createdAt}>{new Date(c.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</time>
+              </div>
+              <p class="memorable-comment-body">{c.body}</p>
+              {#if c.author?.id === $authStore.user?.id}
+                <button
+                  type="button"
+                  class="memorable-comment-delete micro"
+                  on:click={() => removeMemorableComment(c.id)}
+                >Supprimer</button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="memorable-comment-compose">
+        <textarea
+          class="memorable-comment-input"
+          rows="2"
+          maxlength="500"
+          placeholder="Écrire un commentaire…"
+          bind:value={newMemorableComment}
+          disabled={memorableCommentSubmitting}
+        ></textarea>
+        <button
+          type="button"
+          class="btn-primary sm memorable-comment-send"
+          disabled={memorableCommentSubmitting || !newMemorableComment.trim()}
+          on:click={submitMemorableComment}
+        >Envoyer</button>
+      </div>
+    </div>
   </div>
 {/if}
 
@@ -626,11 +802,48 @@
     flex-wrap: wrap;
   }
   .memorable-thumb-btn {
+    position: relative;
     border: none;
     padding: 0;
     border-radius: 8px;
     background: transparent;
     cursor: pointer;
+  }
+  .memorable-comment-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    pointer-events: none;
+    line-height: 1.2;
+  }
+  .memorable-comment-badge.is-inline {
+    position: static;
+    align-self: center;
+    margin-inline-start: 4px;
+  }
+  .memorable-text-open {
+    display: inline-flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 100%;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .memorable-text-open .memorable-text {
+    text-align: left;
   }
   .memorable-thumb {
     width: 44px;
@@ -699,6 +912,86 @@
     line-height: 1.4;
     font-size: max(15px, 0.92rem);
     overflow-wrap: anywhere;
+  }
+  .memorable-comments {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .memorable-comments-title {
+    margin-bottom: 8px;
+  }
+  .memorable-comments-status {
+    margin: 0 0 8px;
+  }
+  .memorable-comments-err {
+    margin: 0 0 8px;
+    color: #f87171;
+    font-size: 14px;
+  }
+  .memorable-comments-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    max-height: 220px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .memorable-comment-row {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+  }
+  .memorable-comment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .memorable-comment-who {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .memorable-comment-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .memorable-comment-delete {
+    margin-top: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-family: inherit;
+  }
+  .memorable-comment-compose {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .memorable-comment-input {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    padding: 8px 10px;
+    font: inherit;
+    resize: vertical;
+    min-height: 44px;
+  }
+  .memorable-comment-send {
+    align-self: flex-end;
   }
   button.lb-items {
     font: inherit;

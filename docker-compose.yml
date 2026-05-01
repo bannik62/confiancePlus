@@ -30,8 +30,11 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - /app/node_modules
-    command: npm run dev
+      # Évite d’écraser node_modules du host ; le contenu vieillit si on ajoute des deps au lockfile.
+      # `npm install` au démarrage aligne sharp / autres paquets avec package-lock après rebuild ou git pull.
+      - backend_nm:/app/node_modules
+    command: sh -c "npm install && npm run dev"
 
 volumes:
   pgdata:
+  backend_nm:

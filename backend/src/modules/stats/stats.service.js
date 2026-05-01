@@ -16,18 +16,12 @@ import { userIsAppAdmin } from '../admin/adminScope.js'
 import { getLeaderboard } from '../group/group.service.js'
 import { getPerfReactionTotalsByUserIds } from '../habits/perfReactionCounts.js'
 import { getGameConfigSync } from '../../core/gameConfigRuntime.js'
+import {
+  sharedMemorableFromDailyLogs,
+  attachMemorableCommentCounts,
+} from '../memorable/memorableComment.service.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
-const sharedMemorableFromDailyLogs = (dailyLogs, anchorYmd) => {
-  const row = Array.isArray(dailyLogs)
-    ? dailyLogs.find((x) => ymdFromDbDate(x.date) === anchorYmd)
-    : null
-  if (!row || row.shareMemorableInLeaderboard !== true) return null
-  const text = typeof row.journal === 'string' ? row.journal.trim() : ''
-  const imageUrl = typeof row.memorableImageUrl === 'string' ? row.memorableImageUrl : null
-  if (!text && !imageUrl) return null
-  return { text: text || null, imageUrl }
-}
 
 /** Streak engagement seul (claim palier sans refaire tout le profil). */
 const computeEngagementStreakValue = async (userId, anchor) => {
@@ -217,6 +211,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       dailyLogs: {
         where: { date: dateWhere },
         select: {
+          id: true,
           date: true,
           mood: true,
           journal: true,
@@ -255,53 +250,53 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
 
   const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
 
-  return users
-    .map((user) => {
-      const apptList = apptByUser[user.id] || []
-      const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
-      const { totalXP } = totalGameXpAndStreakDates({
-        habits: user.habits,
-        habitLogs: user.habitLogs,
-        dailyLogs: user.dailyLogs,
-        appointmentCompletions: apptList,
-        anchorYmd: anchor,
-        habitSkipsByYmd,
-      })
-      const level = levelFromXP(totalXP)
-      const title = titleForLevel(level)
-      const streakLogs = user.habitLogs.filter((l) => {
-        const y = ymdFromDbDate(l.date)
-        return y >= streakMinYmd && y <= anchor
-      })
-      const streak = computeEngagementStreak({
-        anchorYmd:           anchor,
-        visitYmds:           user.dailyVisits.map((v) => v.ymd),
-        habits:              user.habits,
-        habitLogsInWindow:   streakLogs,
-        habitSkipsByYmd,
-      })
-      const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
-        a.localeCompare(b, 'fr'),
-      )
-      const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
-      return {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-        totalXP,
-        level,
-        title,
-        streak,
-        cristaux: user.cristaux ?? 0,
-        jokerStreak: user.jokerStreak ?? 0,
-        streak7TrophyCount: user.streak7TrophyCount ?? 0,
-        groupNames,
-        perfReactionHearts: rx.perfReactionHearts,
-        perfReactionSkeptics: rx.perfReactionSkeptics,
-        memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
-      }
+  const leaderboardRows = users.map((user) => {
+    const apptList = apptByUser[user.id] || []
+    const habitSkipsByYmd = buildHabitSkipsByYmd(user.habitDaySkips)
+    const { totalXP } = totalGameXpAndStreakDates({
+      habits: user.habits,
+      habitLogs: user.habitLogs,
+      dailyLogs: user.dailyLogs,
+      appointmentCompletions: apptList,
+      anchorYmd: anchor,
+      habitSkipsByYmd,
     })
-    .sort((a, b) => b.totalXP - a.totalXP)
+    const level = levelFromXP(totalXP)
+    const title = titleForLevel(level)
+    const streakLogs = user.habitLogs.filter((l) => {
+      const y = ymdFromDbDate(l.date)
+      return y >= streakMinYmd && y <= anchor
+    })
+    const streak = computeEngagementStreak({
+      anchorYmd:           anchor,
+      visitYmds:           user.dailyVisits.map((v) => v.ymd),
+      habits:              user.habits,
+      habitLogsInWindow:   streakLogs,
+      habitSkipsByYmd,
+    })
+    const groupNames = [...new Set(user.memberships.map((m) => m.group.name))].sort((a, b) =>
+      a.localeCompare(b, 'fr'),
+    )
+    const rx = reactionTotals.get(user.id) ?? { perfReactionHearts: 0, perfReactionSkeptics: 0 }
+    return {
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      totalXP,
+      level,
+      title,
+      streak,
+      cristaux: user.cristaux ?? 0,
+      jokerStreak: user.jokerStreak ?? 0,
+      streak7TrophyCount: user.streak7TrophyCount ?? 0,
+      groupNames,
+      perfReactionHearts: rx.perfReactionHearts,
+      perfReactionSkeptics: rx.perfReactionSkeptics,
+      memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
+    }
+  })
+  const withCommentCounts = await attachMemorableCommentCounts(leaderboardRows)
+  return withCommentCounts.sort((a, b) => b.totalXP - a.totalXP)
 }
 
 /** Stats onglet éducateur : premier groupe ASSO dont il est OWNER + classement membres (sans lui). */

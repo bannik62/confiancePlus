@@ -19,6 +19,7 @@ import adminRouter    from './modules/admin/admin.router.js'
 import appointmentsRouter from './modules/appointments/appointments.router.js'
 import pushRouter     from './modules/push/push.router.js'
 import storeRouter    from './modules/store/store.router.js'
+import memorableCommentRouter from './modules/memorable/memorableComment.router.js'
 
 const app = express()
 
@@ -51,6 +52,7 @@ app.use('/api/appointments', csrfProtect, appointmentsRouter)
 app.use('/api/admin', csrfProtect, adminRouter)
 app.use('/api/push', csrfProtect, pushRouter)
 app.use('/api/store', csrfProtect, storeRouter)
+app.use('/api/memorable-comments', csrfProtect, memorableCommentRouter)
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 
