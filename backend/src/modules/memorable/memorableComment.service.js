@@ -49,7 +49,8 @@ export async function attachMemorableCommentCounts(leaderboardRows) {
   })
 }
 
-async function assertCanAccessMemorableComments(viewerId, dailyLogId) {
+/** Tout compte connecté (non suspendu, via router) peut lire / écrire tant que le moment est partagé au classement. */
+async function assertMemorableCommentsPublicForDailyLog(dailyLogId) {
   const log = await db.dailyLog.findUnique({
     where: { id: dailyLogId },
     select: {
@@ -62,22 +63,11 @@ async function assertCanAccessMemorableComments(viewerId, dailyLogId) {
   if (!log) throw { status: 404, message: 'Journal du jour introuvable' }
   if (!memorableWouldShowInLeaderboard(log))
     throw { status: 403, message: 'Moment mémorable non partagé' }
-
-  if (viewerId === log.userId) return log
-
-  const shared = await db.groupMember.findFirst({
-    where: {
-      userId: viewerId,
-      group: { members: { some: { userId: log.userId } } },
-    },
-    select: { userId: true },
-  })
-  if (!shared) throw { status: 403, message: 'Accès refusé' }
   return log
 }
 
-export async function listMemorableComments(viewerId, dailyLogId) {
-  await assertCanAccessMemorableComments(viewerId, dailyLogId)
+export async function listMemorableComments(_viewerId, dailyLogId) {
+  await assertMemorableCommentsPublicForDailyLog(dailyLogId)
   return db.memorableComment.findMany({
     where: { dailyLogId },
     orderBy: { createdAt: 'asc' },
@@ -91,7 +81,7 @@ export async function listMemorableComments(viewerId, dailyLogId) {
 }
 
 export async function createMemorableComment(viewerId, dailyLogId, bodyRaw) {
-  await assertCanAccessMemorableComments(viewerId, dailyLogId)
+  await assertMemorableCommentsPublicForDailyLog(dailyLogId)
   const body = String(bodyRaw ?? '').trim().slice(0, 500)
   if (!body) throw { status: 400, message: 'Commentaire vide' }
   return db.memorableComment.create({
@@ -112,7 +102,7 @@ export async function deleteMemorableComment(viewerId, commentId) {
   })
   if (!c) throw { status: 404, message: 'Commentaire introuvable' }
   if (c.authorUserId !== viewerId) throw { status: 403, message: 'Suppression refusée' }
-  await assertCanAccessMemorableComments(viewerId, c.dailyLogId)
+  await assertMemorableCommentsPublicForDailyLog(c.dailyLogId)
   await db.memorableComment.delete({ where: { id: commentId } })
   return { ok: true }
 }
