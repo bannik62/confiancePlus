@@ -1,0 +1,1 @@
+-- No-op: reactions restored in later migration (20260528123000_restore_memorable_comment_reactions).

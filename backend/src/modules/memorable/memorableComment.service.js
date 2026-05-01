@@ -1,5 +1,6 @@
 import { db } from '../../core/db.js'
 import { ymdFromDbDate } from '../../core/xpAggregate.js'
+import { notifyAfterMemorableComment } from './memorableComment.notify.js'
 
 /** Même règle d’affichage que le leaderboard : jour ancré, consentement + contenu. */
 export const sharedMemorableFromDailyLogs = (dailyLogs, anchorYmd) => {
@@ -66,9 +67,31 @@ async function assertMemorableCommentsPublicForDailyLog(dailyLogId) {
   return log
 }
 
-export async function listMemorableComments(_viewerId, dailyLogId) {
+async function reactionSummariesForCommentIds(commentIds, viewerId) {
+  const map = new Map()
+  for (const id of commentIds) map.set(id, { counts: {}, myReaction: null })
+  if (commentIds.length === 0) return map
+  const rows = await db.memorableCommentReaction.findMany({
+    where: { commentId: { in: commentIds } },
+    select: { commentId: true, userId: true, kind: true },
+  })
+  for (const r of rows) {
+    const cur = map.get(r.commentId)
+    if (!cur) continue
+    cur.counts[r.kind] = (cur.counts[r.kind] ?? 0) + 1
+    if (r.userId === viewerId) cur.myReaction = r.kind
+  }
+  return map
+}
+
+async function reactionSummaryOne(commentId, viewerId) {
+  const m = await reactionSummariesForCommentIds([commentId], viewerId)
+  return m.get(commentId) ?? { counts: {}, myReaction: null }
+}
+
+export async function listMemorableComments(viewerId, dailyLogId) {
   await assertMemorableCommentsPublicForDailyLog(dailyLogId)
-  return db.memorableComment.findMany({
+  const comments = await db.memorableComment.findMany({
     where: { dailyLogId },
     orderBy: { createdAt: 'asc' },
     select: {
@@ -78,13 +101,74 @@ export async function listMemorableComments(_viewerId, dailyLogId) {
       author: { select: { id: true, username: true, avatar: true } },
     },
   })
+  const summaries = await reactionSummariesForCommentIds(
+    comments.map((c) => c.id),
+    viewerId,
+  )
+  return comments.map((c) => ({
+    ...c,
+    reactionSummary: summaries.get(c.id) ?? { counts: {}, myReaction: null },
+  }))
+}
+
+/** Autocomplétion @pseudo : sans lettres après @ → premiers comptes ; sinon filtre « contient ».
+ *  Seuls les comptes suspendus sont exclus. */
+export async function mentionUserSuggestions(rawQ, _viewerId) {
+  const q = String(rawQ ?? '')
+    .trim()
+    .slice(0, 40)
+  const whereBase = {
+    isSuspended: false,
+  }
+  if (q.length < 1) {
+    return db.user.findMany({
+      where: whereBase,
+      select: { id: true, username: true, avatar: true },
+      orderBy: { username: 'asc' },
+      take: 15,
+    })
+  }
+  return db.user.findMany({
+    where: {
+      ...whereBase,
+      username: { contains: q, mode: 'insensitive' },
+    },
+    select: { id: true, username: true, avatar: true },
+    orderBy: { username: 'asc' },
+    take: 15,
+  })
+}
+
+export async function setMemorableCommentReaction(viewerId, commentId, kind) {
+  const c = await db.memorableComment.findUnique({
+    where: { id: commentId },
+    select: { id: true, dailyLogId: true },
+  })
+  if (!c) throw { status: 404, message: 'Commentaire introuvable' }
+  await assertMemorableCommentsPublicForDailyLog(c.dailyLogId)
+
+  if (kind == null) {
+    await db.memorableCommentReaction.deleteMany({
+      where: { commentId, userId: viewerId },
+    })
+  } else {
+    await db.memorableCommentReaction.upsert({
+      where: {
+        commentId_userId: { commentId, userId: viewerId },
+      },
+      create: { commentId, userId: viewerId, kind },
+      update: { kind },
+    })
+  }
+
+  return reactionSummaryOne(commentId, viewerId)
 }
 
 export async function createMemorableComment(viewerId, dailyLogId, bodyRaw) {
   await assertMemorableCommentsPublicForDailyLog(dailyLogId)
   const body = String(bodyRaw ?? '').trim().slice(0, 500)
   if (!body) throw { status: 400, message: 'Commentaire vide' }
-  return db.memorableComment.create({
+  const row = await db.memorableComment.create({
     data: { dailyLogId, authorUserId: viewerId, body },
     select: {
       id: true,
@@ -93,6 +177,24 @@ export async function createMemorableComment(viewerId, dailyLogId, bodyRaw) {
       author: { select: { id: true, username: true, avatar: true } },
     },
   })
+
+  void (async () => {
+    try {
+      await notifyAfterMemorableComment({
+        dailyLogId,
+        authorUserId: viewerId,
+        authorUsername: row.author.username,
+        body: row.body,
+      })
+    } catch (e) {
+      console.warn('[memorable-comment] notification e-mail', e?.message)
+    }
+  })()
+
+  return {
+    ...row,
+    reactionSummary: { counts: {}, myReaction: null },
+  }
 }
 
 export async function deleteMemorableComment(viewerId, commentId) {

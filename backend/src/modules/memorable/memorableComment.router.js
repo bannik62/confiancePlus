@@ -2,14 +2,31 @@ import { Router } from 'express'
 import { requireAuth } from '../../middlewares/requireAuth.js'
 import { validate } from '../../middlewares/validate.js'
 import {
+  mentionSuggestionsQuerySchema,
   listMemorableCommentsQuerySchema,
   createMemorableCommentBodySchema,
   deleteMemorableCommentParamsSchema,
+  reactionCommentParamsSchema,
+  setReactionBodySchema,
 } from './memorableComment.schema.js'
 import * as service from './memorableComment.service.js'
 
 const router = Router()
 router.use(requireAuth)
+
+router.get(
+  '/mention-suggestions',
+  validate(mentionSuggestionsQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.mentionUserSuggestions(req.query.q ?? '', req.user.id),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.get('/', validate(listMemorableCommentsQuerySchema, 'query'), async (req, res, next) => {
   try {
@@ -34,6 +51,25 @@ router.post('/', validate(createMemorableCommentBodySchema), async (req, res, ne
     next(e)
   }
 })
+
+router.put(
+  '/:commentId/reaction',
+  validate(reactionCommentParamsSchema, 'params'),
+  validate(setReactionBodySchema),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.setMemorableCommentReaction(
+          req.user.id,
+          req.params.commentId,
+          req.body.kind,
+        ),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.delete(
   '/:id',

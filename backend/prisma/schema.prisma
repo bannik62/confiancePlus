@@ -57,6 +57,8 @@ model User {
 
   /// E-mails lorsqu’un pair réagit à une perf d’habitude (❤️ / 🤔)
   perfReactionEmailsEnabled Boolean @default(true)
+  /// E-mails : nouveau commentaire sur ton moment mémorable (classement) + @mention dans ce fil
+  memorableCommentEmailsEnabled Boolean @default(true)
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -66,6 +68,7 @@ model User {
   habitLogs   HabitLog[]
   dailyLogs   DailyLog[]
   memorableComments MemorableComment[]
+  memorableCommentReactions MemorableCommentReaction[]
   memberships GroupMember[]
 
   dailyHabitOffers DailyHabitOffer[]
@@ -351,6 +354,15 @@ model DailyLog {
   @@index([userId])
 }
 
+enum MemorableCommentReactionKind {
+  LIKE
+  LOVE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
 /// Commentaire sur un moment mémorable (DailyLog avec partage leaderboard).
 model MemorableComment {
   id           String   @id @default(cuid())
@@ -359,11 +371,26 @@ model MemorableComment {
   body         String
   createdAt    DateTime @default(now())
 
-  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
-  author   User     @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  dailyLog  DailyLog                   @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  author    User                       @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  reactions MemorableCommentReaction[]
 
   @@index([dailyLogId, createdAt])
   @@index([authorUserId, createdAt])
+}
+
+model MemorableCommentReaction {
+  id        String                       @id @default(cuid())
+  commentId String
+  userId    String
+  kind      MemorableCommentReactionKind
+  createdAt DateTime                     @default(now())
+
+  comment MemorableComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId])
 }
 
 // ── RENDEZ-VOUS (agenda) — assignés à un user ; l’éducateur peut en créer pour un membre ASSO

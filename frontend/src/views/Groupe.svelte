@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { authStore } from '../stores/auth.js'
   import { gameplayStore } from '../stores/gameplay.js'
   import { openItemsModal } from '../stores/itemsModal.js'
@@ -13,6 +13,16 @@
   import Tag  from '../components/ui/Tag.svelte'
   import Card from '../components/ui/Card.svelte'
   import PeerHabitsModal from '../components/group/PeerHabitsModal.svelte'
+
+  const MEMORABLE_REACTION_ORDER = ['LIKE', 'LOVE', 'HAHA', 'WOW', 'SAD', 'ANGRY']
+  const MEMORABLE_REACTION_META = {
+    LIKE: { emoji: '👍', label: 'J’aime' },
+    LOVE: { emoji: '❤️', label: 'J’adore' },
+    HAHA: { emoji: '😂', label: 'Haha' },
+    WOW: { emoji: '😮', label: 'Waouh' },
+    SAD: { emoji: '😢', label: 'Triste' },
+    ANGRY: { emoji: '😠', label: 'Grrr' },
+  }
 
   // ── Onglet actif ─────────────────────────────────────────────────────────
   let tab = 'global'  // 'groupe' | 'global'
@@ -123,6 +133,14 @@
   let memorableCommentsErr = ''
   let newMemorableComment = ''
   let memorableCommentSubmitting = false
+  let commentTextareaEl = null
+  let mentionOpen = false
+  let mentionQuery = ''
+  let mentionAtIndex = 0
+  let mentionCursorPos = 0
+  let mentionUsers = []
+  let mentionLoading = false
+  let mentionDebounce = null
 
   const bumpMemorableCommentCount = (dailyLogId, delta) => {
     if (!dailyLogId || !delta) return
@@ -169,6 +187,8 @@
     memorableComments = []
     memorableCommentsErr = ''
     newMemorableComment = ''
+    mentionOpen = false
+    mentionUsers = []
     memorableCommentsLoading = true
     try {
       memorableComments = await memorableCommentsApi.list(dl)
@@ -187,6 +207,89 @@
     memorableComments = []
     memorableCommentsErr = ''
     newMemorableComment = ''
+    mentionOpen = false
+    mentionUsers = []
+    if (mentionDebounce) clearTimeout(mentionDebounce)
+  }
+
+  const parseMentionAtCursor = (text, pos) => {
+    const before = text.slice(0, pos)
+    const m = before.match(/@([^\s@]*)$/)
+    if (!m) return null
+    return { query: m[1], atIndex: before.lastIndexOf('@') }
+  }
+
+  const onMemorableCommentInput = (e) => {
+    const el = e.target
+    const pos = el.selectionStart ?? el.value.length
+    const ctx = parseMentionAtCursor(el.value, pos)
+    if (ctx) {
+      mentionOpen = true
+      mentionAtIndex = ctx.atIndex
+      mentionQuery = ctx.query
+      mentionCursorPos = pos
+      if (mentionDebounce) clearTimeout(mentionDebounce)
+      const qSnap = ctx.query
+      const delay = qSnap.length === 0 ? 0 : 200
+      mentionDebounce = setTimeout(async () => {
+        if (!mentionOpen) return
+        mentionLoading = true
+        try {
+          mentionUsers = await memorableCommentsApi.mentionSuggestions(qSnap)
+        } catch {
+          mentionUsers = []
+        } finally {
+          mentionLoading = false
+        }
+      }, delay)
+    } else {
+      mentionOpen = false
+      mentionUsers = []
+      if (mentionDebounce) clearTimeout(mentionDebounce)
+    }
+  }
+
+  const onMemorableCommentKeydown = (e) => {
+    if (e.key === 'Escape' && mentionOpen) {
+      mentionOpen = false
+      mentionUsers = []
+      e.stopPropagation()
+    }
+  }
+
+  const pickMemorableMention = async (u) => {
+    const el = commentTextareaEl
+    const v = newMemorableComment
+    const before = v.slice(0, mentionAtIndex)
+    const after = v.slice(mentionCursorPos)
+    const insert = `@${u.username} `
+    newMemorableComment = before + insert + after
+    mentionOpen = false
+    mentionUsers = []
+    await tick()
+    const focusEl = commentTextareaEl
+    if (focusEl) {
+      const npos = before.length + insert.length
+      focusEl.focus()
+      focusEl.setSelectionRange(npos, npos)
+    }
+  }
+
+  const applyMemorableReaction = async (c, kind) => {
+    const cur = c.reactionSummary?.myReaction
+    const next = cur === kind ? null : kind
+    memorableCommentsErr = ''
+    try {
+      const summary = await memorableCommentsApi.setReaction(c.id, next)
+      memorableComments = memorableComments.map((x) =>
+        x.id === c.id ? { ...x, reactionSummary: summary } : x,
+      )
+    } catch (err) {
+      memorableCommentsErr =
+        typeof err?.message === 'string' && err.message.length
+          ? err.message
+          : 'Réaction impossible.'
+    }
   }
 
   const submitMemorableComment = async () => {
@@ -223,6 +326,22 @@
           ? e.message
           : 'Suppression impossible.'
     }
+  }
+
+  /** Stylise les @pseudo dans l’affichage (le serveur résout les mentions pour l’e-mail). */
+  const splitMemorableMentions = (text) => {
+    if (!text || typeof text !== 'string') return [{ type: 'text', content: '' }]
+    const re = /@([^\s@]+)/g
+    const parts = []
+    let last = 0
+    let m
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) parts.push({ type: 'text', content: text.slice(last, m.index) })
+      parts.push({ type: 'mention', content: m[0] })
+      last = m.index + m[0].length
+    }
+    if (last < text.length) parts.push({ type: 'text', content: text.slice(last) })
+    return parts.length ? parts : [{ type: 'text', content: text }]
   }
 
   $: lbStreakTrophyImg = (() => {
@@ -653,7 +772,27 @@
                 <span class="memorable-comment-who">{c.author?.avatar ?? ''} {c.author?.username ?? '?'}</span>
                 <time class="micro muted" datetime={c.createdAt}>{new Date(c.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</time>
               </div>
-              <p class="memorable-comment-body">{c.body}</p>
+              <p class="memorable-comment-body">
+                {#each splitMemorableMentions(c.body) as seg}
+                  {#if seg.type === 'mention'}
+                    <span class="memorable-mention">{seg.content}</span>
+                  {:else}{seg.content}{/if}
+                {/each}
+              </p>
+              <div class="memorable-reactions-row" aria-label="Réagir au commentaire">
+                {#each MEMORABLE_REACTION_ORDER as rk}
+                  <button
+                    type="button"
+                    class="memorable-reaction-btn"
+                    class:active={(c.reactionSummary?.myReaction ?? null) === rk}
+                    title={MEMORABLE_REACTION_META[rk].label}
+                    on:click|stopPropagation={() => applyMemorableReaction(c, rk)}
+                  >
+                    <span class="memorable-reaction-emoji">{MEMORABLE_REACTION_META[rk].emoji}</span>
+                    <span class="memorable-reaction-count">{c.reactionSummary?.counts?.[rk] ?? 0}</span>
+                  </button>
+                {/each}
+              </div>
               {#if c.author?.id === $authStore.user?.id}
                 <button
                   type="button"
@@ -667,14 +806,39 @@
       {/if}
 
       <div class="memorable-comment-compose">
-        <textarea
-          class="memorable-comment-input"
-          rows="2"
-          maxlength="500"
-          placeholder="Écrire un commentaire…"
-          bind:value={newMemorableComment}
-          disabled={memorableCommentSubmitting}
-        ></textarea>
+        <div class="memorable-input-shell">
+          {#if mentionOpen}
+            <div class="memorable-mention-list" role="listbox" aria-label="Suggestions de pseudo">
+              {#if mentionLoading}
+                <div class="memorable-mention-row micro muted">Chargement…</div>
+              {:else if mentionUsers.length === 0}
+                <div class="memorable-mention-row micro muted">Aucun pseudo trouvé</div>
+              {:else}
+                {#each mentionUsers as u}
+                  <button
+                    type="button"
+                    class="memorable-mention-row"
+                    on:mousedown|preventDefault={() => pickMemorableMention(u)}
+                  >
+                    <span class="memorable-mention-ava" aria-hidden="true">{u.avatar ?? '·'}</span>
+                    <span class="memorable-mention-name">{u.username}</span>
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+          <textarea
+            bind:this={commentTextareaEl}
+            class="memorable-comment-input-inner"
+            rows="2"
+            maxlength="500"
+            placeholder="Écrire un commentaire… tape @ pour mentionner un pseudo"
+            bind:value={newMemorableComment}
+            disabled={memorableCommentSubmitting}
+            on:input={onMemorableCommentInput}
+            on:keydown={onMemorableCommentKeydown}
+          ></textarea>
+        </div>
         <button
           type="button"
           class="btn-primary sm memorable-comment-send"
@@ -917,6 +1081,9 @@
     margin-top: 14px;
     padding-top: 12px;
     border-top: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+    overflow: visible;
   }
   .memorable-comments-title {
     margin-bottom: 8px;
@@ -963,6 +1130,41 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+  .memorable-mention {
+    font-weight: 800;
+    color: color-mix(in srgb, var(--cyan, #22d3ee) 90%, var(--text, #fff));
+  }
+  .memorable-reactions-row {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .memorable-reaction-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .memorable-reaction-btn.active {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .memorable-reaction-emoji {
+    font-size: 15px;
+  }
+  .memorable-reaction-count {
+    min-width: 10px;
+    text-align: center;
+    opacity: 0.9;
+  }
   .memorable-comment-delete {
     margin-top: 6px;
     border: none;
@@ -977,18 +1179,78 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    position: relative;
+    z-index: 4;
+    overflow: visible;
   }
-  .memorable-comment-input {
+  .memorable-input-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .memorable-input-shell:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  /* Liste @ dans la même zone que le champ (flux vertical façon composer réseaux sociaux) */
+  .memorable-input-shell .memorable-mention-list {
+    flex: 0 0 auto;
+    max-height: min(200px, 38vh);
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--surface), var(--bg) 35%);
+    box-shadow: none;
+  }
+  .memorable-mention-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .memorable-mention-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .memorable-mention-ava {
+    width: 28px;
+    text-align: center;
+    font-size: 18px;
+  }
+  .memorable-mention-name {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .memorable-comment-input-inner {
+    display: block;
     width: 100%;
     box-sizing: border-box;
+    margin: 0;
+    border: none;
     border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
+    background: transparent;
     color: var(--text);
     padding: 8px 10px;
     font: inherit;
     resize: vertical;
     min-height: 44px;
+  }
+  .memorable-comment-input-inner:focus {
+    outline: none;
   }
   .memorable-comment-send {
     align-self: flex-end;
