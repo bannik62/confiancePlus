@@ -39,4 +39,9 @@ export const adminApi = {
   getGameplay: () => api.get('/admin/gameplay'),
   putGameplay: (body) => api.put('/admin/gameplay', body),
   resetGameplay: () => api.delete('/admin/gameplay'),
+
+  /** @returns {Promise<{ broadcast: object | null }>} */
+  getBroadcast: () => api.get('/admin/broadcast'),
+  /** @param {{ title: string, body: string, isActive: boolean, startsAt?: string | null, endsAt?: string | null }} body */
+  putBroadcast: (body) => api.put('/admin/broadcast', body),
 }

@@ -14,6 +14,8 @@ import {
   gameplayConfigSchema,
 } from './admin.schema.js'
 import * as service from './admin.service.js'
+import { adminBroadcastPublishSchema } from '../broadcast/broadcast.schema.js'
+import * as broadcastService from '../broadcast/broadcast.service.js'
 
 const router = Router()
 router.use(requireAuth, requireAdmin)
@@ -182,6 +184,42 @@ router.put('/gameplay', validate(gameplayConfigSchema), async (req, res, next) =
 router.delete('/gameplay', async (req, res, next) => {
   try {
     res.json(await service.resetGameplaySettings(req.user.id))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/broadcast', async (req, res, next) => {
+  try {
+    res.json(await broadcastService.getBroadcastAdminPayload())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/broadcast', validate(adminBroadcastPublishSchema), async (req, res, next) => {
+  try {
+    const { title, body, isActive, startsAt, endsAt } = req.body
+    const trimOrNull = (v) => {
+      if (v == null) return null
+      const s = String(v).trim()
+      return s ? s : null
+    }
+    const toDate = (v) => {
+      const t = trimOrNull(v)
+      if (!t) return null
+      const d = new Date(t)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+    res.json(
+      await broadcastService.publishBroadcastAdmin(req.user.id, {
+        title,
+        body,
+        isActive,
+        startsAt: toDate(startsAt),
+        endsAt: toDate(endsAt),
+      }),
+    )
   } catch (e) {
     next(e)
   }

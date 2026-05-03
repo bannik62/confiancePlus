@@ -12,10 +12,13 @@
    *
    * Le bootstrap utilise loadTodayResilient ; client.js n’émet pas session:expired sur
    * GET /checkin/today ni sur POST /auth/login|register|activate (évite fausse déco / mauvais libellé).
+   *
+   * Annonce équipe (popup admin) : chargée avec l’offre du jour ; affichée via AppModal après
+   * DailyOffer + trophée série 7 et toute autre modale (niveau, objets, guide niveau…) refermée.
    */
   import { onMount, tick } from 'svelte'
   import { fade } from 'svelte/transition'
-  import { get } from 'svelte/store'
+  import { get, writable } from 'svelte/store'
   import { authStore, checkSession, clearAuth, isAppAdmin, mergeUser } from './stores/auth.js'
   import { profileStore } from './stores/profile.js'
   import { openAppModal, appModal } from './stores/modal.js'
@@ -32,6 +35,7 @@
   import { loadHabits } from './stores/habits.js'
   import { localDateString } from './lib/dateLocal.js'
   import DailyOfferModal from './components/habits/DailyOfferModal.svelte'
+  import { broadcastApi } from './api/broadcast.js'
 
   import Login   from './views/Login.svelte'
   import Landing from './views/Landing.svelte'
@@ -67,8 +71,11 @@
   import LevelGuideModal from './components/ui/LevelGuideModal.svelte'
   import AuroraBackground from './components/effects/AuroraBackground.svelte'
   import { resetAppModal } from './stores/modal.js'
-  import { resetItemsModal } from './stores/itemsModal.js'
-  import { resetLevelGuideModal } from './stores/levelGuideModal.js'
+  import { itemsModalStore, resetItemsModal } from './stores/itemsModal.js'
+  import { levelGuideModal, resetLevelGuideModal } from './stores/levelGuideModal.js'
+
+  /** Annonce popup admin à afficher quand aucune autre modale startup n’est ouverte */
+  const pendingBroadcast = writable(null)
 
   const VIEWS = { home: Home, agenda: Agenda, groupe: Groupe, stats: Stats, profil: Profil, shop: Shop }
 
@@ -112,17 +119,18 @@
     return `ht_streak7_snooze_${uid}_${localDateString()}`
   }
 
+  /** @returns {boolean} ouverture d’une modale trophée série */
   function maybeOpenStreakMilestoneModal() {
-    if (get(isAppAdmin)) return
-    if (get(appModal).open) return
+    if (get(isAppAdmin)) return false
+    if (get(appModal).open) return false
     try {
       const k = streakMilestoneSnoozeKey()
-      if (k && sessionStorage.getItem(k)) return
+      if (k && sessionStorage.getItem(k)) return false
     } catch {
       /* private mode */
     }
     const off = get(profileStore).streakMilestoneOffer
-    if (!off) return
+    if (!off) return false
     openAppModal({
       variant: 'celebration',
       icon: off.icon ?? '🔥',
@@ -147,13 +155,59 @@
         await loadProfile({ streakBanner: false })
       },
     })
+    return true
+  }
+
+  /** Après fermeture de l’offre du jour (ou aucune offre), enchaîne trophée puis annonce équipe si rien à montrer. */
+  function afterDailyAndStreakStartupStep() {
+    if (get(isAppAdmin)) return
+    if (showDailyOffer || showDailyOfferExhausted) return
+    const opened = maybeOpenStreakMilestoneModal()
+    if (!opened) tryShowAdminBroadcastIfIdle()
+  }
+
+  /** @param {{ id?: string }} b */
+  const acknowledgeBroadcastDismiss = async (b) => {
+    if (!b?.id) return
+    pendingBroadcast.set(null)
+    try {
+      await broadcastApi.dismiss(b.id)
+    } catch {
+      /* ignore — le serveur gardera la non-lecture jusqu’à succès */
+    }
+  }
+
+  function tryShowAdminBroadcastIfIdle() {
+    if (get(isAppAdmin)) return
+    if (!sessionReady || !checkinDone) return
+    if (showDailyOffer || showDailyOfferExhausted) return
+    if (get(appModal).open || get(itemsModalStore).open || get(levelGuideModal).open) return
+    const b = get(pendingBroadcast)
+    if (!b?.id) return
+    openAppModal({
+      variant: 'info',
+      icon: '📣',
+      title: b.title,
+      body: b.body,
+      primaryLabel: 'OK',
+      onPrimary: () => acknowledgeBroadcastDismiss(b),
+      onClose: () => acknowledgeBroadcastDismiss(b),
+    })
+  }
+
+  async function refreshPendingBroadcast() {
+    try {
+      const r = await broadcastApi.getMine()
+      pendingBroadcast.set(r?.broadcast ?? null)
+    } catch {
+      pendingBroadcast.set(null)
+    }
   }
 
   async function tryDailyOfferChain() {
+    await refreshPendingBroadcast()
     await tryDailyOffer()
-    if (get(isAppAdmin)) return
-    if (showDailyOffer || showDailyOfferExhausted) return
-    maybeOpenStreakMilestoneModal()
+    afterDailyAndStreakStartupStep()
   }
 
   async function tryDailyOffer() {
@@ -192,7 +246,7 @@
       await habitsApi.dismissDailyOffer()
       showDailyOffer = false
       dailyOfferTemplate = null
-      maybeOpenStreakMilestoneModal()
+      afterDailyAndStreakStartupStep()
     } catch (e) {
       dailyOfferError =
         typeof e?.message === 'string' && e.message.length
@@ -212,7 +266,7 @@
       await loadHabits()
       showDailyOffer = false
       dailyOfferTemplate = null
-      maybeOpenStreakMilestoneModal()
+      afterDailyAndStreakStartupStep()
     } catch (e) {
       dailyOfferError =
         typeof e?.message === 'string' && e.message.length
@@ -284,6 +338,7 @@
       resetGroupState()
       bootKey = null
       dailyOfferBootKeyDone = null
+      pendingBroadcast.set(null)
       sessionReady = false
       checkinDone = false
       showDailyOffer = false
@@ -337,9 +392,25 @@
     }
   }
 
+  /** Quand tout overlay « startup » se ferme → annonce équipe peut passer (après niveau, objets, etc.). */
+  let overlayStartupBusyPrev = false
+  $: overlayStartupBusy =
+    showDailyOffer ||
+    showDailyOfferExhausted ||
+    $appModal.open ||
+    $itemsModalStore.open ||
+    $levelGuideModal.open
+  $: {
+    if (overlayStartupBusyPrev && !overlayStartupBusy) {
+      queueMicrotask(() => tryShowAdminBroadcastIfIdle())
+    }
+    overlayStartupBusyPrev = overlayStartupBusy
+  }
+
   $: if (!$authStore.user) {
     bootKey        = null
     dailyOfferBootKeyDone = null
+    pendingBroadcast.set(null)
     sessionReady   = false
     checkinDone    = false
     showDailyOffer = false
@@ -405,6 +476,7 @@
       exhausted={true}
       onExhaustedOk={() => {
         showDailyOfferExhausted = false
+        afterDailyAndStreakStartupStep()
       }}
     />
   {:else if showDailyOffer && dailyOfferTemplate}

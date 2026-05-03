@@ -65,6 +65,18 @@
   /** Paliers streak (saisie « 7,14,30… ») */
   let streakBadgesStr = '7,14,30,60,100,365'
 
+  /** Popup annonce équipe — visible par tous les joueurs après les autres overlays */
+  let bcTitle = ''
+  let bcBody = ''
+  let bcActive = false
+  /** datetime-local ou vide */
+  let bcStarts = ''
+  let bcEnds = ''
+  let bcLoading = true
+  let bcErr = ''
+  let bcOk = ''
+  let bcBusy = false
+
   const cloneGameplay = (c) => JSON.parse(JSON.stringify(c))
 
   const DEFAULT_STREAK_REWARDS = [
@@ -195,6 +207,8 @@
       PUSH_TEST_GIFT: 'Notifications — test push (message admin)',
       ADMIN_EMAIL_DEFAULTS_SAVE: 'E-mail — modèle par défaut (titre + corps)',
       ADMIN_EMAIL_SEND: 'E-mail — envoi (tous ou un utilisateur)',
+      ADMIN_BROADCAST_PUBLISH: 'Annonce popup — publication',
+      ADMIN_BROADCAST_DEACTIVATE: 'Annonce popup — désactivation',
       GAMEPLAY_CONFIG_UPDATE: 'Gameplay — enregistrement config',
       GAMEPLAY_CONFIG_RESET: 'Gameplay — reset défaut code',
     }[code] ?? code)
@@ -289,6 +303,78 @@
     dailyTemplates = dailyTemplates.filter((_, i) => i !== idx)
   }
 
+  /** @param {string | Date | null | undefined} iso */
+  const toDatetimeLocalValue = (iso) => {
+    if (!iso) return ''
+    const d = iso instanceof Date ? iso : new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (/** @type {number} */ n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  /** @param {string} s */
+  const fromDatetimeLocalToIso = (s) => {
+    const t = String(s ?? '').trim()
+    if (!t) return null
+    const d = new Date(t)
+    return Number.isNaN(d.getTime()) ? null : d.toISOString()
+  }
+
+  const loadBroadcastAdmin = async () => {
+    bcLoading = true
+    bcErr = ''
+    bcOk = ''
+    try {
+      const r = await adminApi.getBroadcast()
+      const b = r?.broadcast
+      if (b && typeof b === 'object') {
+        bcTitle = typeof b.title === 'string' ? b.title : ''
+        bcBody = typeof b.body === 'string' ? b.body : ''
+        bcActive = b.isActive === true
+        bcStarts = toDatetimeLocalValue(b.startsAt ?? null)
+        bcEnds = toDatetimeLocalValue(b.endsAt ?? null)
+      } else {
+        bcTitle = ''
+        bcBody = ''
+        bcActive = false
+        bcStarts = ''
+        bcEnds = ''
+      }
+    } catch (e) {
+      bcErr = e.message || 'Impossible de charger l’annonce.'
+    } finally {
+      bcLoading = false
+    }
+  }
+
+  const saveBroadcast = async () => {
+    bcErr = ''
+    bcOk = ''
+    bcBusy = true
+    try {
+      const title = bcTitle.trim()
+      const body = bcBody.trim()
+      if (bcActive && (!title || !body)) {
+        bcErr = 'Renseigne le titre et le message, ou décoche « Afficher » pour désactiver.'
+        return
+      }
+      await adminApi.putBroadcast({
+        title,
+        body,
+        isActive: bcActive,
+        startsAt: fromDatetimeLocalToIso(bcStarts),
+        endsAt: fromDatetimeLocalToIso(bcEnds),
+      })
+      bcOk = bcActive ? 'Annonce enregistrée et active : les joueurs la verront après leurs autres popups.' : 'Annonce désactivée.'
+      await loadBroadcastAdmin()
+      await loadAudit()
+    } catch (e) {
+      bcErr = e.message || 'Enregistrement impossible.'
+    } finally {
+      bcBusy = false
+    }
+  }
+
   onMount(async () => {
     loading = true
     auditLoading = true
@@ -302,6 +388,7 @@
       loadEmailDefaults(),
       loadEmailRecipients(),
       loadGameplayAdmin(),
+      loadBroadcastAdmin(),
     ])
     loading = false
     auditLoading = false
@@ -1523,6 +1610,60 @@
     {/if}
   </Card>
 
+  <Card style="margin-bottom:14px">
+    <div class="sup muted">ANNONCE POPUP (équipe)</div>
+    <p class="muted" style="margin:8px 0 12px;font-size:13px;line-height:1.45">
+      Message affiché à l’ouverture du jeu <strong>après</strong> les habitudes du jour, trophées série, montée de niveau, etc.
+      Chaque joueur le voit une fois par publication (nouvelle publication = nouvel identifiant).
+    </p>
+    {#if bcErr}<p class="err">{bcErr}</p>{/if}
+    {#if bcOk}<p class="ok">{bcOk}</p>{/if}
+    {#if bcLoading}
+      <p class="muted" style="margin-top:8px">Chargement…</p>
+    {:else}
+      <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;cursor:pointer">
+        <input type="checkbox" bind:checked={bcActive} style="margin-top:4px" />
+        <span style="font-size:14px;line-height:1.4">Afficher cette annonce aux joueurs</span>
+      </label>
+      <label style="display:block;margin-bottom:10px">
+        <span class="lbl">Titre</span>
+        <input
+          type="text"
+          class="bc-inp"
+          maxlength="160"
+          bind:value={bcTitle}
+          placeholder="Ex. Nouveauté cette semaine"
+          disabled={bcBusy}
+        />
+      </label>
+      <label style="display:block;margin-bottom:10px">
+        <span class="lbl">Message</span>
+        <textarea
+          class="bc-ta"
+          rows="6"
+          maxlength="12000"
+          bind:value={bcBody}
+          spellcheck="true"
+          placeholder="Texte lisible sur mobile — évite le HTML."
+          disabled={bcBusy}
+        ></textarea>
+      </label>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <label style="flex:1;min-width:200px">
+          <span class="lbl">Début (optionnel — heure locale navigateur)</span>
+          <input class="bc-inp" type="datetime-local" bind:value={bcStarts} disabled={bcBusy} />
+        </label>
+        <label style="flex:1;min-width:200px">
+          <span class="lbl">Fin (optionnel)</span>
+          <input class="bc-inp" type="datetime-local" bind:value={bcEnds} disabled={bcBusy} />
+        </label>
+      </div>
+      <button type="button" class="btn-save" disabled={bcBusy} on:click={saveBroadcast}>
+        {bcBusy ? 'Enregistrement…' : bcActive ? 'Publier / mettre à jour' : 'Enregistrer (désactiver)'}
+      </button>
+    {/if}
+  </Card>
+
   <Card>
     <div class="sup muted">MESSAGES DU JOUR (une phrase par ligne)</div>
     {#if msgErr}<p class="err">{msgErr}</p>{/if}
@@ -1867,6 +2008,20 @@
     font-size: max(15px, 0.82rem);
     resize: vertical;
     font-family: 'Exo 2', sans-serif;
+  }
+  .bc-inp {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px;
+    font-size: max(15px, 0.82rem);
+    font-family: 'Exo 2', sans-serif;
+  }
+  .bc-ta {
+    min-height: 120px;
   }
   .btn-save {
     margin-top: 8px;

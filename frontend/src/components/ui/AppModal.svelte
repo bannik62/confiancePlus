@@ -57,7 +57,9 @@
         <div class="app-modal-icon" aria-hidden="true">{$appModal.icon}</div>
       {/if}
       <h2 id="app-modal-title" class="app-modal-title">{$appModal.title}</h2>
-      <p class="app-modal-body">{$appModal.body}</p>
+      <p id="app-modal-desc" class="app-modal-body" class:body-wide={$appModal.variant === 'info'}>
+        {$appModal.body}
+      </p>
       <div class="app-modal-actions">
         {#if $appModal.secondaryLabel}
           <button type="button" class="app-modal-btn secondary" on:click={onSecondaryClick}>
@@ -171,6 +173,13 @@
     line-height: 1.5;
     text-align: center;
     color: var(--muted, #b8b8c8);
+  }
+  .app-modal-body.body-wide {
+    max-height: min(46vh, 320px);
+    overflow-y: auto;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .app-modal-actions {
     display: flex;

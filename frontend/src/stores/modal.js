@@ -17,7 +17,12 @@ const initial = () => ({
   _onPrimary: null,
   /** @type {null | (() => void | Promise<void>)} */
   _onSecondary: null,
+  /** Cadre ext., Échap ou bouton × — pas appelé après le bouton principal (évite double logique) */
+  /** @type {null | (() => void | Promise<void>)} */
+  _onClose: null,
 })
+
+const clearModal = () => appModal.set(initial())
 
 export const appModal = writable(initial())
 
@@ -32,6 +37,7 @@ export const appModal = writable(initial())
  *   onPrimary?: () => void | Promise<void>
  *   secondaryLabel?: string
  *   onSecondary?: () => void | Promise<void>
+ *   onClose?: () => void | Promise<void>
  * }} opts
  */
 export const openAppModal = (opts) => {
@@ -46,11 +52,20 @@ export const openAppModal = (opts) => {
     secondaryLabel: opts.secondaryLabel ?? null,
     _onPrimary: opts.onPrimary ?? null,
     _onSecondary: opts.onSecondary ?? null,
+    _onClose: opts.onClose ?? null,
   })
 }
 
 export const closeAppModal = () => {
-  appModal.set(initial())
+  const s = get(appModal)
+  if (s.open) {
+    try {
+      void Promise.resolve(s._onClose?.())
+    } catch {
+      /* ignore */
+    }
+  }
+  clearModal()
 }
 
 export const runPrimaryAndClose = async () => {
@@ -58,7 +73,7 @@ export const runPrimaryAndClose = async () => {
   try {
     await s._onPrimary?.()
   } finally {
-    closeAppModal()
+    clearModal()
   }
 }
 
@@ -67,10 +82,11 @@ export const runSecondaryAndClose = async () => {
   try {
     await s._onSecondary?.()
   } finally {
-    closeAppModal()
+    clearModal()
   }
 }
 
+/** Déconnexion / reset session — sans hooks `onClose`. */
 export const resetAppModal = () => {
-  closeAppModal()
+  clearModal()
 }
