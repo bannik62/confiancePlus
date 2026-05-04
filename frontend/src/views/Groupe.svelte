@@ -134,6 +134,8 @@
   let memorableCommentsErr = ''
   let newMemorableComment = ''
   let memorableCommentSubmitting = false
+  /** @type {{ counts: Record<string, number>, myReaction: string | null } | null} */
+  let memorableDailyLogReactionSummary = null
   let commentTextareaEl = null
   let mentionOpen = false
   let mentionQuery = ''
@@ -191,8 +193,14 @@
     mentionOpen = false
     mentionUsers = []
     memorableCommentsLoading = true
+    memorableDailyLogReactionSummary = null
     try {
-      memorableComments = await memorableCommentsApi.list(dl)
+      const [comments, reactionSummary] = await Promise.all([
+        memorableCommentsApi.list(dl),
+        memorableCommentsApi.getDailyLogReactionSummary(dl),
+      ])
+      memorableComments = comments
+      memorableDailyLogReactionSummary = reactionSummary ?? { counts: {}, myReaction: null }
     } catch (e) {
       memorableCommentsErr =
         typeof e?.message === 'string' && e.message.length
@@ -206,6 +214,7 @@
   const closeMemorablePreview = () => {
     memorablePreview = null
     memorableComments = []
+    memorableDailyLogReactionSummary = null
     memorableCommentsErr = ''
     newMemorableComment = ''
     mentionOpen = false
@@ -285,6 +294,25 @@
       memorableComments = memorableComments.map((x) =>
         x.id === c.id ? { ...x, reactionSummary: summary } : x,
       )
+    } catch (err) {
+      memorableCommentsErr =
+        typeof err?.message === 'string' && err.message.length
+          ? err.message
+          : 'Réaction impossible.'
+    }
+  }
+
+  const applyDailyLogReaction = async (kind) => {
+    if (!memorablePreview?.dailyLogId || !memorableDailyLogReactionSummary) return
+    const cur = memorableDailyLogReactionSummary.myReaction
+    const next = cur === kind ? null : kind
+    memorableCommentsErr = ''
+    try {
+      const summary = await memorableCommentsApi.setDailyLogReaction(
+        memorablePreview.dailyLogId,
+        next,
+      )
+      memorableDailyLogReactionSummary = summary ?? { counts: {}, myReaction: null }
     } catch (err) {
       memorableCommentsErr =
         typeof err?.message === 'string' && err.message.length
@@ -793,6 +821,32 @@
       <p class="memorable-text-full">"{memorablePreview.text}"</p>
     {/if}
 
+    {#if memorableDailyLogReactionSummary && !memorableCommentsLoading}
+      <div class="memorable-post-reactions" aria-label="Réactions au moment mémorable">
+        <div class="memorable-post-reactions-head micro muted">RÉACTIONS AU MOMENT</div>
+        <div class="memorable-reactions-row memorable-reactions-row--toolbar">
+          {#each MEMORABLE_REACTION_ORDER as rk}
+            <button
+              type="button"
+              class="memorable-reaction-btn"
+              class:active={memorableDailyLogReactionSummary.myReaction === rk}
+              title={MEMORABLE_REACTION_META[rk].label}
+              on:click={() => applyDailyLogReaction(rk)}
+            >
+              <span class="memorable-reaction-emoji">{MEMORABLE_REACTION_META[rk].emoji}</span>
+              <span class="memorable-reaction-count"
+                >{memorableDailyLogReactionSummary.counts?.[rk] ?? 0}</span
+              >
+            </button>
+          {/each}
+        </div>
+      </div>
+    {:else if memorableCommentsLoading}
+      <div class="memorable-post-reactions-loading micro muted" aria-live="polite">
+        Réactions…
+      </div>
+    {/if}
+
     <div class="memorable-comments">
       <div class="memorable-comments-title micro muted">COMMENTAIRES</div>
       {#if memorableCommentsLoading}
@@ -807,7 +861,12 @@
             <li class="memorable-comment-row">
               <div class="memorable-comment-meta">
                 <span class="memorable-comment-who">{c.author?.avatar ?? ''} {c.author?.username ?? '?'}</span>
-                <time class="micro muted" datetime={c.createdAt}>{new Date(c.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</time>
+                <time class="memorable-comment-time" datetime={c.createdAt}>
+                  {new Date(c.createdAt).toLocaleString('fr-FR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </time>
               </div>
               <p class="memorable-comment-body">
                 {#each splitMemorableMentions(c.body) as seg}
@@ -816,7 +875,7 @@
                   {:else}{seg.content}{/if}
                 {/each}
               </p>
-              <div class="memorable-reactions-row" aria-label="Réagir au commentaire">
+              <div class="memorable-reactions-row memorable-reactions-row--comment" aria-label="Réagir au commentaire">
                 {#each MEMORABLE_REACTION_ORDER as rk}
                   <button
                     type="button"
@@ -833,7 +892,7 @@
               {#if c.author?.id === $authStore.user?.id}
                 <button
                   type="button"
-                  class="memorable-comment-delete micro"
+                  class="memorable-comment-delete"
                   on:click={() => removeMemorableComment(c.id)}
                 >Supprimer</button>
               {/if}
@@ -1152,18 +1211,34 @@
   .memorable-comment-meta {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     justify-content: space-between;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: 6px 10px;
+    margin-bottom: 8px;
   }
   .memorable-comment-who {
-    font-weight: 700;
-    font-size: 14px;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    font-family: 'Rajdhani', sans-serif;
+    color: color-mix(in srgb, var(--text, #fff) 72%, var(--muted));
+  }
+  .memorable-comment-time {
+    font-size: 11px;
+    line-height: 1.25;
+    letter-spacing: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    opacity: 0.88;
+    white-space: nowrap;
   }
   .memorable-comment-body {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.35;
+    font-size: clamp(15px, 0.88rem + 0.42vw, 18px);
+    line-height: 1.48;
+    font-weight: 450;
+    color: var(--text);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -1171,24 +1246,57 @@
     font-weight: 800;
     color: color-mix(in srgb, var(--cyan, #22d3ee) 90%, var(--text, #fff));
   }
+  .memorable-post-reactions {
+    padding: 0 14px 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .memorable-post-reactions-head {
+    margin-bottom: 8px;
+    letter-spacing: 0.06em;
+  }
+  .memorable-post-reactions-loading {
+    padding: 0 14px 10px;
+  }
   .memorable-reactions-row {
     margin-top: 8px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
+  .memorable-reactions-row--toolbar {
+    margin-top: 0;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    box-sizing: border-box;
+  }
+  .memorable-reactions-row--comment {
+    margin-top: 10px;
+    gap: 8px;
+  }
   .memorable-reaction-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     border: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.04);
     color: var(--text);
     border-radius: 999px;
-    padding: 4px 8px;
+    padding: 6px 10px;
+    min-height: 36px;
     font-size: 13px;
     line-height: 1;
     cursor: pointer;
+    transition:
+      border-color 0.12s ease,
+      background 0.12s ease,
+      transform 0.08s ease;
+  }
+  .memorable-reaction-btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .memorable-reaction-btn.active {
     border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
@@ -1203,7 +1311,7 @@
     opacity: 0.9;
   }
   .memorable-comment-delete {
-    margin-top: 6px;
+    margin-top: 8px;
     border: none;
     background: transparent;
     color: var(--muted);
@@ -1211,6 +1319,10 @@
     text-decoration: underline;
     padding: 0;
     font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0;
+    font-weight: 500;
+    text-underline-offset: 2px;
   }
   .memorable-comment-compose {
     display: flex;

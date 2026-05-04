@@ -89,6 +89,44 @@ async function reactionSummaryOne(commentId, viewerId) {
   return m.get(commentId) ?? { counts: {}, myReaction: null }
 }
 
+async function reactionSummaryDailyLog(dailyLogId, viewerId) {
+  const rows = await db.memorableDailyLogReaction.findMany({
+    where: { dailyLogId },
+    select: { userId: true, kind: true },
+  })
+  /** @type {Record<string, number>} */
+  const counts = {}
+  let myReaction = null
+  for (const r of rows) {
+    counts[r.kind] = (counts[r.kind] ?? 0) + 1
+    if (r.userId === viewerId) myReaction = r.kind
+  }
+  return { counts, myReaction }
+}
+
+export async function getMemorableDailyLogReactionSummary(viewerId, dailyLogId) {
+  await assertMemorableCommentsPublicForDailyLog(dailyLogId)
+  return reactionSummaryDailyLog(dailyLogId, viewerId)
+}
+
+export async function setMemorableDailyLogReaction(viewerId, dailyLogId, kind) {
+  await assertMemorableCommentsPublicForDailyLog(dailyLogId)
+  if (kind == null) {
+    await db.memorableDailyLogReaction.deleteMany({
+      where: { dailyLogId, userId: viewerId },
+    })
+  } else {
+    await db.memorableDailyLogReaction.upsert({
+      where: {
+        dailyLogId_userId: { dailyLogId, userId: viewerId },
+      },
+      create: { dailyLogId, userId: viewerId, kind },
+      update: { kind },
+    })
+  }
+  return reactionSummaryDailyLog(dailyLogId, viewerId)
+}
+
 export async function listMemorableComments(viewerId, dailyLogId) {
   await assertMemorableCommentsPublicForDailyLog(dailyLogId)
   const comments = await db.memorableComment.findMany({

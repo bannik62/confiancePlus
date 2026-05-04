@@ -8,6 +8,14 @@ export const listMemorableCommentsQuerySchema = z.object({
   dailyLogId: z.string().min(1),
 })
 
+export const dailyLogReactionSummaryQuerySchema = z.object({
+  dailyLogId: z.string().min(1),
+})
+
+export const dailyLogReactionParamsSchema = z.object({
+  dailyLogId: z.string().min(1),
+})
+
 export const createMemorableCommentBodySchema = z.object({
   dailyLogId: z.string().min(1),
   body:       z.string().min(1).max(500),

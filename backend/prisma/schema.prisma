@@ -69,6 +69,7 @@ model User {
   dailyLogs   DailyLog[]
   memorableComments MemorableComment[]
   memorableCommentReactions MemorableCommentReaction[]
+  memorableDailyLogReactions MemorableDailyLogReaction[]
   memberships GroupMember[]
 
   dailyHabitOffers DailyHabitOffer[]
@@ -382,6 +383,7 @@ model DailyLog {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   memorableComments MemorableComment[]
+  memorableDailyLogReactions MemorableDailyLogReaction[]
 
   @@unique([userId, date])
   @@index([userId])
@@ -424,6 +426,21 @@ model MemorableCommentReaction {
 
   @@unique([commentId, userId])
   @@index([commentId])
+}
+
+/// Réactions au moment mémorable lui-même (photo / entrée DailyLog partagée), pas aux commentaires
+model MemorableDailyLogReaction {
+  id          String                       @id @default(cuid())
+  dailyLogId  String
+  userId      String
+  kind        MemorableCommentReactionKind
+  createdAt   DateTime                     @default(now())
+
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyLogId, userId])
+  @@index([dailyLogId])
 }
 
 // ── RENDEZ-VOUS (agenda) — assignés à un user ; l’éducateur peut en créer pour un membre ASSO

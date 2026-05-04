@@ -5,6 +5,13 @@ export const memorableCommentsApi = {
     const q = new URLSearchParams({ dailyLogId })
     return api.get(`/memorable-comments?${q}`)
   },
+  /** Réactions sur le moment (photo / entrée journée partagée), pas sur les commentaires */
+  getDailyLogReactionSummary: (dailyLogId) => {
+    const q = new URLSearchParams({ dailyLogId })
+    return api.get(`/memorable-comments/daily-log/reaction-summary?${q}`)
+  },
+  setDailyLogReaction: (dailyLogId, kind) =>
+    api.put(`/memorable-comments/daily-log/${encodeURIComponent(dailyLogId)}/reaction`, { kind }),
   mentionSuggestions: (q) => {
     const sp = new URLSearchParams({ q: q ?? '' })
     return api.get(`/memorable-comments/mention-suggestions?${sp}`)

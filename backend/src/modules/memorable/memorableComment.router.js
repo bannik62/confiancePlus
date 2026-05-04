@@ -4,6 +4,8 @@ import { validate } from '../../middlewares/validate.js'
 import {
   mentionSuggestionsQuerySchema,
   listMemorableCommentsQuerySchema,
+  dailyLogReactionSummaryQuerySchema,
+  dailyLogReactionParamsSchema,
   createMemorableCommentBodySchema,
   deleteMemorableCommentParamsSchema,
   reactionCommentParamsSchema,
@@ -21,6 +23,39 @@ router.get(
     try {
       res.json(
         await service.mentionUserSuggestions(req.query.q ?? '', req.user.id),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.get(
+  '/daily-log/reaction-summary',
+  validate(dailyLogReactionSummaryQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.getMemorableDailyLogReactionSummary(req.user.id, req.query.dailyLogId),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.put(
+  '/daily-log/:dailyLogId/reaction',
+  validate(dailyLogReactionParamsSchema, 'params'),
+  validate(setReactionBodySchema),
+  async (req, res, next) => {
+    try {
+      res.json(
+        await service.setMemorableDailyLogReaction(
+          req.user.id,
+          req.params.dailyLogId,
+          req.body.kind,
+        ),
       )
     } catch (e) {
       next(e)
