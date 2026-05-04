@@ -11,6 +11,7 @@
   import XPBar from '../components/ui/XPBar.svelte'
   import CountUpInline from '../components/ui/CountUpInline.svelte'
   import { gameplayStore } from '../stores/gameplay.js'
+  import { currentStreakBadgeSrc } from '../lib/streakCurrentBadge.js'
   import { animMs } from '../lib/gameplayUiDefaults.js'
   import { autocompleteSignIn, autocompleteSignUp } from '../lib/htmlInputTokens.js'
 
@@ -65,6 +66,8 @@
     profile = await statsApi.getMyProfile()
     await refreshPushState()
   })
+
+  $: streakTierImg = currentStreakBadgeSrc(profile?.streak, $gameplayStore)
 
   const enablePush = async () => {
     pushErr = ''
@@ -205,6 +208,11 @@
       <div class="tags">
         <Tag color="var(--gold)">LVL {profile.level}</Tag>
         <Tag color="var(--red)">🔥 {profile.streak} jours</Tag>
+        {#if streakTierImg}
+          <span class="streak-tier-wrap" title="Palier de série actuel">
+            <img src={streakTierImg} alt="" class="streak-tier-hero" width="44" height="44" />
+          </span>
+        {/if}
         <Tag color="var(--green)">{profile.title.icon} {profile.title.label}</Tag>
       </div>
       <button type="button" class="logout logout--hero" on:click={clearAuth}>Se déconnecter</button>
@@ -436,7 +444,9 @@
     box-shadow: 0 0 20px var(--accent)55;
   }
   .uname  { font-size: 22px; font-weight: 900; font-family: 'Rajdhani', sans-serif; background: linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .tags   { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+  .tags   { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .streak-tier-wrap { display: inline-flex; align-items: center; line-height: 0; }
+  .streak-tier-hero { display: block; object-fit: contain; border-radius: 12px; max-height: 44px; width: auto; }
   .micro  { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); letter-spacing: 2px; font-family: 'Rajdhani', sans-serif; margin-bottom: 4px; }
   .muted  { color: var(--muted); }
   .total-xp { font-size: 28px; font-weight: 900; color: var(--gold); }

@@ -31,7 +31,7 @@ router.get('/:id/leaderboard',     async (req, res, next) => {
   try {
     const clientToday =
       typeof req.query.clientToday === 'string' ? req.query.clientToday : undefined
-    res.json(await service.getLeaderboard(req.params.id, { clientToday }))
+    res.json(await service.getLeaderboard(req.user.id, req.params.id, { clientToday }))
   }
   catch (e) { next(e) }
 })

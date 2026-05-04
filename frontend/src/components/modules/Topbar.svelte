@@ -5,12 +5,15 @@
   import { openItemsModal } from '../../stores/itemsModal.js'
   import { openLevelGuideModal } from '../../stores/levelGuideModal.js'
   import XPBar            from '../ui/XPBar.svelte'
+  import { currentStreakBadgeSrc } from '../../lib/streakCurrentBadge.js'
 
   $: streakTrophyImg = (() => {
     const rw = $gameplayStore?.streak?.rewards
     const h = Array.isArray(rw) && rw[0] ? rw[0].heroImage : null
     return typeof h === 'string' && h.trim() ? h.trim() : '/badges/fireStreackBadge/1000002186.png'
   })()
+
+  $: streakTierImg = currentStreakBadgeSrc($profileStore.streak, $gameplayStore)
 
   const openMyItems = () => {
     const u = $authStore.user
@@ -63,9 +66,9 @@
             🃏 {$authStore.user?.jokerStreak}
           </span>
         {/if}
-        {#if ($authStore.user?.streak7TrophyCount ?? 0) > 0}
-          <span class="streak7-badge" title="Trophées série — détail dans la fenêtre Objets">
-            <img src={streakTrophyImg} alt="" class="streak7-ico" />
+        {#if streakTierImg}
+          <span class="streak-tier-badge" title="Palier de série actuel">
+            <img src={streakTierImg} alt="" class="streak-tier-ico" />
           </span>
         {/if}
       </button>
@@ -202,7 +205,7 @@
     white-space: nowrap;
   }
   .cristaux { font-size: clamp(15px, 0.72rem + 0.28vw, 17px); color: var(--cyan); font-weight: 700; }
-  .streak7-badge {
+  .streak-tier-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -211,7 +214,7 @@
     color: var(--gold);
     font-family: 'Rajdhani', sans-serif;
   }
-  .streak7-ico {
+  .streak-tier-ico {
     width: 24px;
     height: 24px;
     object-fit: contain;

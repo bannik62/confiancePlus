@@ -92,6 +92,11 @@
 
   const DEFAULT_STREAK_BADGE_AT = [7, 14, 30, 60, 100, 365]
 
+  const DEFAULT_STREAK_BADGE_SHOW = [
+    { at: 7, src: '/badges/fireStreackBadge/1000002186.png' },
+    { at: 14, src: '/badges/fireStreackBadge/badge14Days.png' },
+  ]
+
   /** Paliers profil + récompenses modale / claim — alignés sur `gameConfig.js`. */
   const ensureStreakGameplay = (gp) => {
     if (!gp) return
@@ -101,6 +106,9 @@
     }
     if (!Array.isArray(gp.streak.rewards) || !gp.streak.rewards.length) {
       gp.streak.rewards = JSON.parse(JSON.stringify(DEFAULT_STREAK_REWARDS))
+    }
+    if (!Array.isArray(gp.streak.badgeShow) || !gp.streak.badgeShow.length) {
+      gp.streak.badgeShow = JSON.parse(JSON.stringify(DEFAULT_STREAK_BADGE_SHOW))
     }
   }
 

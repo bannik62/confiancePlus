@@ -66,6 +66,11 @@ export const GAME = {
         heroImage: '/badges/fireStreackBadge/1000002186.png',
       },
     ],
+    /** Badge UI série en cours (plus grand seuil avec streak >= at) — surchargeable admin */
+    badgeShow: [
+      { at: 7, src: '/badges/fireStreackBadge/1000002186.png' },
+      { at: 14, src: '/badges/fireStreackBadge/badge14Days.png' },
+    ],
   },
 
   // ── Titres par niveau (fil jardin ; dernier : boucle / accomplissement) ───────

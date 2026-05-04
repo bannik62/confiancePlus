@@ -20,6 +20,7 @@ import {
   sharedMemorableFromDailyLogs,
   attachMemorableCommentCounts,
 } from '../memorable/memorableComment.service.js'
+import { flexBadgeSrcByUserIdMap } from '../store/flexBadgeLeaderboard.js'
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -235,13 +236,15 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
   })
 
   const userIds = users.map((u) => u.id)
-  const apptRows =
+  const [apptRows, flexByUser] = await Promise.all([
     userIds.length === 0
       ? []
-      : await db.appointmentCompletion.findMany({
+      : db.appointmentCompletion.findMany({
           where: { userId: { in: userIds }, date: dateWhere },
           select: { userId: true, date: true, xpEarned: true },
-        })
+        }),
+    flexBadgeSrcByUserIdMap(userIds),
+  ])
   const apptByUser = {}
   for (const c of apptRows) {
     if (!apptByUser[c.userId]) apptByUser[c.userId] = []
@@ -293,6 +296,7 @@ export const getGlobalLeaderboard = async ({ clientToday } = {}) => {
       perfReactionHearts: rx.perfReactionHearts,
       perfReactionSkeptics: rx.perfReactionSkeptics,
       memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
+      flexBadgeSrc: flexByUser.get(user.id) ?? null,
     }
   })
   const withCommentCounts = await attachMemorableCommentCounts(leaderboardRows)
@@ -313,7 +317,7 @@ export const getEducatorAssociationOverview = async (userId, { clientToday } = {
 
   const groupId = membership.groupId
   const [leaderboard, memberCount] = await Promise.all([
-    getLeaderboard(groupId, { clientToday }),
+    getLeaderboard(userId, groupId, { clientToday }),
     db.groupMember.count({ where: { groupId } }),
   ])
 

@@ -89,6 +89,22 @@ model User {
 
   /// Dernière annonce popup admin fermée (= ne plus rouvrir ce même message)
   lastDismissedBroadcastId String?
+
+  flexBadgePurchases FlexBadgePurchase[]
+}
+
+/// Badges boutique « Flex » — affichage classements ; un achat par SKU par utilisateur
+model FlexBadgePurchase {
+  id                  String   @id @default(cuid())
+  userId              String
+  sku                 String
+  /// Prix réellement payé (historique si le catalogue change)
+  pricePaidCristaux   Int
+  purchasedAt         DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sku])
+  @@index([userId])
 }
 
 /// Jeton usage unique pour « mot de passe oublié » (hash stocké uniquement).

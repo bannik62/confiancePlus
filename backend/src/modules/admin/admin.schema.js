@@ -87,6 +87,15 @@ export const gameplayConfigSchema = z.object({
   }),
   streak: z.object({
     badgeAt: z.array(z.coerce.number().int().min(1)).min(1).max(30),
+    badgeShow: z
+      .array(
+        z.object({
+          at: z.coerce.number().int().min(1).max(100000),
+          src: z.string().min(1).max(300),
+        }),
+      )
+      .max(30)
+      .optional(),
     rewards: z
       .array(
         z.object({

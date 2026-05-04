@@ -4,7 +4,7 @@
   import { authStore, mergeUser } from '../stores/auth.js'
   import { storeApi } from '../api/store.js'
 
-  /** @type {Array<{ sku: string, name: string, description: string, icon: string, priceCristaux: number }>} */
+  /** @type {Array<Record<string, unknown>>} */
   let items = []
   let loadError = ''
   let purchasing = ''
@@ -32,6 +32,7 @@
       const r = await storeApi.purchase(sku)
       if (r && typeof r.cristaux === 'number') mergeUser({ cristaux: r.cristaux })
       if (r && typeof r.jokerStreak === 'number') mergeUser({ jokerStreak: r.jokerStreak })
+      await loadCatalog()
     } catch (e) {
       loadError =
         typeof e?.message === 'string' && e.message.length
@@ -79,11 +80,28 @@
 
   <ul class="article-list">
     {#each items as item (item.sku)}
-      <li class="article-card">
-        <div class="art-ava" aria-hidden="true">{item.icon || '🛒'}</div>
+      <li
+        class="article-card"
+        class:is-muted={item.kind === 'FLEX_BADGE' &&
+          (Boolean(item.owned) || Boolean(item.levelLocked))}
+      >
+        <div class="art-ava" aria-hidden="true">
+          {#if item.kind === 'FLEX_BADGE' && item.imageSrc}
+            <img src={String(item.imageSrc)} alt="" class="art-ava-img" />
+          {:else}
+            {item.icon || '🛒'}
+          {/if}
+        </div>
         <div class="art-main">
           <div class="art-title">{item.name}</div>
           <p class="art-desc">{item.description}</p>
+          {#if item.kind === 'FLEX_BADGE' && item.levelLocked && item.minLevel != null}
+            <p class="art-lock-hint">
+              Disponible à partir du niveau {item.minLevel} (Cultivateur de constance).
+            </p>
+          {:else if item.kind === 'FLEX_BADGE' && item.owned}
+            <p class="art-lock-hint is-owned">Déjà dans ta collection — visible sur les classements.</p>
+          {/if}
           <div class="art-meta">
             <span class="price-tag">💎 {item.priceCristaux}</span>
           </div>
@@ -92,10 +110,20 @@
           <button
             type="button"
             class="buy-btn"
-            disabled={purchasing === item.sku || balance < item.priceCristaux}
+            disabled={purchasing === item.sku ||
+              (item.kind === 'FLEX_BADGE' && (item.owned || item.levelLocked)) ||
+              balance < item.priceCristaux}
             on:click={() => buy(item.sku)}
           >
-            {purchasing === item.sku ? '…' : 'Acheter'}
+            {#if purchasing === item.sku}
+              …
+            {:else if item.kind === 'FLEX_BADGE' && item.owned}
+              Possédé
+            {:else if item.kind === 'FLEX_BADGE' && item.levelLocked}
+              Niveau requis
+            {:else}
+              Acheter
+            {/if}
           </button>
         </div>
       </li>
@@ -276,6 +304,9 @@
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
     box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 15%, transparent);
   }
+  .article-card.is-muted {
+    opacity: 0.88;
+  }
 
   .art-ava {
     width: 48px;
@@ -288,6 +319,22 @@
     justify-content: center;
     font-size: 24px;
     flex-shrink: 0;
+  }
+  .art-ava-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    max-height: 44px;
+  }
+
+  .art-lock-hint {
+    margin: 0 0 8px;
+    font-size: clamp(13px, 0.65rem + 0.25vw, 15px);
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .art-lock-hint.is-owned {
+    color: var(--green, #6ee7b7);
   }
 
   .art-main {

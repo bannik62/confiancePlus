@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { authStore } from '../stores/auth.js'
   import { gameplayStore } from '../stores/gameplay.js'
+  import { currentStreakBadgeSrc } from '../lib/streakCurrentBadge.js'
   import { openItemsModal } from '../stores/itemsModal.js'
   import {
     groups, activeGroup, groupLeaderboard, globalLeaderboard,
@@ -350,6 +351,10 @@
     return typeof h === 'string' && h.trim() ? h.trim() : '/badges/fireStreackBadge/1000002186.png'
   })()
 
+  $: gpForStreakBadges = $gameplayStore
+  /** @param {{ streak?: number }} m */
+  const streakTierForRow = (m) => currentStreakBadgeSrc(m?.streak, gpForStreakBadges)
+
   const openMemberItems = (m) => {
     openItemsModal({
       title: m.username ? `Objets — ${m.username}` : 'Objets',
@@ -525,6 +530,22 @@
               {:else}
                 <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
               {/if}
+              {#if streakTierForRow(m)}
+                <img
+                  src={streakTierForRow(m)}
+                  alt=""
+                  class="lb-streak-tier-img"
+                  title="Palier de série actuel"
+                />
+              {/if}
+              {#if m.flexBadgeSrc}
+                <img
+                  src={m.flexBadgeSrc}
+                  alt=""
+                  class="lb-flex-badge-img"
+                  title="Badge Flex (boutique)"
+                />
+              {/if}
             </div>
             {#if m.memorable}
               <div class="memorable-snippet">
@@ -669,6 +690,22 @@
               <Tag color="var(--red)">🔥 {m.streak}</Tag>
             {:else}
               <span class="micro muted streak-hint">Pas encore connecté aujourd’hui</span>
+            {/if}
+            {#if streakTierForRow(m)}
+              <img
+                src={streakTierForRow(m)}
+                alt=""
+                class="lb-streak-tier-img"
+                title="Palier de série actuel"
+              />
+            {/if}
+            {#if m.flexBadgeSrc}
+              <img
+                src={m.flexBadgeSrc}
+                alt=""
+                class="lb-flex-badge-img"
+                title="Badge Flex (boutique)"
+              />
             {/if}
           </div>
           {#if m.memorable}
@@ -1325,6 +1362,21 @@
     height: 1.55rem;
     object-fit: contain;
     display: block;
+  }
+  .lb-streak-tier-img {
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: contain;
+    display: block;
+    flex-shrink: 0;
+  }
+  .lb-flex-badge-img {
+    max-height: 48px;
+    width: auto;
+    max-width: 64px;
+    object-fit: contain;
+    display: block;
+    flex-shrink: 0;
   }
   .lb-cristaux {
     font-size: max(15px, 0.88rem);

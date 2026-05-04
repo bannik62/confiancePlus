@@ -7,7 +7,7 @@ router.use(requireAuth)
 
 router.get('/catalog', async (req, res, next) => {
   try {
-    res.json(service.getStoreCatalog())
+    res.json(await service.getStoreCatalogForUser(req.user.id))
   } catch (e) {
     next(e)
   }

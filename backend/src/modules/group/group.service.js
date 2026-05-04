@@ -18,6 +18,7 @@ import {
   sharedMemorableFromDailyLogs,
   attachMemorableCommentCounts,
 } from '../memorable/memorableComment.service.js'
+import { flexBadgeSrcByUserIdMap } from '../store/flexBadgeLeaderboard.js'
 
 // Génère un code d'activation 6 chars alphanum majuscule unique
 const generateActivationCode = async () => {
@@ -74,7 +75,12 @@ export const joinGroup = async (userId, { inviteCode }) => {
   return group
 }
 
-export const getLeaderboard = async (groupId, { clientToday } = {}) => {
+/**
+ * Classement d’un groupe — uniquement si le demandeur est **membre** (y compris OWNER).
+ * @param {string} viewerUserId
+ * @param {string} groupId
+ */
+export const getLeaderboard = async (viewerUserId, groupId, { clientToday } = {}) => {
   const anchor = clientToday && YMD_RE.test(clientToday) ? clientToday : utcCalendarYmd()
   const dateWhere = aggregationWindowDateWhere(anchor)
   const streakMinYmd = ymdMinusDays(anchor, STREAK_CHAIN_MAX_DAYS - 1)
@@ -83,6 +89,16 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
     where: { id: groupId },
     select: { type: true },
   })
+  if (!group) throw { status: 404, message: 'Groupe introuvable' }
+
+  const viewerMembership = await db.groupMember.findUnique({
+    where: { userId_groupId: { userId: viewerUserId, groupId } },
+    select: { userId: true },
+  })
+  if (!viewerMembership) {
+    throw { status: 403, message: 'Accès refusé à ce classement de groupe.' }
+  }
+
   const members = await db.groupMember.findMany({
     where: { groupId },
     include: {
@@ -149,7 +165,10 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
     apptByUser[c.userId].push(c)
   }
 
-  const reactionTotals = await getPerfReactionTotalsByUserIds(userIds)
+  const [reactionTotals, flexByUser] = await Promise.all([
+    getPerfReactionTotalsByUserIds(userIds),
+    flexBadgeSrcByUserIdMap(userIds),
+  ])
 
   const leaderboardRows = ranked.map(({ user }) => {
     const apptList = apptByUser[user.id] || []
@@ -190,6 +209,7 @@ export const getLeaderboard = async (groupId, { clientToday } = {}) => {
       perfReactionHearts: rx.perfReactionHearts,
       perfReactionSkeptics: rx.perfReactionSkeptics,
       memorable: sharedMemorableFromDailyLogs(user.dailyLogs, anchor),
+      flexBadgeSrc: flexByUser.get(user.id) ?? null,
     }
   })
   const withCommentCounts = await attachMemorableCommentCounts(leaderboardRows)

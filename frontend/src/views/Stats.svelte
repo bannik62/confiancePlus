@@ -13,6 +13,7 @@
   import { readPrefersReducedMotion } from '../lib/animateNumber.js'
   import { animMs } from '../lib/gameplayUiDefaults.js'
   import { gameplayStore } from '../stores/gameplay.js'
+  import { currentStreakBadgeSrc } from '../lib/streakCurrentBadge.js'
   import { openItemsModal } from '../stores/itemsModal.js'
   import Card from '../components/ui/Card.svelte'
   import Tag from '../components/ui/Tag.svelte'
@@ -43,6 +44,10 @@
     const h = Array.isArray(rw) && rw[0] ? rw[0].heroImage : null
     return typeof h === 'string' && h.trim() ? h.trim() : '/badges/fireStreackBadge/1000002186.png'
   })()
+
+  $: gpForStreakBadges = $gameplayStore
+  /** @param {{ streak?: number }} m */
+  const streakTierForEduRow = (m) => currentStreakBadgeSrc(m?.streak, gpForStreakBadges)
 
   const openMemberItems = (m) => {
     openItemsModal({
@@ -210,6 +215,22 @@
                       /></span
                     >
                   </Tag>
+                {/if}
+                {#if streakTierForEduRow(m)}
+                  <img
+                    src={streakTierForEduRow(m)}
+                    alt=""
+                    class="lb-streak-tier-img"
+                    title="Palier de série actuel"
+                  />
+                {/if}
+                {#if m.flexBadgeSrc}
+                  <img
+                    src={m.flexBadgeSrc}
+                    alt=""
+                    class="lb-flex-badge-img"
+                    title="Badge Flex (boutique)"
+                  />
                 {/if}
               </div>
             </div>
@@ -597,6 +618,21 @@
     height: 1.55rem;
     object-fit: contain;
     display: block;
+  }
+  .lb-streak-tier-img {
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: contain;
+    display: block;
+    flex-shrink: 0;
+  }
+  .lb-flex-badge-img {
+    max-height: 48px;
+    width: auto;
+    max-width: 64px;
+    object-fit: contain;
+    display: block;
+    flex-shrink: 0;
   }
   .lb-cristaux {
     font-size: max(15px, 0.88rem);
